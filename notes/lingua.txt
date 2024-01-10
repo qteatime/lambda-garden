@@ -1,0 +1,66 @@
+Lingua
+------
+
+A packrat PEG-based language for describing composable and language-independent
+grammars. Like most PEG implementations Lingua has semantic predicates, but
+it defines its own minimal computational language for them, which allows the
+compiler to generate code for any backend using the same grammar definition
+(so they're reusable across target languages, like Ohm grammars).
+
+
+Type system:
+  Lingua has a similar type system to Meow and Finé to make it easier for
+  values to cross language boundaries without transformations or copying.
+
+  - i32, i64, f64, integer, bool, text      -- scalar types
+  - array<T>, maybe<T>                      -- compound types
+  - union, struct                           -- user-defined types
+
+  Users can define types in the same syntax as Meow's.
+
+
+Rule language:
+  Similar to Ohm's, a constrained PEG grammar:
+
+  grammar :: Grammar { top: x, types: ty[], rules: r[] }
+
+  rule r ::
+    | x<b...> = t
+
+  term t ::
+    | t t                 -- sequence
+    | t or t              -- alternation
+    | t?                  -- optional
+    | t+ | t*             -- one or more, zero or more
+    | ~t                  -- negation
+    | &t                  -- lookahead
+    | "term"              -- terminal
+    | "a".."z"            -- ranges
+    | r<t...>             -- rule application
+
+
+Grammar reuse:
+  Grammars can be imported and their rules applied in the target grammar.
+  In this case rules from the imported grammar are renamed and included
+  in the target grammar:
+
+    import "prim.lingua" as p;
+
+    grammar Arith {
+      Expr = Expr "+" Expr
+          | Expr "*" Expr
+          | p.integer
+          ;
+    }
+
+  Can be thought of as:
+
+    grammar Arith {
+      Expr = Expr "+" Expr
+           | Expr "*" Expr
+           | p-integer
+           ;
+
+      p-integer = ("0".."9")+ -> @integer.parse(meta.source);
+    }
+

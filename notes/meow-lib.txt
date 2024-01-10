@@ -1,0 +1,112 @@
+== Numerics: ===================================================================
+
+i32
+f64
+integer
+i64       |
+decimal   |-- later
+rational  |
+
+arithmetic:
+_ + _
+_ - _, - _
+_ * _
+_ % _
+_ \ _, _ / _      integer and floating division
+_ ** _
+
+bitwise arithmetic:
+_ << _
+_ >> _, _ >>> _     arithmetic and logical shift right
+_ | _, _ & _, _ ^ _
+~ _
+
+relational operations:
+_ === _, _ =/= _
+_ < _, _ <= _
+_ > _, _ >= _
+_ compare-to(_) -> ordering
+
+_ abs()
+_ clamp(min: _, max: _)
+_ is-between(min: _, max: _)
+_ sign()
+_ as text, _ as <integer>
+#t parse(_) -> maybe
+_ to-binary-le(), _ to-binary-be()
+#t from-binary_le(_), #t from-binary_be(_)
+#t upper-bound, #t lower-bound
+
+- math constants and functions
+
+== Collections =================================================================
+
+array<T>, array-slice<T>
+byte-array, byte-array-slice
+stream<T>
+map<K, V>
+set<V>
+
+sequences:
+  _ at(_), _ at(_, put: _), _ remove-at(_), _ at(_, update: _), _ at(_, default: _), _ at(_, default: _, update: _)
+  _ first(), ..., ninth(), last()
+  _ rest(), _ without-last()
+  _ take(i32), _ drop(i32), _ take-while(Fn), _ drop-while(Fn)
+  _ map(Fn), _ flat-map(Fn), _ each(_)
+  _ fold(from: _, with: _), _ fold-right(from: _, with: _), _ fold(_), _ fold-right(_)
+  _ scan(from: _, with: _), _ scan-right(from: _, with: _)
+  _ intersperse(_), _ intercalate(_), _ permutations(), _ pairwise(), _ transpose()
+  _ sum(#t), _ max(#t), _ min(#t), _ average(#t), _ product(#t)
+  _ some(Fn), _ all(Fn), _ none(Fn)
+  _ sort(), _ sort(by: _), _ sort(by-key: _), _ reverse(), _ distinct()
+  _ find(_), _ find-index(_), _ binary-search(_), _ binary-search-index(_), _ find-all(_)
+  _ find-last(_), _ find-last-index(_)
+  _ contains(_)
+  _ count(), _ is-empty()
+  _ fill(_), _ resize(_, default: _)
+  _ zip(_, with: _), _ unzip()
+  _ append(_), _ prepend(_), _ insert(_, after: _), _ insert(_, before: _)
+  _ ++ _, _ flatten(depth: _)
+  _ chunk(by-size: _), _ partition(_), _ group(by: _), _ group(by-key: _), _ split(at: _), _ split(by: _)
+  _ slice(from: _, to: _), _ slice(from: _), _ slice(to: _)
+  _ is-prefix(_), _ is-suffix(_), _ is-infix(_)
+  _ enumerate()
+  #t from(_), #t replicate(_, size: _)
+
+mapped collections:
+  _ at(_), _ at(_, put: _), _ remove-at(_)
+  _ keys(), _ values(), _ entries()
+  _ map(Fn), _ flat-map(Fn), _ filter-map(Fn), _ each(Fn)
+  _ fold...
+  _ some...
+  _ contains(_), _ count(), _ is-empty()
+  _ merge(_, with: _)
+  _ ++ _
+
+set:
+  _ union(_), _ intersection(_), _ complement(_)
+
+== Text ========================================================================
+
+text, text-slice, ascii-text
+char
+grapheme-cluster
+regex
+
+
+== Network and I/O =============================================================
+
+uri, uri-pattern, uri-path, uri-search
+fs-path, fs-node, fs-file, fs-directory, fs-symlink
+environment
+request, response
+
+
+== Debugging ===================================================================
+
+transcript
+trace, trace-constraint
+debug-representation
+
+
+== 

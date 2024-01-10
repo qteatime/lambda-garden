@@ -1,0 +1,19 @@
+% meow/1
+
+def #weak-ref of(Value: T) -> weak-ref<T> {
+  primitive weak-ref.new(Value);
+}
+
+def weak-ref read() -> T {
+  #maybe from(nullable: primitive weak-ref.deref(self));
+}
+
+test "basic weakref" {
+  let A = #cell of(1n);
+  let B = #weak-ref of(A);
+  assert B read() unwrap() ==> A;
+  assert B read() unwrap() read() ==> 1n;
+  A <- 2n;
+  assert B read() unwrap() ==> A;
+  assert B read() unwrap() read() ==> 2n;
+}

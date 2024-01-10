@@ -1,0 +1,652 @@
+type MModule(
+  info: Meta?,
+  declarations: MDecl[]
+)
+
+type MRepl =
+  | Decl(x: MDecl)
+  | Expr(x: MExpr)
+  | Command(x: MRCommand)
+
+type MRCommand =
+  | Quit()
+  | ExprCode(x: MExpr)
+  | DeclCode(x: MDecl)
+
+type MDecl =
+  | Fun(info: Meta?, name: string, params: MParam[], ret: MType, body: MExpr, test: MExpr?)
+  | SFun(info: Meta?, name: string, self: MParam, params: MParam[], ret: MType, body: MExpr, test: MExpr?)
+  | Struct(info: Meta?, name: string, fields: Field[])
+  | Union(info: Meta?, name: string, variants: Variant[])
+  | Singleton(info: Meta?, name: string)
+  | Def(info: Meta?, name: string, typ: MType, body: MExpr)
+  | Test(info: Meta?, name: string, body: MExpr)
+  | Import(info: Meta?, id: string)
+  | ImportForeign(info: Meta?, path: string)
+  | Trait(info: Meta?, name: string, reqs: (TraitReq?)[])
+  | Implement(info: Meta?, name: string, typ: MType, decls: MDecl[])
+  | OpenPkg(info: Meta?, name: string, alias: string?)
+  | DeclareType(info: Meta?, name: string)
+
+type TraitReq =
+  | Required(name: string, params: MParam[])
+  | Provided(fn: MDecl)
+
+type Variant(info: Meta?, name: string, fields: (Field[])?)
+
+type MParam(info: Meta?, keyword: string?, name: string?, typ: MType)
+
+type Field(info: Meta?, name: string, typ: MType)
+
+type MType =
+  | Ref(info: Meta?, ref: MRef)
+  | Static(info: Meta?, ref: MRef)
+  | Variant(info: Meta?, ref: MRef, variant: string)
+  | Trait(info: Meta?, ref: MRef)
+  | Var(info: Meta?, name: string)
+  | Fun(info: Meta?, input: MType[], output: MType)
+  | Record(info: Meta?, fields: TPair[])
+  | Infer(info: Meta?)
+
+type TPair(name: string, typ: MType)
+
+type MRef =
+  | Named(info: Meta?, names: string[])
+  | Qualified(info: Meta?, pkg: string, names: string[])
+
+type MExpr =
+  | Const(info: Meta?, value: MConst)
+  | Var(info: Meta?, name: string)
+  | Self(info: Meta?)
+  | Hole(info: Meta?)
+  | Let(info: Meta?, name: string, typ: MType, value: MExpr)
+  | Block(info: Meta?, exprs: MExpr[])
+  | If(info: Meta?, clauses: MIfClause[])
+  | Invoke(info: Meta?, name: string, args: MInvokeArg[])
+  | InvokeSelf(info: Meta?, name: string, self: MExpr, args: MInvokeArg[])
+  | Primitive(info: Meta?, name: string, args: MExpr[])
+  | IntrinsicEq(info: Meta?, left: MExpr, right: MExpr)
+  | Project(info: Meta?, value: MExpr, field: string)
+  | New(info: Meta?, ref: MRef, fields: EPair[])
+  | NewPos(info: Meta?, ref: MRef, values: MExpr[])
+  | NewVariant(info: Meta?, ref: MRef, variant: string, fields: EPair[])
+  | NewVariantPos(info: Meta?, ref: MRef, variant: string, args: MExpr[])
+  | GetVariant(info: Meta?, ref: MRef, variant: string)
+  | Static(info: Meta?, ref: MRef)
+  | GetGlobal(info: Meta?, ref: MRef)
+  | List(info: Meta?, items: ListItem[])
+  | Lazy(info: Meta?, expr: MExpr)
+  | Force(info: Meta?, thunk: MExpr)
+  | Map(info: Meta?, pairs: MapItem[])
+  | Assert(info: Meta?, expr: MExpr, atag: string?)
+  | Is(info: Meta?, expr: MExpr, typ: MRef)
+  | IsVariant(info: Meta?, expr: MExpr, typ: MRef, variant: string)
+  | Lambda(info: Meta?, params: string[], body: MExpr)
+  | Apply(info: Meta?, callee: MExpr, args: MExpr[])
+  | Record(info: Meta?, fields: EPair[])
+  | Pipe(info: Meta?, left: MExpr, right: MExpr)
+  | Foreign(info: Meta?, name: string, args: MExpr[])
+  | Repeat(info: Meta?, bindings: EBind[], body: MExpr)
+  | Continue(info: Meta?, bindings: EPair[])
+  | Break(info: Meta?, value: MExpr)
+  | Binary(info: Meta?, elements: EBinElement[])
+
+type EBind(name: string, typ: MType, value: MExpr)
+
+type ListItem =
+  | Item(value: MExpr)
+  | Spread(value: MExpr)
+
+type MapItem =
+  | Pair(key: MExpr, value: MExpr)
+  | Spread(value: MExpr)
+
+type EBinElement =
+  | Byte(value: bigint)
+  | Int(value: bigint, size: bigint, endianess: Endianess, signed: Signed)
+
+type Endianess =
+  | Le()
+  | Be()
+
+type Signed =
+  | Signed()
+  | Unsigned()
+
+type EPair(name: string, value: MExpr)
+
+type MInvokeArg(info: Meta?, keyword: string?, value: MExpr)
+
+type MIfClause(info: Meta?, guard: MExpr, body: MExpr)
+
+type MConst =
+  | True(info: Meta?)
+  | False(info: Meta?)
+  | Int32(info: Meta?, value: bigint)
+  | Int(info: Meta?, value: bigint)
+  | Float(info: Meta?, value: number)
+  | Text(info: Meta?, value: string)
+  | Nothing(info: Meta?)
+
+
+grammar Meow_Grammar : MModule {
+  Module =
+    | header xs:Declaration* end                                                -> MModule(meta, xs)
+
+  Declaration =
+    | DFun
+    | DDeclare
+    | DStruct
+    | DUnion
+    | DDefine
+    | DTest
+    | DImport
+    | DOpen
+    | DTrait
+    | DImplement
+
+  // == FUNCTIONS ==============================================================
+  DFun =
+    | def_ p:DFPParam n:name "(" ps:CommaList<DFParam> ")" r:DFRet e:DFBody t:DFTest     -> MDecl.SFun(meta, n, p, ps, r, e, t)
+    | def_ n:name "(" ps:CommaList<DFParam> ")" r:DFRet e:DFBody t:DFTest                -> MDecl.Fun(meta, n, ps, r, e, t)
+    | def_ l:DFPParam op:any_binary_op r:DFPParam rt:DFRet e:DFBody t:DFTest             -> MDecl.Fun(meta, op, [l, r], rt, e, t)
+    | def_ op:prefix_op l:DFPParam rt:DFRet e:DFBody t:DFTest                            -> MDecl.Fun(meta, op, [l], rt, e, t)
+    | def_ p:DFPParam op:as_ r:Ref e:DFBody t:DFTest                                     -> MDecl.Fun(meta, op, [p, MParam(meta, null, null, MType.Static(meta, r))], MType.Ref(meta, r), e, t)
+
+  DFBody =
+    | "=" e:ESimple ";"                                                         -> e
+    | EBlock
+
+  DFTest =
+    | test_ e:EBlock                                                            -> e
+    |                                                                           -> null
+
+  DFParam =
+    | k:atom n:variable ":" t:Type                                              -> MParam(meta, k, n, t)
+    | n:variable ":" t:Type                                                     -> MParam(meta, null, n, t)
+    | k:atom ":" t:Type                                                         -> MParam(meta, k, null, t)
+    | n:variable                                                                -> MParam(meta, null, n, MType.Infer(meta))
+    | t:Type                                                                    -> MParam(meta, null, null, t)
+
+  DFPParam =
+    | n:variable                                                                -> MParam(meta, null, n, MType.Infer(meta))
+    | t:Type                                                                    -> MParam(meta, null, null, t)
+    | "(" n:variable ":" t:Type ")"                                             -> MParam(meta, null, n, t)
+
+  DFRet =
+    | "->" t:Type                                                               -> t
+    |                                                                           -> MType.Infer(meta)
+
+  DDefine =
+    | def_ n:name ":" t:Type "=" e:ESimple ";"                                  -> MDecl.Def(meta, n, t, e)
+    | def_ n:name "=" e:ESimple ";"                                             -> MDecl.Def(meta, n, MType.Infer(meta), e)
+
+  DTest =
+    | test_ t:text e:EBlock                                                     -> MDecl.Test(meta, t, e)
+
+  // == CUSTOM TYPES ===========================================================
+  DDeclare =
+    | declare_ n:name ";"                                                       -> MDecl.DeclareType(meta, n)
+
+  DStruct =
+    | struct_ n:name "(" xs:CommaList<DSField> ")" ";"                          -> MDecl.Struct(meta, n, xs)
+    | singleton_ n:name ";"                                                     -> MDecl.Singleton(meta, n)
+
+  DUnion =
+    | union_ n:name "{" xs:DUVariant+ "}"                                       -> MDecl.Union(meta, n, xs)
+
+  DUVariant =
+    | n:name "(" xs:CommaList<DSField> ")" ";"                                  -> Variant(meta, n, xs)
+    | n:name ";"                                                                -> Variant(meta, n, null)
+
+  DSField =
+    | n:name ":" t:Type                                                         -> Field(meta, n, t)
+    | n:name                                                                    -> Field(meta, n, MType.Infer(meta))
+
+
+  // == TYPES AND REFS =========================================================
+  TTop = Type
+
+  Type =
+    | "(" ts:CommaList<Type> ")" "->" r:Type                                    -> MType.Fun(meta, ts, r)
+    | TApply
+  
+  TApply =
+    | t:TApply "<" CommaList1<TTop> ">"                                           -> t
+    | TPrim
+
+  TPrim =
+    | "#" "(" xs:CommaList<TPair> ")"                                           -> MType.Record(meta, xs)
+    | "#" x:Ref                                                                 -> MType.Static(meta, x)
+    | "&" x:Ref                                                                 -> MType.Trait(meta, x)
+    | x:Ref ".." v:atom                                                         -> MType.Variant(meta, x, v)
+    | x:Ref                                                                     -> MType.Ref(meta, x)
+    | n:variable                                                                -> MType.Var(meta, n)
+    | "(" t:TTop ")"                                                            -> t
+
+  TPair =
+    | k:name ":" t:TTop                                                         -> TPair(k, t)
+  
+  Ref =
+    | pkg:foreign_name "/" n:Ns                                                 -> MRef.Qualified(meta, pkg, n)
+    | n:Ns                                                                      -> MRef.Named(meta, n)
+    | n:nothing_                                                                -> MRef.Named(meta, [n])
+
+  Ns =
+    | NonemptyListOf<name, ".">
+
+
+  // == TRAITS =================================================================
+  DTrait =
+    | trait_ n:name "{" xs:DTReq* "}"                                           -> MDecl.Trait(meta, n, xs)
+  
+  DImplement =
+    | implement_ n:name for_ t:Type "{" xs:DTFun+ "}"                           -> MDecl.Implement(meta, n, t, xs)
+
+  DTReq =
+    | requires_ trait_ Ref                                                      -> null
+    | def_ Type n:name "(" xs:CommaList<DTParam> ")" DFRet ";"                  -> TraitReq.Required(n, xs)
+    | x:DTFun                                                                   -> TraitReq.Provided(x)
+
+  DTFun =
+    | def_ p:Type n:name "(" ps:CommaList<DFParam> ")" r:DFRet e:DFBody t:DFTest  -> MDecl.SFun(meta, n, MParam(meta, null, null, p), ps, r, e, t)
+
+  DTParam =
+    | k:name ":" t:Type                                                         -> MParam(meta, k, null, t)
+    | t:Type                                                                    -> MParam(meta, null, null, t)
+
+
+  // == ETC ====================================================================
+  DImport =
+    | import_ foreign_ t:text ";"                                               -> MDecl.ImportForeign(meta, t)
+    | import_ t:text ";"                                                        -> MDecl.Import(meta, t)
+
+  DOpen =
+    | open_ package_ n:foreign_name as_ a:name ";"                              -> MDecl.OpenPkg(meta, n, a)
+    | open_ package_ n:foreign_name ";"                                         -> MDecl.OpenPkg(meta, n, null)
+
+  
+  // == EXPRESSIONS ============================================================
+  Expr =
+    | EBasic
+
+  EBasic =
+    | EBlock
+    | EIf
+    | ERepeat
+    | ESimple
+
+  EBlock =
+    | "{" xs:Exprs "}"                                                          -> MExpr.Block(meta, xs)
+
+  ETrail =
+    | x:ESimple ";"                                                             -> x
+    | EBasic
+
+  Exprs =
+    | ETrail*
+
+  Exprs1 =
+    | ETrail+
+
+  EIf =
+    | when_ "{" xs:EIClause+ "}"                                                -> MExpr.If(meta, xs)
+
+  ERepeat =
+    | repeat_ with_ xs:CommaList1<EBind> e:EBlock                               -> MExpr.Repeat(meta, xs, e)
+    | repeat_ e:EBlock                                                          -> MExpr.Repeat(meta, [], e)
+
+  EBind =
+    | n:variable ":" t:Type "=" e:ETop                                          -> EBind(n, t, e)
+    | n:variable "=" e:ETop                                                     -> EBind(n, MType.Infer(meta), e)
+
+  EIClause =
+    | otherwise_ "=>" b:ETrail                                                  -> MIfClause(meta, MExpr.Const(meta, MConst.True(meta)), b)
+    | e:ESimple "=>" b:ETrail                                                   -> MIfClause(meta, e, b)
+
+  ESimple =
+    | ELet
+    | EAssert
+    | EStructControl
+    | ETop
+
+  ELet =
+    | let_ n:variable ":" t:Type "=" v:ETop                                     -> MExpr.Let(meta, n, t, v)
+    | let_ n:variable "=" v:ETop                                                -> MExpr.Let(meta, n, MType.Infer(meta), v)
+
+  EAssert =
+    | assert_ e:ETop "::" t:name                                                -> MExpr.Assert(meta, e, t)
+    | assert_ e:ETop                                                            -> MExpr.Assert(meta, e, null)
+
+  EStructControl =
+    | continue_ with_ xs:CommaList1<EVPair>                                     -> MExpr.Continue(meta, xs)
+    | continue_                                                                 -> MExpr.Continue(meta, [])
+    | break_ with_ x:ETop                                                       -> MExpr.Break(meta, x)
+    | break_                                                                    -> MExpr.Break(meta, MExpr.Const(meta, MConst.Nothing(meta)))
+
+  ETop =
+    | ELazy
+
+  ELazy =
+    | lazy_ e:EInvokeInfix                                                      -> MExpr.Lazy(meta, e)
+    | EInvokeInfix
+
+  EInvokeInfix =
+    | l:EInvokeInfix1 op:assign_op r:EInvokeInfix1                              -> MExpr.Invoke(meta, op, [MInvokeArg(meta, null, l), MInvokeArg(meta, null, r)])
+    | EInvokeInfix1
+
+  EInvokeInfix1 =
+    | l:EInvokeInfix1 op:imply_op r:EPipe                                       -> MExpr.Invoke(meta, op, [MInvokeArg(meta, null, l), MInvokeArg(meta, null, r)])
+    | EPipe
+
+  EPipe =
+    | l:EPipe "|>" r:EInvokeInfix2                                               -> MExpr.Pipe(meta, l, r)
+    | EInvokeInfix2
+
+  EInvokeInfix2 =
+    | l:EInvokePre op:binary_op r:EInvokeInfix2                                 -> MExpr.Invoke(meta, op, [MInvokeArg(meta, null, l), MInvokeArg(meta, null, r)])
+    | l:EInvokePre "=:=" r:EInvokeInfix2                                        -> MExpr.IntrinsicEq(meta, l, r)
+    | l:EInvokePre op:as_ t:Ref                                                 -> MExpr.Invoke(meta, op, [MInvokeArg(meta, null, l), MInvokeArg(meta, null, MExpr.Static(meta, t))])
+    | l:EInvokePre is_ t:Ref ".." v:atom                                        -> MExpr.IsVariant(meta, l, t, v)
+    | l:EInvokePre is_ t:Ref                                                    -> MExpr.Is(meta, l, t)
+    | EInvokePre
+
+  EInvokePre =
+    | op:prefix_op e:EInvokePost                                                -> MExpr.Invoke(meta, op, [MInvokeArg(meta, null, e)])
+    | EInvokePost
+
+  EInvokePost =
+    | s:EInvokePost n:name "(" xs:CommaList<EInvokeArg> ")"                     -> MExpr.InvokeSelf(meta, n, s, xs)
+    | n:name "(" xs:CommaList<EInvokeArg> ")"                                   -> MExpr.Invoke(meta, n, xs)
+    | primitive_ n:foreign_name "(" xs:CommaList<ETop> ")"                      -> MExpr.Primitive(meta, n, xs)
+    | foreign_ n:foreign_name "(" xs:CommaList<ETop> ")"                        -> MExpr.Foreign(meta, n, xs)
+    | EForce
+
+  EVPair =
+    | n:variable "=" v:ETop                                                     -> EPair(n, v)
+
+  EForce =
+    | force_ e:EApply                                                           -> MExpr.Force(meta, e)
+    | EApply
+
+  EApply =
+    | c:EApply "(" xs:CommaList<ETop> ")"                                       -> MExpr.Apply(meta, c, xs)
+    | ENew
+
+  EInvokeArg =
+    | n:atom ":" e:Expr                                                         -> MInvokeArg(meta, n, e)
+    | e:Expr                                                                    -> MInvokeArg(meta, null, e)
+
+  ENew =
+    | new_ n:Ref ".." v:atom "(" xs:CommaList<EPair> ")"                        -> MExpr.NewVariant(meta, n, v, xs)
+    | new_ n:Ref ".." v:atom "(" xs:CommaList<ETop> ")"                         -> MExpr.NewVariantPos(meta, n, v, xs)
+    | new_ n:Ref "(" xs:CommaList<EPair> ")"                                    -> MExpr.New(meta, n, xs)
+    | new_ n:Ref "(" xs:CommaList<ETop> ")"                                     -> MExpr.NewPos(meta, n, xs)
+    | n:Ref ".." v:atom                                                         -> MExpr.GetVariant(meta, n, v)
+    | EMember
+
+  EPair =
+    | x:name ":" e:Expr                                                         -> EPair(x, e)
+
+  EMember =
+    | o:EMember "." f:name                                                      -> MExpr.Project(meta, o, f)
+    | EPrim
+
+  EPrim =
+    | "_"                                                                       -> MExpr.Hole(meta)
+    | r:ERecord                                                                 -> r
+    | "#" r:Ref                                                                 -> MExpr.Static(meta, r)
+    | v:variable                                                                -> MExpr.Var(meta, v)
+    | l:Const                                                                   -> MExpr.Const(meta, l)
+    | self_                                                                     -> MExpr.Self(meta)
+    | n:Ref                                                                     -> MExpr.GetGlobal(meta, n)
+    | EList
+    | EBinary
+    | EMap
+    | ELambda
+    | "(" e:Expr ")"                                                            -> e
+
+  EList =
+    | "[" xs:CommaList<ELItem> "]"                                              -> MExpr.List(meta, xs)
+
+  ELItem =
+    | "..." v:ETop                                                              -> ListItem.Spread(v)
+    | v:ETop                                                                    -> ListItem.Item(v)
+
+  EMap =
+    | "[" ":" "]"                                                               -> MExpr.Map(meta, [])
+    | "[" xs:CommaList1<EMItem> "]"                                             -> MExpr.Map(meta, xs)
+
+  EMItem =
+    | "..." v:ETop                                                              -> MapItem.Spread(v)
+    | k:ETop ":" v:ETop                                                         -> MapItem.Pair(k, v)
+
+  ELambda =
+    | "{" ps:CommaList1<variable> in_ b:LExprs "}"                              -> MExpr.Lambda(meta, ps, b)
+    | "{" b:LExprs "}"                                                          -> MExpr.Lambda(meta, [], b)
+
+  LExprs =
+    | x:Exprs1                                                                  -> MExpr.Block(meta, x)
+
+  ERecord =
+    | "#" "(" xs:CommaList<EPair> ")"                                           -> MExpr.Record(meta, xs)
+
+  EBinary =
+    | "<<" xs:CommaList<EBinElement> ">>"                                       -> MExpr.Binary(meta, xs)
+
+  EBinElement =
+    | x:integer ":" s:Signed sz:integer e:Endianess                             -> EBinElement.Int(x, sz, e, s)
+    | x:integer                                                                 -> EBinElement.Byte(x)
+
+  Endianess =
+    | "le"                                                                      -> Endianess.Le()
+    | "be"                                                                      -> Endianess.Be()
+    |                                                                           -> Endianess.Le()
+
+  Signed =
+    | "s"                                                                       -> Signed.Signed()
+    | "u"                                                                       -> Signed.Unsigned()
+    |                                                                           -> Signed.Unsigned()
+
+  // == CONSTANTS ==============================================================
+  Const =
+    | x:float #"f"                                                              -> MConst.Float(meta, x)
+    | x:integer #"n"                                                            -> MConst.Int32(meta, x)
+    | x:integer                                                                 -> MConst.Int(meta, x)
+    | true_                                                                     -> MConst.True(meta)
+    | false_                                                                    -> MConst.False(meta)
+    | x:text                                                                    -> MConst.Text(meta, x)
+    | nothing_                                                                  -> MConst.Nothing(meta)
+
+
+  // == HIGHER-ORDER ===========================================================
+  CommaList<T> =
+    | xs:ListOf<T, ","> ","?            -> xs
+
+  CommaList1<T> =
+    | xs:NonemptyListOf<T, ","> ","?    -> xs
+
+
+  // == LEXICAL ================================================================
+  token header (a file header) =
+    | "%" hs* "meow/1" 
+
+  token line =
+    | (~newline any)*
+
+  token hs =
+    | " " | "\t"
+
+  token newline =
+    | "\r\n" | "\r" | "\n"
+
+  token comment (a comment) =
+    | "//" line
+
+  space += comment
+
+
+  // -- Names ------------------------------------------------------------------
+  token atom_start = "a".."z"
+  token atom_rest = "a".."z" | "-" | "0".."9"
+  token atom (an atom) = atom_start atom_rest* "!"?
+
+  token variable_start = "A".."Z"
+  token variable_rest = "A".."Z" | "a".."z" | "-" | "0".."9"
+  token variable (a variable) =
+    | variable_start variable_rest*
+    | "_"
+
+  name (a name) =
+    | ~reserved n:atom -> n
+    | "'" n:atom -> n
+
+  token foreign_name_char = "a".."z" | "0".."9" | "_" | "-"
+  token foreign_name_part = foreign_name_char+
+  token foreign_name (a foreign name) = nonemptyListOf<foreign_name_part, ".">
+
+
+  // -- Boolean ----------------------------------------------------------------
+  boolean =
+    | b:t_boolean   -> @parse_boolean(b)
+
+  token t_boolean =
+    | true_
+    | false_
+
+
+  // -- Numbers ----------------------------------------------------------------
+  token dec_digit = "0".."9" | "_"
+  token hex_digit = "0".."9" | "a".."f" | "A".."F"
+  token ehex_digit = hex_digit | "_"
+
+  token t_integer (an integer) =
+    | ~"_" "0x" ehex_digit+
+    | ~"_" "-"? dec_digit+
+
+  integer = x:t_integer -> @parse_integer(x)
+
+  token t_float (a floating point number) =
+    | ~"_" "-"? dec_digit+ "." dec_digit+
+
+  float = x:t_float -> @parse_float(x)
+
+
+  // -- Text -------------------------------------------------------------------
+  token text_character =
+    | "\\" escape_sequence
+    | ~("\"" | "[" | "]") any
+
+  token escape_sequence =
+    | "u" hex_digit hex_digit hex_digit hex_digit
+    | "x" hex_digit hex_digit
+    | any
+
+  token t_text (a text) =
+    | "\"" text_character* "\""
+  
+  text = x:t_text -> @parse_string(x)
+
+
+  // -- Operators --------------------------------------------------------------
+  token any_binary_op (any binary operator) =
+    | assign_op
+    | imply_op
+    | binary_op
+
+  token binary_op (a binary operator) =
+    | t_binary_op ~(symbol | atom_rest)
+    | and_
+    | or_
+
+  token assign_op (an assign operator) =
+    | "<-" ~(symbol | atom_rest)
+
+  token imply_op (an implication operator) =
+    | "==>" ~(symbol | atom_rest)
+
+  token symbol =
+    | "+" | "-" | ">" | "<" | "*" | "=" | "|" | "^" | "~" | "!" | "@" | "#" | "%" | "&"
+    | "\\"
+
+  token t_binary_op =
+    | "++" | "+"
+    | "-"
+    | "<<" | "<=" | "<"
+    | ">>>" | ">>" | ">=" | ">"
+    | "===" | "=/="
+    | "&"
+    | "|"
+    | "^"
+    | "**" | "*"
+    | "%"
+    | "/"
+    | "\\"
+
+  token prefix_op =
+    | not_
+    | "-" ~(symbol | t_integer)
+    | "~" ~(symbol | t_integer)
+
+  
+  // -- Special tokens ---------------------------------------------------------
+  kw<w> = x:w ~(atom_rest | ":") -> x
+
+  def_ = kw<"def">
+  when_ = kw<"when">
+  otherwise_ = kw<"otherwise">
+  nothing_ = kw<"nothing">
+  self_ = kw<"self">
+  not_ = kw<"not">
+  and_ = kw<"and">
+  or_ = kw<"or">
+  true_ = kw<"true">
+  false_ = kw<"false">
+  new_ = kw<"new">
+  struct_ = kw<"struct">
+  let_ = kw<"let">
+  union_ = kw<"union">
+  lazy_ = kw<"lazy">
+  force_ = kw<"force">
+  assert_ = kw<"assert">
+  test_ = kw<"test">
+  as_ = kw<"as">
+  is_ = kw<"is">
+  primitive_ = kw<"primitive">
+  singleton_ = kw<"singleton">
+  import_ = kw<"import">
+  requires_ = kw<"requires">
+  trait_ = kw<"trait">
+  in_ = kw<"in">
+  implement_ = kw<"implement">
+  for_ = kw<"for">
+  foreign_ = kw<"foreign">
+  repeat_ = kw<"repeat">
+  continue_ = kw<"continue">
+  break_ = kw<"break">
+  with_ = kw<"with">
+  open_ = kw<"open">
+  package_ = kw<"package">
+  declare_ = kw<"declare">
+
+
+  reserved =
+    | def_ | when_ | otherwise_
+    | nothing_
+    | self_ | is_ | not_ | and_ | or_ | true_ | false_ | new_ | struct_
+    | let_ | union_ | lazy_ | force_ | assert_ | test_ | as_
+    | primitive_ | singleton_ | import_ | requires_ | trait_ | in_ | implement_
+    | for_ | foreign_ | repeat_ | continue_ | break_ | with_ | open_ | package_
+    | declare_
+
+  // -- REPL -------------------------------------------------------------------
+  Repl =
+    | x:Declaration                                                             -> MRepl.Decl(x)
+    | x:Expr ";"?                                                               -> MRepl.Expr(x)
+    | ":" c:ReplCommand                                                         -> MRepl.Command(c)
+
+  ReplCommand =
+    | kw<"exit">                                                                -> MRCommand.Quit()
+    | kw<"code"> x:Declaration                                                  -> MRCommand.DeclCode(x)
+    | kw<"code"> x:Expr ";"?                                                    -> MRCommand.ExprCode(x)
+}

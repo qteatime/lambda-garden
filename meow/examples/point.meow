@@ -1,0 +1,19 @@
+% meow/1
+
+struct point2d(x: i32, y: i32);
+
+def #point2d empty() -> point2d {
+  new point2d(x: 0n, y: 0n);
+}
+
+def point2d === (That: point2d) -> bool {
+  (self.x === That.x) and (self.y === That.y);
+}
+
+def main(_) {
+  let P1 = #point2d empty();
+  let P2 = #point2d empty();
+  transcript log(P1 === P2);
+  let P3 = new point2d(y: 10n, x: 20n);
+  transcript log(P1 === P3);
+}

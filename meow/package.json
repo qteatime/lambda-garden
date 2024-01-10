@@ -1,0 +1,29 @@
+{
+  "name": "@qteatime/meow-compiler",
+  "version": "0.0.1",
+  "description": "A lower-level computation language based on functional programming with effect handlers and multi-methods.",
+  "main": "build/index.js",
+  "bin": {
+    "meow": "bin/meow.js",
+    "meowc": "bin/meowc.js",
+    "imeow": "bin/imeow.js"
+  },
+  "directories": {
+    "example": "examples",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "npm run build && node --test",
+    "build": "tsc -p .",
+    "build-core": "meowc --no-prelude --no-test lib/core.meow > lib/_core.js"
+  },
+  "author": "Niini",
+  "license": "MPL-2.0",
+  "devDependencies": {
+    "@types/node": "^20.10.7",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "ohm-js": "^15.5.0"
+  }
+}

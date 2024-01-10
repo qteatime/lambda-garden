@@ -1,0 +1,216 @@
+% meow/1
+
+// -- Arithmetic ---------------------------------------------------------------
+def integer + (X: integer) -> integer {
+  primitive integer.add(self, X);
+} test {
+  assert 0 + 0 ==> 0;
+  assert 1 + 0 ==> 1;
+  assert 0 + 1 ==> 1;
+  assert -3 + 1 ==> -2;
+  assert 5 + 3 ==> 8;
+  assert 20 + 22 ==> 42;
+  assert 1234567890123456789 + 1234567890123456789 ==> 2469135780246913578;
+}
+
+def integer - (X: integer) -> integer {
+  primitive integer.sub(self, X);
+} test {
+  assert 0 - 0 ==> 0;
+  assert 1 - 0 ==> 1;
+  assert 0 - 1 ==> -1;
+  assert -3 - 1 ==> -4;
+  assert 5 - 3 ==> 2;
+  assert 20 - 22 ==> -2;
+  assert 22 - 20 ==> 2;
+  assert 1234567890123456789 - 1 ==> 1234567890123456788;
+}
+
+def integer * (X: integer) -> integer {
+  primitive integer.mul(self, X);
+} test {
+  assert 0 * 0 ==> 0;
+  assert 1 * 0 ==> 0;
+  assert 0 * 1 ==> 0;
+  assert 1 * 1 ==> 1;
+  assert 20 * 2 ==> 40;
+  assert 123456789 * 123456789 ==> 15241578750190521;
+}
+
+def integer \ (X: integer) -> integer {
+  assert X =/= 0 :: non-zero-divisor;
+  primitive integer.div(self, X);
+} test {
+  assert 4 \ 2 ==> 2;
+  assert 3 \ 2 ==> 1;
+  assert 1 \ 3 ==> 0;
+  assert 0 \ 1 ==> 0;
+  assert 3 \ -1 ==> -3;
+  assert 123456789 \ 12 ==> 10288065;
+  // TODO: test trapped divide by zero
+}
+
+def integer ** (X: integer) -> integer {
+  assert X >= 0 :: positive-exponent;
+  primitive integer.pow(self, X);
+} test {
+  assert 1 ** 0 ==> 1;
+  assert 0 ** 0 ==> 1;
+  assert 3 ** 0 ==> 1;
+  assert 1 ** 1 ==> 1;
+  assert -1 ** 1 ==> -1;
+  assert 2 ** 6 ==> 64;
+  assert 2 ** 64 ==> 18446744073709551616;
+}
+
+def integer % (X: integer) -> integer {
+  assert X =/= 0 :: non-zero-divisor;
+  primitive integer.mod(self, X);
+} test {
+  assert 4 % 2 ==> 0;
+  assert 3 % 2 ==> 1;
+  assert 1 % 3 ==> 1;
+  assert 0 % 1 ==> 0;
+  assert 3 % -1 ==> 0;
+  assert (123456789 % 12) ==> 9;
+}
+
+// -- Relational ---------------------------------------------------------------
+def integer === (X: integer) -> bool {
+  primitive integer.eq(self, X);
+} test {
+  assert 0 === 0;
+  assert 1 === 1;
+  assert not (1 === -1);
+  assert not (1 === 2);
+}
+
+def integer =/= (X: integer) -> bool {
+  primitive integer.neq(self, X);
+} test {
+  assert 1 =/= -1;
+  assert 1 =/= 2;
+  assert not (0 =/= 0);
+  assert not (1 =/= 1);
+}
+
+def integer < (X: integer) -> bool {
+  primitive integer.lt(self, X);
+} test {
+  assert 0 < 1;
+  assert -1 < 0;
+  assert not (0 < 0);
+  assert not (1 < 0);
+}
+
+def integer <= (X: integer) -> bool {
+  primitive integer.lte(self, X);
+} test {
+  assert 0 <= 1;
+  assert -1 <= 0;
+  assert 0 <= 0;
+  assert not (1 <= 0);
+}
+
+def integer > (X: integer) -> bool {
+  primitive integer.gt(self, X);
+} test {
+  assert 1 > 0;
+  assert 0 > -1;
+  assert not (0 > 0);
+  assert not (0 > 1);
+}
+
+def integer >= (X: integer) -> bool {
+  primitive integer.gte(self, X);
+} test {
+  assert 1 >= 0;
+  assert 0 >= -1;
+  assert 0 >= 0;
+  assert not (0 >= 1);
+}
+
+def integer compare-to(X: integer) -> ordering {
+  when {
+    self < X => ordering..less-than;
+    self === X => ordering..equal;
+    self > X => ordering..greater-than;
+  }
+}
+
+// -- Bitwise ------------------------------------------------------------------
+def integer << (X: integer) -> integer {
+  primitive integer.bshl(self, X);
+} test {
+  assert 1 << 2 ==> 4;
+}
+
+def integer >> (X: integer) -> integer {
+  primitive integer.bashr(self, X);
+} test {
+  assert 8 >> 2 ==> 2;
+}
+
+def integer & (X: integer) -> integer {
+  primitive integer.band(self, X);
+} test {
+  assert 1 & 2 ==> 0;
+}
+
+def integer | (X: integer) -> integer {
+  primitive integer.bor(self, X);
+} test {
+  assert 1 | 2 ==> 3;
+}
+
+def integer ^ (X: integer) -> integer {
+  primitive integer.bxor(self, X);
+} test {
+  assert 1 ^ 2 ==> 3;
+}
+
+def ~integer -> integer {
+  primitive integer.bnot(self);
+} test {
+  assert ~(1) ==> -2;
+}
+
+// -- Other transformations ----------------------------------------------------
+def -integer -> integer {
+  primitive integer.negate(self);
+} test {
+  assert -(0) ==> 0;
+  assert -(1) ==> -1;
+  assert -(-1) ==> 1;
+}
+
+def integer absolute() -> integer {
+  when {
+    self < 0 => -(self);
+    otherwise => self;
+  }
+} test {
+  assert 0 absolute() ==> 0;
+  assert 1 absolute() ==> 1;
+  assert -1 absolute() ==> 1;
+}
+
+// -- Conversions --------------------------------------------------------------
+def integer as text {
+  primitive integer.to-text(self);
+} test {
+  assert 123 as text ==> "123";
+}
+
+def integer as i32 {
+  primitive integer.to-i32(self);
+}
+
+def integer as f64 {
+  primitive integer.to-f64(self);
+}
+
+def integer as bool {
+  primitive integer.to-bool(self);
+}
+

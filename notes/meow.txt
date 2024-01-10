@@ -1,0 +1,311 @@
+Meow
+----
+
+A functional language with multi-methods, effect handlers, and modules.
+
+
+Values:
+  - sized types: i32, f64, bool, tuple, enum, union, sized-array<T, N>, sized-byte-array<N>;
+  - heap types: integer, array<T>, thunk<T>, lambda<I..., O>, ref<T>, weak-ref<T>, text, byte-array;
+  - mutable types: generator<T>, mutable-array<T>, mutable-byte-array, cell<T>
+  - *like types: text slice, byte-array slice, array slice
+
+
+Operations:
+  - arithmetic, bitwise, conversion: int/float
+  - effects: perform, handle
+  - functions: call, return
+  - methods: call, return (always indirect)
+  - foreign: call, call pure
+  - types: alloc, project, etc
+  
+
+----
+
+// Types
+struct point2d(x: i32, y: i32);
+
+union op { // integer/string enums
+  get-arg;
+  ret;
+  halt;
+}
+
+union expr {
+  add(x: expr, y: expr);
+  num(x: i32);
+}
+
+singleton some-module(x: 12n);
+
+
+// traits
+trait sequence<A> {
+  def A first() -> maybe<A>;
+  def A rest() -> A;
+
+  def A count() -> i32 {
+    self first()
+         map({ _ in 1 + self rest() count() })
+         get(default: 0);
+  }
+
+  def A is-empty() -> bool {
+    self first() is maybe.none;
+  }
+}
+
+trait indexed-sequence<A> {
+  requires sequence<A>;
+  required def A at(index: i32) -> maybe<A>;
+}
+
+implement sequence<A> for array<A> {
+  def array<A> count() {
+    foreign array.length(self);
+  }
+
+  def array<A> first() {
+    when {
+      self count() === 0n => #maybe none();
+      otherwise => #maybe of(foreign array.at(self, 0));
+    }
+  }
+
+  def array<A> rest() {
+    foreign array.slice(self, 1, self count());
+  }
+}
+
+
+// globals
+def xs: array<i32> = [1n, 2n, 3n];
+def ys: thunk<array<i32>> = lazy [...xs, ...xs];
+
+
+// multi-methods
+def expr.add eval() -> i32 { self.x eval() + self.y eval() }
+def expr.num eval() -> i32 { self.x }
+
+
+// effects
+effect non-local<A> {
+  ret(x: A) -> nothing, return A;
+}
+
+def array<A> first(fn: (A) -> bool) -> maybe<A> {
+  handle {
+    for X in self values() {
+      if fn(X) {
+        perform non-local.ret(X);
+      }
+    }
+  } with {
+    on non-local.ret(X: A) => return X;
+    use non-local<A>;
+  }
+}
+
+handler non-local<A> {
+  on non-local.ret(X: A) => return X;
+}
+
+
+// capabilities
+capability read-files;
+capability write-files;
+capability file-system implies read-files, write-files;
+
+singleton file-system needs file-system;
+
+def file-system read(path: path) -> file needs read-files {
+  ...;
+}
+
+def file append(data: buffer) -> nothing needs write-files {
+  ...;
+}
+
+
+// tests
+test "some test" {
+  assert x + 1 ==> 2;
+}
+
+
+// imports and namespaces
+import namespace as alias;
+import package/namespace as alias;
+import package name as alias;
+
+namespace foo.bar.baz {
+  type;
+  def global;
+}
+
+
+// contracts
+def array<A> last() -> A
+  requires self count() > 0 :: tag,
+  ensures return is not nothing
+{
+  self at(self count() - 1)
+}
+
+
+// expressions
+A + B; A - B; A * B; A / B; A ** B; A % B; A \ B;     // arithmetic
+A < B; A > B; A <= B; A >= B; A === B; A =/= B;       // relational
+A << B; A >> B; A >>> B; A & B; A | B; A ^ B;         // bitwise
+A ++ B;                                               // collection
+A and B; A or B; not A;                               // boolean
+A as type;                                            // cast with optional runtime conversion
+A <- B;                                               // exchange on cells
+A ==> B;                                              // logical implication
+A =:= B;                                              // intrinsic value equality
+A is type; A has trait; A is union.variant;           // dynamic type checks
+granted capability;                                   // dynamic capability checks
+
+A fn(); A fn(B); A fn(b: B, c: C);                    // method invocation
+A fn() other-fn() more-fn();                          // cascade application
+A fn() |> _ fn() |> C fn(d: _, e: 1n);                // pipe application
+(_ + _)(1n, 2n);                                      // holes
+{A, B in A + B}(A, B)                                 // lambdas and application
+lazy A; force A;                                      // thunks
+foreign a.b.c(A, B, C);                               // foreign calls
+
+self;
+A;
+let A: type = V;
+
+1n;   // i32
+1nn;  // i64
+1.0f; // f64
+1;    // integer (arbitrary size)
+1.0;  // decimal (arbitrary size)
+"text";
+true; false; // boolean
+nothing;
+[1, 2, 3, 4]; [1, 2, ...[3, 4]]; [];  // array
+[1: 2, 3: 4]; [1: 2; ...[:]];         // maps (fixed equality semantics)
+#integer; // static types
+#cell of(1); // cell references
+#weak-ref of(1); // weak references
+
+new expr.add(1, 2); new point2d(x: 1, y: 2);  // type construction and named construction
+new point2d(X with y: 2);                     // extend construction
+P.x;                                          // projection
+
+perform effect.variant(y: a, x: b, z: c);           // effect triggering
+handle { expr... } with { on eff() {}; use h() }    // handle blocks
+continue with A; return A;                          // continuation triggers
+
+for X in Y { ... }
+for X in A, Y in B if X > Y { ... }
+repeat until X { ... }; repeat while X { ... }; repeat { ... };
+when { A is b => C; otherwise => D; }
+
+assert X > Y :: tag; assert X > Y;
+
+
+----
+Protocols/traits:
+
+trait iterator<T> {
+  def next() -> maybe<T>;
+}
+
+for X in file read() chunks(20 mb()) {
+  do something() with() chunks(X);
+}
+
+#iterator of({
+  for X in 1 to(2**256) {
+    #iterator yield(X);
+  }
+});
+
+effect iterator<A> {
+  yield(value: A) -> nothing;
+}
+
+default handler iterator<A>(Channel: channel<A>) with {
+  on iterator.yield(A) {
+    Channel write(A);
+    resume with nothing;
+  }
+}
+
+def #iterator of(Iter: (channel<A>) -> nothing) {
+  let Channel = #channel with-buffer(0);
+  new iterator(Channel, Iter);
+}
+
+def iterator run() {
+  self.iter(self.channel);
+}
+
+def iterator next() {
+  self.channel read();
+}
+
+// Need to find a much simpler implementation if it'll go in core.
+
+----
+
+VM:
+
+Expr ::
+
+I32_ADD, I32_SUB, I32_MUL, I32_DIV, I32_POW, I32_MOD        // also f64
+I32_LT, I32_GT, I32_LTE, I32_GTE, I32_EQ, I32_NEQ           // also f64
+I32_BSHL, I32_BSHR, I32_BASHR, I32_BAND, I32_BOR, I32_BXOR
+AND, OR, NOT                                                // on booleans
+
+CAST<I, O>
+IMPLIES<A, B>
+INTRINSIC_EQ<A, B>
+HAS_TYPE<A, T>, HAS_VARIANT<A, V>, HAS_TRAIT<A, T>
+
+CALL<method, args>
+TAIL_CALL<method, args>
+CALL_BRANCH<method, type, args>
+TAIL_CALL_BRANCH<method, type, args>
+APPLY<lambda, args>
+TAIL_APPLY<lambda, args>
+CALL_FOREIGN_PURE<name, args>
+CALL_FOREIGN<name, args>
+CALL_PRIMITIVE<name, args>
+
+MAKE_THUNK<thunk, upvalues>
+FORCE_THUNK<thunk>
+
+GET_ARG<index>
+GET_LOCAL<index>
+SET_LOCAL<index, value>
+GET_UPVALUE<index>
+GET_CONST<index>
+GET_GLOBAL<name>
+GET_U8, GET_U32, GET_FALSE, GET_TRUE, GET_NOTHING
+
+MAKE_ARRAY<values>
+MAKE_MAP<pairs>
+
+MAKE_CELL<value>
+EXCHANGE<cell, value>
+COMPARE_EXCHANGE<cell, old, new>
+
+MAKE_WEAK<value>
+DEREF_WEAK<ref>
+
+NEW<type, args>
+PROJECT<value, type, field>
+
+PERFORM<effect, args>
+PUSH_HANDLER<handler>
+CONTINUE_WITH<value>
+RETURN_WITH<value>
+
+REPEAT<block>
+IF<guard, true, false>
+ASSERT<value, tag>

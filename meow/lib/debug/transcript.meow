@@ -1,0 +1,6 @@
+% meow/1
+
+def transcript log(Value: unknown) -> transcript {
+  primitive transcript.log(Value);
+  self;
+}

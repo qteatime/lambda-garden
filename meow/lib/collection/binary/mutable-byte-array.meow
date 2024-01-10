@@ -1,0 +1,79 @@
+% meow/1
+
+def mutable-byte-array count() -> i32 {
+  self.array count();
+} test {
+  assert new mutable-byte-array(<<>>) count() ==> 0n;
+  assert new mutable-byte-array(<<1, 2, 3>>) count() ==> 3n;
+}
+
+// -- Constructing -------------------------------------------------------------
+def #mutable-byte-array allocate(size Size: i32, default Default: i32) -> mutable-byte-array {
+  new mutable-byte-array(#byte-array allocate(size: Size, default: Default));
+}
+
+def #mutable-byte-array allocate(size Size: i32) -> mutable-byte-array {
+  new mutable-byte-array(#byte-array allocate(size: Size));
+}
+
+def #mutable-byte-array from(Array: array<i32>) -> mutable-byte-array {
+  new mutable-byte-array(#byte-array from(Array));
+}
+
+
+// -- Indexing -----------------------------------------------------------------
+def mutable-byte-array at!(Index: i32) -> i32 {
+  self.array at!(Index);
+}
+
+def mutable-byte-array at(Index: i32) -> maybe<i32> {
+  self.array at(Index);
+}
+
+def mutable-byte-array at(Index: i32, put Value: i32) -> mutable-byte-array {
+  assert (Index >= 0n) and (Index < self count()) :: in-bounds;
+  primitive binary.at-put(Index, Value);
+  self;
+}
+
+def mutable-byte-array at(Index: i32, update Fn: (i32) -> i32) -> mutable-byte-array {
+  self at(Index, put: Fn(self at!(Index)));
+  self;
+}
+
+def mutable-byte-array at(Index: i32, put-all Array: byte-array) -> mutable-byte-array {
+  assert (Index >= 0n) and ((Index + Array count()) <= self count()) :: in-bounds;
+  primitive binary.at-put-all(Index, Array);
+  self;
+}
+
+def mutable-byte-array at(Index: i32, put-all Array: byte-slice) -> mutable-byte-array {
+  assert (Index >= 0) and ((Index + Array count()) <= self count()) :: in-bounds;
+  primitive binary.at-put-slice(Index, Array, Array.offset, Array.length);
+  self;
+}
+
+def mutable-byte-array at(Index: i32, put-all Array: mutable-byte-array) -> mutable-byte-array {
+  self at(Index, put-all: Array read-only());
+}
+
+// -- Updating -----------------------------------------------------------------
+def mutable-byte-array fill(Value: i32, from Start: i32, length Length: i32) -> mutable-byte-array {
+  assert (Length >= 0n) :: positive-length;
+  assert (Start >= 0n) and ((Start + Length) <= self count()) :: in-bounds;
+  primitive binary.fill(self.array, Value, Start, Start + Length);
+  self;
+} test {
+  assert <<1, 2, 3>> mutable-copy() fill(5n, from: 1n, length: 2n) read-only() ==> <<1, 5, 5>>;
+}
+
+def mutable-byte-array fill(Value: i32) -> mutable-byte-array {
+  primitive binary.fill-all(self.array, Value);
+  self;
+} test {
+  assert <<1, 2, 3>> mutable-copy() fill(5n) read-only() ==> <<5, 5, 5>>;
+}
+
+
+// -- Conversions --------------------------------------------------------------
+def mutable-byte-array read-only() -> byte-array = self.array;

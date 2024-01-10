@@ -1,0 +1,185 @@
+Lingua {
+  TypeDecl =
+    | type_ Name Formals "(" ListOf<TypeField, ","> ")"                         -- record
+    | type_ Name Formals "=" "|"? NonemptyListOf<TypeVariant, "|">              -- union
+
+  TypeVariant =
+    | Name "(" ListOf<TypeField, ","> ")"                                       -- variant
+  
+  TypeField =
+    | Name ":" TypeApp                                                          -- field
+
+  TypeApp =
+    | TypeApp "[]"                                                              -- list
+    | TypeApp1
+
+  TypeApp1 =
+    | TypeApp2 "?"                                                              -- maybe
+    | TypeApp2
+
+  TypeApp2 =
+    | TypeApp3 "<" NonemptyListOf<TypeApp, ","> ">"                             -- apply
+    | TypeApp3
+
+  TypeApp3 =
+    | TypeApp3 "." Name                                                         -- project
+    | TypeApp4
+
+  TypeApp4 =
+    | Name                                                                      -- name
+    | "(" TypeApp ")"                                                           -- parens
+
+
+
+  Grammar =
+    | TypeDecl* grammar_ ident ":" TypeApp "{" Rule* "}"                        -- grammar
+
+  Rule =
+    | token_ Rule                                                               -- token
+    | RuleSig ruleDescr? "="  RuleBody                                          -- define
+    | RuleSig ":=" RuleBody                                                     -- override
+    | RuleSig "+=" RuleBody                                                     -- extend
+
+  RuleSig =
+    | ident Formals
+
+  RuleBody =
+    | "|"? NonemptyListOf<TopLevelTerm, "|">                                    -- body
+
+  TopLevelTerm =
+    | Binder* "->" Action                                                       -- action
+    | Binder*                                                                   -- no_action
+
+  Binder =
+    | Name ":" Iter                                                             -- bound
+    | Iter                                                                      -- unbound
+
+  Action =
+    | ActionProject "(" ListOf<Action, ","> ")"                                 -- make
+    | "@" Name "(" ListOf<Action, ","> ")"                                      -- apply
+    | ActionProject
+
+  ActionProject =
+    | ActionProject "." Name                                                    -- project
+    | ActionPrimary
+
+  ActionPrimary =
+    | meta_                                                                     -- meta
+    | Name                                                                      -- var
+    | null_                                                                     -- null
+    | ActionList
+    | "(" Action ")"                                                            -- parens
+
+  ActionList =
+    | "[" NonemptyListOf<Action, ","> "," "..." Action "]"                      -- cons
+    | "[" ListOf<Action, ","> "]"                                               -- list
+
+  Formals =
+    | "<" ListOf<ident, ","> ">"                                                -- list
+    |                                                                           -- empty
+
+  Params =
+    | "<" ListOf<Seq, ","> ">"                                                  -- list
+    |                                                                           -- empty
+
+  Alt
+    = NonemptyListOf<Seq, "|">                                                  -- alt
+
+  Seq
+    = Iter*                                                                     -- seq
+
+  Iter
+    = Pred "*"                                                                  -- star
+    | Pred "+"                                                                  -- plus
+    | Pred "?"                                                                  -- opt
+    | Pred
+
+  Pred
+    = "~" Lex                                                                   -- not
+    | "&" Lex                                                                   -- lookahead
+    | Lex
+
+  Lex
+    = "#" Base                                                                  -- lex
+    | Base
+
+  Base
+    = ~reserved Name Params ~(ruleDescr? "=" | ":=" | "+=")                     -- apply
+    | oneCharTerminal ".." oneCharTerminal                                      -- range
+    | terminal                                                                  -- terminal
+    | "(" Alt ")"                                                               -- parens
+
+  ruleDescr  (a rule description)
+    = "(" ruleDescrText ")"                                                     -- desc
+
+  ruleDescrText
+    = (~")" any)*
+
+  name  (a name)
+    = nameFirst nameRest*
+
+  nameFirst
+    = "_"
+    | letter
+
+  nameRest
+    = "_"
+    | alnum
+
+  ident  (an identifier)
+    = name
+
+  terminal =
+    | t_terminal
+
+  t_terminal
+    = "\"" terminalChar* "\""
+
+  oneCharTerminal =
+    | t_oneCharTerminal
+
+  t_oneCharTerminal
+    = "\"" terminalChar "\""
+      
+
+  terminalChar
+    = escapeChar
+    | ~"\\" ~"\"" ~"\n" any
+
+  escapeChar  (an escape sequence)
+    = "\\\\"                                     
+    | "\\\""                                     
+    | "\\b"                                      
+    | "\\n"                                      
+    | "\\r"                                      
+    | "\\t"                                      
+    | "\\u" hexDigit hexDigit hexDigit hexDigit                                 -- unicode
+    | "\\x" hexDigit hexDigit                                                   -- ascii
+
+  space
+   += comment
+
+  comment
+    = "//" (~"\n" any)* "\n"  
+    | "/*" (~"*/" any)* "*/"  
+
+  tokens = token*
+
+  token = comment | ident | operator | punctuation | terminal | any
+
+  operator = "<:" | "=" | ":=" | "+=" | "*" | "+" | "?" | "~" | "&"
+
+  punctuation = "<" | ">" | "," | "--"
+
+  kw<k> = k ~nameRest
+
+  type_ = kw<"type">
+  grammar_ = kw<"grammar">
+  meta_ = kw<"meta">
+  null_ = kw<"null">
+  token_ = kw<"token">
+
+  reserved = type_ | grammar_ | meta_ | null_ | token_
+
+  Name = ~reserved name
+}

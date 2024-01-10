@@ -1,0 +1,36 @@
+% meow/1
+
+// -- Constructors -------------------------------------------------------------
+def #result from(Maybe: maybe<T>) -> result<T, nothing> {
+  when {
+    Maybe is maybe..some => #result ok(Maybe unwrap());
+    Maybe is maybe..none => #result error(nothing);
+  }
+}
+
+def #result from(nullable Value: nothing) -> result<T, E> {
+  new result..error(nothing);
+}
+
+def #result from(nullable Value: T) -> result<T, E> {
+  new result..ok(value);
+}
+
+def #result ok(value: T) -> result<T, E> {
+  new result..ok(value);
+}
+
+def #result error(reason: E) -> result<T, E> {
+  new result..error(reason);
+}
+
+
+// -- Getters ------------------------------------------------------------------
+def result..ok unwrap() = self.value;
+
+def result..ok unwrap(default _: T) = self.value;
+def result..error unwrap(default Value: T) = Value;
+
+def result..ok unwrap-or-panic(Message: text) = self.value;
+def result..error unwrap-or-panic(Message: text) = #panic raise(message: Message, data: self);
+

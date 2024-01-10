@@ -1,0 +1,251 @@
+% meow/1
+
+// TODO: tests for trapped overflow/underflow
+
+// -- Arithmetic ---------------------------------------------------------------
+def f64 + (X: f64) -> f64 {
+  primitive f64.add(self, X);
+} test {
+  assert 0.0f + 0.0f ==> 0.0f;
+  assert 1.0f + 0.0f ==> 1.0f;
+  assert 0.0f + 1.0f ==> 1.0f;
+  assert -3.0f + 1.0f ==> -2.0f;
+  assert 5.0f + 3.0f ==> 8.0f;
+  assert 20.0f + 22.0f ==> 42.0f;
+}
+
+def f64 - (X: f64) -> f64 {
+  primitive f64.sub(self, X);
+} test {
+  assert 0.0f - 0.0f ==> 0.0f;
+  assert 1.0f - 0.0f ==> 1.0f;
+  assert 0.0f - 1.0f ==> -1.0f;
+  assert -3.0f - 1.0f ==> -4.0f;
+  assert 5.0f - 3.0f ==> 2.0f;
+  assert 20.0f - 22.0f ==> -2.0f;
+  assert 22.0f - 20.0f ==> 2.0f;
+}
+
+def f64 * (X: f64) -> f64 {
+  primitive f64.mul(self, X);
+} test {
+  assert 0.0f * 0.0f ==> 0.0f;
+  assert 1.0f * 0.0f ==> 0.0f;
+  assert 0.0f * 1.0f ==> 0.0f;
+  assert 1.0f * 1.0f ==> 1.0f;
+  assert 20.0f * 2.0f ==> 40.0f;
+}
+
+def f64 \ (X: f64) -> f64 {
+  assert X =/= 0.0f :: non-zero-divisor;
+  primitive f64.idiv(self, X);
+} test {
+  assert 4.0f \ 2.0f ==> 2.0f;
+  assert 3.0f \ 2.0f ==> 1.0f;
+  assert 1.0f \ 3.0f ==> 0.0f;
+  assert 0.0f \ 1.0f ==> 0.0f;
+  assert 3.0f \ -1.0f ==> -3.0f;
+  // TODO: test trapped divide by zero
+}
+
+def f64 / (X: f64) -> f64 {
+  assert X =/= 0.0f :: non-zero-divisor;
+  primitive f64.div(self, X);
+} test {
+  assert 3.0f / 2.0f ==> 1.5f;
+}
+
+def f64 ** (X: f64) -> f64 {
+  assert X >= 0.0f :: positive-exponent;
+  primitive f64.pow(self, X);
+} test {
+  assert 1.0f ** 0.0f ==> 1.0f;
+  assert 0.0f ** 0.0f ==> 1.0f;
+  assert 3.0f ** 0.0f ==> 1.0f;
+  assert 1.0f ** 1.0f ==> 1.0f;
+  assert -1.0f ** 1.0f ==> -1.0f;
+  assert 2.0f ** 6.0f ==> 64.0f;
+}
+
+def f64 % (X: f64) -> f64 {
+  assert X =/= 0.0f :: non-zero-divisor;
+  primitive f64.mod(self, X);
+} test {
+  assert 4.0f % 2.0f ==> 0.0f;
+  assert 3.0f % 2.0f ==> 1.0f;
+  assert 1.0f % 3.0f ==> 1.0f;
+  assert 0.0f % 1.0f ==> 0.0f;
+  assert 3.0f % -1.0f ==> 0.0f;
+  assert (123456789.0f % 12.0f) ==> 9.0f;
+}
+
+// -- Relational ---------------------------------------------------------------
+// TODO: remove equality from floats?
+def f64 === (X: f64) -> bool {
+  primitive f64.eq(self, X);
+} test {
+  assert 0.0f === 0.0f;
+  assert 1.0f === 1.0f;
+  assert not (1.0f === -1.0f);
+  assert not (1.0f === 2.0f);
+}
+
+def f64 =/= (X: f64) -> bool {
+  primitive f64.neq(self, X);
+} test {
+  assert 1.0f =/= -1.0f;
+  assert 1.0f =/= 2.0f;
+  assert not (0.0f =/= 0.0f);
+  assert not (1.0f =/= 1.0f);
+}
+
+def f64 < (X: f64) -> bool {
+  primitive f64.lt(self, X);
+} test {
+  assert 0.0f < 1.0f;
+  assert -1.0f < 0.0f;
+  assert not (0.0f < 0.0f);
+  assert not (1.0f < 0.0f);
+}
+
+def f64 <= (X: f64) -> bool {
+  primitive f64.lte(self, X);
+} test {
+  assert 0.0f <= 1.0f;
+  assert -1.0f <= 0.0f;
+  assert 0.0f <= 0.0f;
+  assert not (1.0f <= 0.0f);
+}
+
+def f64 > (X: f64) -> bool {
+  primitive f64.gt(self, X);
+} test {
+  assert 1.0f > 0.0f;
+  assert 0.0f > -1.0f;
+  assert not (0.0f > 0.0f);
+  assert not (0.0f > 1.0f);
+}
+
+def f64 >= (X: f64) -> bool {
+  primitive f64.gte(self, X);
+} test {
+  assert 1.0f >= 0.0f;
+  assert 0.0f >= -1.0f;
+  assert 0.0f >= 0.0f;
+  assert not (0.0f >= 1.0f);
+}
+
+def f64 compare-to(X: f64) -> ordering {
+  when {
+    self < X => ordering..less-than;
+    self === X => ordering..equal;
+    self > X => ordering..greater-than;
+  }
+}
+
+// -- Floating point-specific --------------------------------------------------
+def f64 is-nan() -> bool {
+  primitive f64.is-nan(self);
+} test {
+  assert #f64 nan() is-nan();
+  assert not (1.0f is-nan());
+}
+
+def f64 is-finite() -> bool {
+  primitive f64.is-finite(self);
+} test {
+  assert not (#f64 positive-infinity() is-finite());
+  assert not (#f64 negative-infinity() is-finite());
+  assert 1.0f is-finite();
+  assert (1.0f / 3.0f) is-finite();
+}
+
+def #f64 nan() -> f64 {
+  primitive f64.nan();
+}
+
+def #f64 positive-infinity() -> f64 {
+  primitive f64.positive-inf();
+}
+
+def #f64 negative-infinity() -> f64 {
+  primitive f64.negative-inf();
+}
+
+// -- Rounding -----------------------------------------------------------------
+def f64 truncate() -> f64 {
+  primitive f64.truncate(self);
+}
+
+def f64 floor() -> f64 {
+  primitive f64.floor(self);
+}
+
+def f64 ceiling() -> f64 {
+  primitive f64.ceiling(self);
+}
+
+def f64 round() -> f64 {
+  primitive f64.round(self);
+}
+
+// -- Other transformations ----------------------------------------------------
+def -f64 -> f64 {
+  primitive f64.negate(self);
+} test {
+  assert -(0.0f) ==> 0.0f;
+  assert -(1.0f) ==> -1.0f;
+  assert -(-1.0f) ==> 1.0f;
+}
+
+def f64 absolute() -> f64 {
+  when {
+    self < 0.0f => -(self);
+    otherwise => self;
+  }
+} test {
+  assert 0.0f absolute() ==> 0.0f;
+  assert 1.0f absolute() ==> 1.0f;
+  assert -1.0f absolute() ==> 1.0f;
+}
+
+// -- Conversions --------------------------------------------------------------
+def f64 as text {
+  primitive f64.to-text(self);
+} test {
+  assert 123.0f as text ==> "123";
+}
+
+def f64 as i32 {
+  primitive f64.to-i32(self);
+} test {
+  assert 4.0f as i32 ==> 4n;
+  assert -4.0f as i32 ==> -4n;
+  assert 2.7f as i32 ==> 2n;
+}
+
+def f64 as integer {
+  primitive f64.to-integer(self);
+} test {
+  assert 4.0f as integer ==> 4;
+  assert -4.0f as integer ==> -4;
+  assert 2.7f as integer ==> 2;
+}
+
+def f64 as bool {
+  primitive f64.to-bool(self);
+} test {
+  assert 1.0f as bool ==> true;
+  assert -1.0f as bool ==> true;
+  assert 0.0f as bool ==> false;
+}
+
+def #f64 parse(Value: text) -> maybe<f64> {
+  #maybe from(nullable: primitive f64.parse(Value));
+} test {
+  assert #f64 parse("1") unwrap() ==> 1.0f;
+  assert #f64 parse("100_000.10") unwrap() ==> 100_000.10f;
+  assert #f64 parse("-123.456") unwrap() ==> -123.456f;
+  assert #f64 parse("NaN") ==> maybe..none;
+  assert #f64 parse("123f") ==> maybe..none;
+}

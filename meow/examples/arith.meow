@@ -1,0 +1,19 @@
+% meow/1
+
+union expr {
+  add(x: expr, y: expr);
+  num(x: i32);
+}
+
+def expr..add eval() -> i32 {
+  self.x eval() + self.y eval();
+}
+
+def expr..num eval() -> i32 {
+  self.x;
+}
+
+def main(_) {
+  let N = new expr..add(x: new expr..num(x: 1n), y: new expr..num(x: 2n));
+  transcript log(N eval());
+}

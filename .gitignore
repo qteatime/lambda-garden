@@ -1,0 +1,6 @@
+node_modules
+build/
+.binary/
+*.tsbuildinfo
+.vscode/
+**/examples/**/*.js

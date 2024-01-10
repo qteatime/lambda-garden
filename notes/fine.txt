@@ -1,0 +1,53 @@
+Finé
+----
+
+A programming language for describing capability-secure interfaces between
+different systems, processes, and locations. Essentially this plays in a
+similar field to things like COM and Protocol Buffers, but it does not
+concern itself with long-lived data structures (see LJT for that!).
+
+
+Example:
+--------
+
+    % fine/1
+
+    service echo {
+      def say(message: text) -> sayee;
+    }
+
+    service sayee {
+      def read() -> text;
+    }
+
+An application with this schema is then able to acquire an `echo` service
+and use the `say` method to acquire a `sayee` service. Services live entirely
+on their origin nodes. Clients get an "unforgeable" remote reference to
+the service in the origin node whenever a service crosses wires (similar to
+how remote actors and membranes work in languages like Pony or E), whereas
+regular data types always have value semantics and may be either copied or
+shared (if both ends are guaranteed to interact with it using only value
+semantics --- this makes sharing immutable structures cheap, and sharing
+mutable structures possible).
+
+
+The types:
+----------
+
+Finé offers a similar set of types to Meow, with roughly the same semantics:
+
+- Sized integers (`i8`, `i16`, `i32`, `i64` and their unsigned variant -- `u*`);
+- Sized IEEE754 floating points (`f32`, `f64`);
+- Arbitrary precision integers (`integer`);
+- Booleans (`bool`);
+- Opaque unicode text values, automatically converted (`text`);
+- The empty/null type (`nothing`);
+- Byte arrays (`byte-array`);
+- Generic arrays of a specific type (`array<T>`);
+- Hash maps with hashable scalars as keys (`map<K, V>`);
+- Streams (`stream<T>`);
+- Structs, discriminated unions, and enumerations;
+
+Services are likewise their own type, and always shared as a remote,
+capability secure reference. Streams are also shared as a remote
+capability with backpressure support.

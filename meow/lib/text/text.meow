@@ -1,0 +1,131 @@
+% meow/1
+
+// -- Getters ------------------------------------------------------------------
+def text count-code-units() -> i32 {
+  primitive text.count-code-units(self);
+}
+
+// -- Constructors and combiners -----------------------------------------------
+def text replicate(Times: i32) -> text {
+  primitive text.repeat(self, Times);
+} test {
+  assert ("" replicate(1n)) ==> "";
+  assert ("a" replicate(1n)) ==> "a";
+  assert ("a" replicate(5n)) ==> "aaaaa";
+}
+
+def text ++ (Part: text) -> text {
+  primitive text.concat(self, Part);
+} test {
+  assert "" ++ "" ==> "";
+  assert "a" ++ "" ==> "a";
+  assert "" ++ "a" ==> "a";
+  assert "a" ++ "b" ==> "ab";
+}
+
+def #text from-utf8-bytes(Bytes: byte-array) -> maybe<text> {
+  #maybe from(nullable: primitive text.from-utf8-bytes(Bytes));
+}
+
+def #text from-utf16-code-points(Code-points: array) -> maybe<text> {
+  #maybe from(nullable: primitive text.from-utf16-code-points(Code-points));
+}
+
+// -- Sub-strings --------------------------------------------------------------
+def text slice(from Start: i32, to End: i32) -> text {
+  assert Start >= 0n :: positive-start;
+  assert End >= Start :: positive-slice;
+  primitive text.slice(self, Start, End);
+} test {
+  assert "anne" slice(from: 2n, to: 4n) ==> "ne";
+}
+
+def text slice(from Start: i32) -> text {
+  primitive text.slice_from(self, Start);
+} test {
+  assert "anne" slice(from: 2n) ==> "ne";
+  assert "anne" slice(from: -2n) ==> "ne";
+}
+
+// -- Tests --------------------------------------------------------------------
+def text is-empty() -> bool {
+  self =:= "";
+} test {
+  assert "" is-empty();
+  assert not "abc" is-empty();
+  assert not "​" is-empty(); // zero-width space (u200B)
+}
+
+def text ends-with(Part: text) -> bool {
+  primitive text.ends-with(self, Part);
+} test {
+  assert "abc" ends-with("c");
+  assert not ("" ends-with("c"));
+  assert "hello" ends-with("llo");
+  assert not ("hello" ends-with("he"));
+}
+
+def text starts-with(Part: text) -> bool {
+  primitive text.starts-with(self, Part);
+} test {
+  assert "abc" starts-with("a");
+  assert not ("" starts-with("c"));
+  assert "hello" starts-with("he");
+  assert not ("hello" starts-with("llo"));
+}
+
+def text contains(Part: text) -> bool {
+  primitive text.contains(self, Part);
+} test {
+  assert not ("" contains("a"));
+  assert "hello" contains("he");
+  assert "hello" contains("ell");
+  assert "hello" contains("lo");
+  assert not ("hello" contains("oll"));
+}
+
+// -- Normalisation ------------------------------------------------------------
+def text trim-start() -> text {
+  primitive text.trim-start(self);
+} test {
+  assert "" trim-start() ==> "";
+  assert "abc" trim-start() ==> "abc";
+  assert "  \t\n\r abc" trim-start() ==> "abc";
+  assert "  abc  " trim-start() ==> "abc  ";
+}
+
+def text trim-end() -> text {
+  primitive text.trim-end(self);
+} test {
+  assert "" trim-end() ==> "";
+  assert "abc" trim-end() ==> "abc";
+  assert "abc  \t\n\r" trim-end() ==> "abc";
+  assert "  abc  " trim-end() ==> "  abc";
+}
+
+def text trim() -> text {
+  primitive text.trim(self);
+} test {
+  assert "" trim() ==> "";
+  assert "abc" trim() ==> "abc";
+  assert "  \t\n\r abc" trim() ==> "abc";
+  assert "abc  \t\n\r" trim() ==> "abc";
+  assert "  abc  " trim() ==> "abc";
+}
+
+// -- Views --------------------------------------------------------------------
+def text utf8-bytes() -> byte-array {
+  primitive text.utf8-bytes(self);
+}
+
+def text utf16-code-points() -> array<i32> {
+  primitive text.utf16-code-points(self);
+}
+
+def text graphemes() -> array<grapheme-cluster> {
+  primitive text.graphemes(self);
+}
+
+def text lines() -> array<text> {
+  primitive text.lines(self);
+}

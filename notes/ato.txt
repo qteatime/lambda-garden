@@ -1,0 +1,63 @@
+Ato
+---
+
+The primary characteristics of Ato is that it's a language for describing
+logical rules for a turn-based simulation. These simulations use logic
+rules to specify possible actions, and a goal that must be attained.
+The difference is that we're not trying to *solve* for that goal, but
+only eventually arrive there if possible. To that end actions are either
+chosen by the player or using a weighted choice by the runtime. The weighted
+choice on the other hand can be used to, e.g.: give NPC AIs a way of being
+more likely to choose one goal over another, inching closer to their target
+goal.
+
+
+The language is made out of:
+
+  - Actions: specify the space of possible moves in the game for each
+    turn-taker, their likelihood of being chosen by the runtime, and
+    the consequences of choosing it.
+
+  - Events: specify reactions to the current game's state; all available
+    events are automatically executed by the runtime after a turn ends.
+
+  - Signals: allow an embedder to react to things that happen inside the
+    simulation (e.g.: by updating the sprites on the screen according to
+    the state changes).
+
+  - Stages: allow grouping actions and events so a simulation can more
+    easily run with a subset of them. This allows more easily having
+    specific actions for chapter 1 and different actions for chapter 2,
+    for example.
+
+  - Simulations: allow specifying how to execute these actions and when
+    the simulation ends.
+
+Which gives rise to:
+
+    P :: magica query;
+    S :: ato statement;
+    G :: ato goal;
+
+    Declaration d ::
+      | action Type name(Params) when P rank F do S;
+      | event name when P do S;
+      | simulation name(Params) in St for [V...] until G;
+      | signal name(Params);
+
+    Statement s ::
+      | fact P;
+      | forget P;
+      | emit Sg;
+      | e
+
+    Expr e ::
+      | x(...)
+      | if e then e else e
+      | x | v
+
+    Goal g ::
+      | quiescence
+      | action quiescence
+      | event quiescence
+      | P;

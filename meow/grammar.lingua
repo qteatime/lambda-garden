@@ -27,6 +27,10 @@ type MDecl =
   | Implement(info: Meta?, name: string, typ: MType, decls: MDecl[])
   | OpenPkg(info: Meta?, name: string, alias: string?)
   | DeclareType(info: Meta?, name: string)
+  | Effect(info: Meta?, name: string, cases: EffectCase[])
+  | Handler(info: Meta?, name: string, params: MParam[], init: MExpr?, cases: HandlerCase[], auto_install: boolean)
+
+type EffectCase(info: Meta?, name: string, params: Field[], ret: MType, nonlocal_ret: MType?)
 
 type TraitReq =
   | Required(name: string, params: MParam[])
@@ -84,12 +88,21 @@ type MExpr =
   | Lambda(info: Meta?, params: string[], body: MExpr)
   | Apply(info: Meta?, callee: MExpr, args: MExpr[])
   | Record(info: Meta?, fields: EPair[])
+  | Extend(info: Meta?, object: MExpr, fields: EPair[])
   | Pipe(info: Meta?, left: MExpr, right: MExpr)
   | Foreign(info: Meta?, name: string, args: MExpr[])
   | Repeat(info: Meta?, bindings: EBind[], body: MExpr)
   | Continue(info: Meta?, bindings: EPair[])
   | Break(info: Meta?, value: MExpr)
   | Binary(info: Meta?, elements: EBinElement[])
+  | Handle(info: Meta?, body: MExpr, handlers: HandlerCase[])
+  | Perform(info: Meta?, name: MRef, args: MExpr[])
+  | ResumeWith(info: Meta?, value: MExpr)
+  | AbortWith(info: Meta?, value: MExpr)
+
+type HandlerCase =
+  | On(info: Meta?, name: MRef, params: string[], body: MExpr)
+  | Use(info: Meta?, name: MRef, args: MInvokeArg[])
 
 type EBind(name: string, typ: MType, value: MExpr)
 
@@ -124,8 +137,10 @@ type MConst =
   | False(info: Meta?)
   | Int32(info: Meta?, value: bigint)
   | Int(info: Meta?, value: bigint)
+  | Int64(info: Meta?, value: bigint)
   | Float(info: Meta?, value: number)
   | Text(info: Meta?, value: string)
+  | TemplateText(info: Meta?, value: string)
   | Nothing(info: Meta?)
 
 
@@ -134,6 +149,7 @@ grammar Meow_Grammar : MModule {
     | header xs:Declaration* end                                                -> MModule(meta, xs)
 
   Declaration =
+    | DHandler
     | DFun
     | DDeclare
     | DStruct
@@ -144,6 +160,7 @@ grammar Meow_Grammar : MModule {
     | DOpen
     | DTrait
     | DImplement
+    | DEffect
 
   // == FUNCTIONS ==============================================================
   DFun =
@@ -164,7 +181,6 @@ grammar Meow_Grammar : MModule {
   DFParam =
     | k:atom n:variable ":" t:Type                                              -> MParam(meta, k, n, t)
     | n:variable ":" t:Type                                                     -> MParam(meta, null, n, t)
-    | k:atom ":" t:Type                                                         -> MParam(meta, k, null, t)
     | n:variable                                                                -> MParam(meta, null, n, MType.Infer(meta))
     | t:Type                                                                    -> MParam(meta, null, null, t)
 
@@ -193,7 +209,7 @@ grammar Meow_Grammar : MModule {
     | singleton_ n:name ";"                                                     -> MDecl.Singleton(meta, n)
 
   DUnion =
-    | union_ n:name "{" xs:DUVariant+ "}"                                       -> MDecl.Union(meta, n, xs)
+    | union_ n:name "{" xs:DUVariant* "}"                                       -> MDecl.Union(meta, n, xs)
 
   DUVariant =
     | n:name "(" xs:CommaList<DSField> ")" ";"                                  -> Variant(meta, n, xs)
@@ -203,6 +219,24 @@ grammar Meow_Grammar : MModule {
     | n:name ":" t:Type                                                         -> Field(meta, n, t)
     | n:name                                                                    -> Field(meta, n, MType.Infer(meta))
 
+
+  // == EFFECTS AND HANDLERS ===================================================
+  DEffect =
+    | effect_ n:name "{" xs:DECase* "}"                                         -> MDecl.Effect(meta, n, xs)
+
+  DECase =
+    | n:name "(" xs:CommaList<DSField> ")" r:DFRet nr:DENLRet ";"               -> EffectCase(meta, n, xs, r, nr)
+
+  DENLRet =
+    | "," nonlocal_ t:Type                                                      -> t
+    |                                                                           -> null
+
+  DHandler =
+    | default_ h:DHandlerDef                                                    -> MDecl.Handler(meta, h.name, h.params, h.init, h.cases, true)
+    | DHandlerDef
+
+  DHandlerDef =
+    | handler_ n:name "(" ps:CommaList<DFParam> ")" e:EBlock? with_ "{" xs:EHCase* "}"              -> MDecl.Handler(meta, n, ps, e, xs, false)
 
   // == TYPES AND REFS =========================================================
   TTop = Type
@@ -244,7 +278,7 @@ grammar Meow_Grammar : MModule {
     | implement_ n:name for_ t:Type "{" xs:DTFun+ "}"                           -> MDecl.Implement(meta, n, t, xs)
 
   DTReq =
-    | requires_ trait_ Ref                                                      -> null
+    | requires_ trait_ Ref ";"                                                  -> null
     | def_ Type n:name "(" xs:CommaList<DTParam> ")" DFRet ";"                  -> TraitReq.Required(n, xs)
     | x:DTFun                                                                   -> TraitReq.Provided(x)
 
@@ -270,14 +304,21 @@ grammar Meow_Grammar : MModule {
   Expr =
     | EBasic
 
-  EBasic =
-    | EBlock
+  EBasicBlock =
     | EIf
     | ERepeat
+    | EHandle
+    | EDoBlock
+
+  EBasic =
+    | EBasicBlock
     | ESimple
 
   EBlock =
     | "{" xs:Exprs "}"                                                          -> MExpr.Block(meta, xs)
+
+  EDoBlock =
+    | do_ e:EBlock                                                              -> e
 
   ETrail =
     | x:ESimple ";"                                                             -> x
@@ -304,10 +345,18 @@ grammar Meow_Grammar : MModule {
     | otherwise_ "=>" b:ETrail                                                  -> MIfClause(meta, MExpr.Const(meta, MConst.True(meta)), b)
     | e:ESimple "=>" b:ETrail                                                   -> MIfClause(meta, e, b)
 
+  EHandle =
+    | handle_ e:EBlock with_ "{" xs:EHCase* "}"                                 -> MExpr.Handle(meta, e, xs)
+
+  EHCase =
+    | on_ n:Ref "(" xs:CommaList<variable> ")" e:EBlock                         -> HandlerCase.On(meta, n, xs, e)
+    | use_ n:Ref "(" xs:CommaList<EInvokeArg> ")" ";"                           -> HandlerCase.Use(meta, n, xs)
+
   ESimple =
     | ELet
     | EAssert
     | EStructControl
+    | EHandleControl
     | ETop
 
   ELet =
@@ -323,6 +372,10 @@ grammar Meow_Grammar : MModule {
     | continue_                                                                 -> MExpr.Continue(meta, [])
     | break_ with_ x:ETop                                                       -> MExpr.Break(meta, x)
     | break_                                                                    -> MExpr.Break(meta, MExpr.Const(meta, MConst.Nothing(meta)))
+
+  EHandleControl =
+    | resume_ with_ x:ETop                                                      -> MExpr.ResumeWith(meta, x)
+    | abort_ with_ x:ETop                                                       -> MExpr.AbortWith(meta, x)
 
   ETop =
     | ELazy
@@ -360,6 +413,7 @@ grammar Meow_Grammar : MModule {
     | n:name "(" xs:CommaList<EInvokeArg> ")"                                   -> MExpr.Invoke(meta, n, xs)
     | primitive_ n:foreign_name "(" xs:CommaList<ETop> ")"                      -> MExpr.Primitive(meta, n, xs)
     | foreign_ n:foreign_name "(" xs:CommaList<ETop> ")"                        -> MExpr.Foreign(meta, n, xs)
+    | perform_ n:Ref "(" xs:CommaList<ETop> ")"                                 -> MExpr.Perform(meta, n, xs)
     | EForce
 
   EVPair =
@@ -383,6 +437,10 @@ grammar Meow_Grammar : MModule {
     | new_ n:Ref "(" xs:CommaList<EPair> ")"                                    -> MExpr.New(meta, n, xs)
     | new_ n:Ref "(" xs:CommaList<ETop> ")"                                     -> MExpr.NewPos(meta, n, xs)
     | n:Ref ".." v:atom                                                         -> MExpr.GetVariant(meta, n, v)
+    | EExtend
+
+  EExtend =
+    | o:EMember r:ERecord                                                       -> MExpr.Extend(meta, o, r.fields)
     | EMember
 
   EPair =
@@ -404,6 +462,7 @@ grammar Meow_Grammar : MModule {
     | EBinary
     | EMap
     | ELambda
+    | EBasicBlock
     | "(" e:Expr ")"                                                            -> e
 
   EList =
@@ -451,10 +510,12 @@ grammar Meow_Grammar : MModule {
   // == CONSTANTS ==============================================================
   Const =
     | x:float #"f"                                                              -> MConst.Float(meta, x)
-    | x:integer #"n"                                                            -> MConst.Int32(meta, x)
+    | x:integer #"s"                                                            -> MConst.Int32(meta, x)
+    | x:integer #"L"                                                            -> MConst.Int64(meta, x)
     | x:integer                                                                 -> MConst.Int(meta, x)
     | true_                                                                     -> MConst.True(meta)
     | false_                                                                    -> MConst.False(meta)
+    | x:template_text                                                           -> MConst.TemplateText(meta, x)
     | x:text                                                                    -> MConst.Text(meta, x)
     | nothing_                                                                  -> MConst.Nothing(meta)
 
@@ -535,7 +596,7 @@ grammar Meow_Grammar : MModule {
   // -- Text -------------------------------------------------------------------
   token text_character =
     | "\\" escape_sequence
-    | ~("\"" | "[" | "]") any
+    | ~("\"") any
 
   token escape_sequence =
     | "u" hex_digit hex_digit hex_digit hex_digit
@@ -544,9 +605,16 @@ grammar Meow_Grammar : MModule {
 
   token t_text (a text) =
     | "\"" text_character* "\""
-  
-  text = x:t_text -> @parse_string(x)
 
+  token ttext_char =
+    | "\\" escape_sequence
+    | ~("\"\"\"") any
+
+  token t_template_text (a template text) =
+    | "\"" ttext_char* "\""
+
+  text = x:t_text -> @parse_string(x)
+  template_text = "\"\"" x:t_text "\"\"" -> @parse_string(x)
 
   // -- Operators --------------------------------------------------------------
   token any_binary_op (any binary operator) =
@@ -628,16 +696,38 @@ grammar Meow_Grammar : MModule {
   open_ = kw<"open">
   package_ = kw<"package">
   declare_ = kw<"declare">
+  effect_ = kw<"effect">
+  nonlocal_ = kw<"nonlocal">
+  handle_ = kw<"handle">
+  perform_ = kw<"perform">
+  resume_ = kw<"resume">
+  abort_ = kw<"abort">
+  on_ = kw<"on">
+  do_ = kw<"do">
+  handler_ = kw<"handler">
+  default_ = kw<"default">
+  use_ = kw<"use">
 
 
   reserved =
-    | def_ | when_ | otherwise_
-    | nothing_
-    | self_ | is_ | not_ | and_ | or_ | true_ | false_ | new_ | struct_
-    | let_ | union_ | lazy_ | force_ | assert_ | test_ | as_
-    | primitive_ | singleton_ | import_ | requires_ | trait_ | in_ | implement_
-    | for_ | foreign_ | repeat_ | continue_ | break_ | with_ | open_ | package_
-    | declare_
+    | and_ | assert_ | as_ | abort_
+    | break_
+    | continue_
+    | default_ | def_ | declare_ | do_
+    | effect_
+    | handler_ | handle_    
+    | false_ | force_ | for_ | foreign_
+    | is_ | import_ | in_ | implement_
+    | let_ | lazy_
+    | nothing_ | not_ | new_ | nonlocal_
+    | otherwise_ | or_ | open_ | on_
+    | primitive_ | package_ | perform_
+    | requires_ | repeat_ | resume_
+    | self_ | struct_ | singleton_
+    | true_ | test_ | trait_
+    | union_ | use_
+    | when_ | with_
+
 
   // -- REPL -------------------------------------------------------------------
   Repl =

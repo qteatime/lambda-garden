@@ -1,0 +1,89 @@
+% meow/1
+
+//#region - 64-bit floating points (f64) ---------------------------------------
+def f64 + (X: f64) -> f64 {
+  primitive f64.add(self, X);
+} test {
+  assert 0.0f + 0.0f ==> 0.0f;
+  assert 1.0f + 0.0f ==> 1.0f;
+  assert 0.0f + 1.0f ==> 1.0f;
+  assert -3.0f + 1.0f ==> -2.0f;
+  assert 5.0f + 3.0f ==> 8.0f;
+  assert 20.0f + 22.0f ==> 42.0f;
+}
+
+def f64 - (X: f64) -> f64 {
+  primitive f64.sub(self, X);
+} test {
+  assert 0.0f - 0.0f ==> 0.0f;
+  assert 1.0f - 0.0f ==> 1.0f;
+  assert 0.0f - 1.0f ==> -1.0f;
+  assert -3.0f - 1.0f ==> -4.0f;
+  assert 5.0f - 3.0f ==> 2.0f;
+  assert 20.0f - 22.0f ==> -2.0f;
+  assert 22.0f - 20.0f ==> 2.0f;
+}
+
+def f64 * (X: f64) -> f64 {
+  primitive f64.mul(self, X);
+} test {
+  assert 0.0f * 0.0f ==> 0.0f;
+  assert 1.0f * 0.0f ==> 0.0f;
+  assert 0.0f * 1.0f ==> 0.0f;
+  assert 1.0f * 1.0f ==> 1.0f;
+  assert 20.0f * 2.0f ==> 40.0f;
+}
+
+def f64 \ (X: f64) -> f64 {
+  assert X =/= 0.0f :: non-zero-divisor;
+  primitive f64.idiv(self, X);
+} test {
+  assert 4.0f \ 2.0f ==> 2.0f;
+  assert 3.0f \ 2.0f ==> 1.0f;
+  assert 1.0f \ 3.0f ==> 0.0f;
+  assert 0.0f \ 1.0f ==> 0.0f;
+  assert 3.0f \ -1.0f ==> -3.0f;
+  assert panic catch({ 3.0f \ 0.0f }) is result..error;
+}
+
+def f64 / (X: f64) -> f64 {
+  assert X =/= 0.0f :: non-zero-divisor;
+  primitive f64.div(self, X);
+} test {
+  assert 3.0f / 2.0f ==> 1.5f;
+  assert panic catch({ 3.0f / 0.0f }) is result..error;
+}
+
+def f64 ** (X: f64) -> f64 {
+  assert X >= 0.0f :: positive-exponent;
+  primitive f64.pow(self, X);
+} test {
+  assert 1.0f ** 0.0f ==> 1.0f;
+  assert 0.0f ** 0.0f ==> 1.0f;
+  assert 3.0f ** 0.0f ==> 1.0f;
+  assert 1.0f ** 1.0f ==> 1.0f;
+  assert -1.0f ** 1.0f ==> -1.0f;
+  assert 2.0f ** 6.0f ==> 64.0f;
+}
+
+def f64 % (X: f64) -> f64 {
+  assert X =/= 0.0f :: non-zero-divisor;
+  primitive f64.mod(self, X);
+} test {
+  assert 4.0f % 2.0f ==> 0.0f;
+  assert 3.0f % 2.0f ==> 1.0f;
+  assert 1.0f % 3.0f ==> 1.0f;
+  assert 0.0f % 1.0f ==> 0.0f;
+  assert 3.0f % -1.0f ==> 0.0f;
+  assert (123456789.0f % 12.0f) ==> 9.0f;
+}
+
+def -f64 -> f64 {
+  primitive f64.negate(self);
+} test {
+  assert -(0.0f) ==> 0.0f;
+  assert -(1.0f) ==> -1.0f;
+  assert -(-1.0f) ==> 1.0f;
+}
+//#endregion
+

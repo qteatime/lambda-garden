@@ -1,0 +1,79 @@
+% meow/1
+
+// -- Layouting ----------------------------------------------------------------
+struct layout-ctx(output: mutable-array<flat>, column: int);
+
+def p layout(Doc: doc) -> array<flat> {
+  let Output = #mutable-array empty();
+  let Layout = new layout-ctx(output: Output, column: 0) lay(Doc, indent: 0);
+  Layout.output read-only();
+}
+
+def layout-ctx lay(Doc: doc..empty, indent I: int) =
+  self;
+
+def layout-ctx lay(Doc: doc..line-break, indent I: int) {
+  self.output append(new flat..line(I));
+  self#(column: I);
+}
+
+def layout-ctx lay(Doc: doc..space, indent I: int) {
+  self.output append(new flat..text(" "));
+  self#(column: self.column + 1);
+}
+
+def layout-ctx lay(Doc: doc..text, indent I: int) {
+  self.output append(new flat..text(Doc.content));
+  self#(column: self.column + Doc.content count-code-units());
+}
+
+def layout-ctx lay(Doc: doc..stack, indent I: int) {
+  Doc.children
+    intersperse(doc..line-break)
+    fold(from: self, with: _ lay(_, indent: I));
+}
+
+def layout-ctx lay(Doc: doc..concat, indent I: int) {
+  self lay(Doc.left, indent: I)
+       lay(Doc.right, indent: I);
+}
+
+def layout-ctx lay(Doc: doc..indent, indent I: int) {
+  self lay(Doc.child, indent: Doc.padding + I);
+}
+
+def layout-ctx lay(Doc: doc..source-info, indent I: int) {
+  self.output append(new flat..source-info(Doc));
+  self;
+}
+
+
+// -- Rendering ----------------------------------------------------------------
+def p print(Doc: doc) {
+  self layout(Doc) fold(from: "", with: {Acc, X in Acc ++ X print() });  
+}
+
+def flat..text print() = self.content;
+def flat..line print() = "\n" ++ " " replicate(self.indent);
+def flat..source-info print() = "";
+
+
+test "basic rendering" {
+  assert p print(doc..empty) ==> "";
+  assert p print(doc..line-break) ==> "\n";
+  assert p print(doc..space) ==> " ";
+  assert p print(new doc..text("hello")) ==> "hello";
+
+  assert p print(new doc..stack([
+    new doc..text("a"),
+    new doc..text("b"),
+    new doc..text("c")
+  ])) ==> "a\nb\nc";
+
+  assert p print(new doc..concat(doc..empty, new doc..text("a"))) ==> "a";
+  assert p print(new doc..concat(new doc..text("a"), doc..empty)) ==> "a";
+  assert p print(new doc..concat(new doc..text("a"), new doc..text("b"))) ==> "ab";
+  
+  assert p print(new doc..indent(2, new doc..text("a"))) ==> "a";
+  assert p print(new doc..indent(2, new doc..concat(doc..line-break, new doc..text("a")))) ==> "\n  a";
+}

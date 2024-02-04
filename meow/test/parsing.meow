@@ -1,0 +1,23 @@
+% meow/1
+
+test "parsing text" {
+  assert "abc" ==> "abc";
+  assert "a
+          b
+          c" ==> "a\n          b\n          c";
+  assert """
+         a
+          b
+         c
+         """ ==> "a\n b\nc";
+  assert """ a
+          b
+         c
+        d
+       e """ ==> " a\n b\nc\nd\ne ";
+}
+
+test "parsing pipes" {
+  assert (1 |> _ + 1) ==> 2;
+  assert (#(a: 1) |> _.a) ==> 1;
+}

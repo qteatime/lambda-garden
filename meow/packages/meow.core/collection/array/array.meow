@@ -1,0 +1,245 @@
+% meow/1
+
+// -- Equality -----------------------------------------------------------------
+def array<A> === (X: array<A>) -> bool {
+  when {
+    self count() =/= X count() => false;
+    otherwise => self zip(X, with: {A, B in A === B}) all({X in X});
+  }
+}
+
+// -- Container ----------------------------------------------------------------
+def array contains(Value: unknown) -> bool {
+  self some({X in X =:= Value});
+}
+
+// -- Countable container ------------------------------------------------------
+def array count() -> int {
+  primitive array.count(self);
+}
+
+def array is-empty() -> bool {
+  self count() === 0;
+}
+
+// -- Sequence -----------------------------------------------------------------
+def array first!() -> T {
+  self at!(0);
+}
+
+def array rest() -> array<T> {
+  self slice(from: 1) as array;
+}
+
+// -- Finite sequence ----------------------------------------------------------
+def array last!() -> T {
+  self at!(self count() - 1);
+}
+
+def array without-last() -> array<T> {
+  when {
+    self count() < 2 => [];
+    otherwise => self slice(from: 0, to: self count() - 1) as array;
+  }
+}
+
+// -- Appendable sequence ------------------------------------------------------
+def array<T> ++ (That: array<T>) -> array<T> {
+  primitive array.concat(self, That);
+}
+
+def array<T> append(Value: T) -> array<T> {
+  self ++ [Value];
+}
+
+def array<T> prepend(Value: T) -> array<T> {
+  [Value] ++ self;
+}
+
+def #array empty() -> array<T> {
+  [];
+}
+
+// -- Indexed sequence ---------------------------------------------------------
+def array<T> at!(Index: int) -> T {
+  assert (Index >= 0) and (Index < self count()) :: in-range;
+  primitive array.at(self, Index);
+} test {
+  assert [1, 2, 3] at!(0) ==> 1;
+  assert [1, 2, 3] at!(2) ==> 3;
+}
+
+def array<T> at(Index: int) -> maybe<T> {
+  when {
+    (Index < 0) or (Index >= self count()) => maybe..none;
+    otherwise => #maybe some(primitive array.at(self, Index));
+  }
+} test {
+  assert [1, 2, 3] at(-1) ==> maybe..none;
+  assert [1, 2, 3] at(3) ==> maybe..none;
+  assert [1, 2, 3] at(1) unwrap() ==> 2;
+}
+
+// -- Growable indexed sequence ------------------------------------------------
+def array<T> remove(at Index: int) -> array<T> {
+  assert (Index >= 0) and (Index < self count()) :: in-bounds;
+  primitive array.remove-at(self, Index);
+} test {
+  assert [1, 2, 3] remove(at: 1) ==> [1, 3];
+}
+
+def array<T> insert(Value: T, before Index: int) -> array<T> {
+  assert (Index >= 0) and (Index < self count()) :: in-bounds;
+  primitive array.insert-before(self, Index, Value);
+} test {
+  assert [1, 2, 3] insert(9, before: 1) ==> [1, 9, 2, 3];
+}
+
+def array<T> insert(Value: T, after Index: int) -> array<T> {
+  assert (Index >= 0) and (Index < self count()) :: in-bounds;
+  primitive array.insert-after(self, Index, Value);
+} test {
+  assert [1, 2, 3] insert(9, after: 1) ==> [1, 2, 9, 3];
+}
+
+// -- Modifiable indexed sequence ----------------------------------------------
+def array<T> at(Index: int, put Value: T) -> array<T> {
+  assert (Index >= 0) and (Index < self count()) :: in-bounds;
+  primitive array.at-put(self, Index, Value);
+} test {
+  assert [1, 2, 3] at(1, put: 9) ==> [1, 9, 3];
+}
+
+// -- Reversible sequence ------------------------------------------------------
+def array<T> reverse() -> array<T> {
+  primitive array.reverse(self);
+} test {
+  assert [] reverse() ==> [];
+  assert [1, 2, 3] reverse() ==> [3, 2, 1];
+}
+
+// -- Sliceable sequence -------------------------------------------------------
+def array slice(from Start: int, length Length: int) -> array {
+  assert Length >= 0;
+  assert (Start >= 0) and ((Start + Length) <= self count()) :: in-bounds;
+  new array-slice(array: self, offset: Start, length: Length);
+} test {
+  assert [] slice(from: 0, length: 0) as array ==> [];
+  assert [1, 2, 3] slice(from: 0, length: 3) as array ==> [1, 2, 3];
+  assert [1, 2, 3] slice(from: 1, length: 1) as array ==> [2];
+}
+
+def array slice(from Start: int, to Stop: int) {
+  self slice(from: Start, length: Stop - Start);
+}
+
+def array slice(from Start: int) -> array {
+  self slice(from: Start, length: self count() - Start)
+}
+
+def array slice(to End: int) -> array {
+  self slice(from: 0, length: End);
+}
+
+// -- Sortable sequence --------------------------------------------------------
+def array sort(by Compare: lambda-2) -> array {
+  primitive array.sort-by(self, { A, B in Compare(A, B) as int });
+}
+
+def array sort() -> array {
+  self sort(by: { A, B in A compare-to(B) });
+}
+
+// -- Mappable collection ------------------------------------------------------
+def array map(Fn: lambda-1) -> array {
+  primitive array.map(self, Fn);
+}
+
+def array<T> each(Fn: (T) -> nothing) -> nothing {
+  primitive array.each(self, Fn);
+}
+
+// -- Chainable collection -----------------------------------------------------
+def array flat-map(Fn: lambda-1) -> array {
+  primitive array.flat-map(self, Fn);
+}
+
+def array flatten-once() -> array {
+  self flat-map({ X in X });
+}
+
+// -- Filterable collection ----------------------------------------------------
+def array keep-if(Fn: lambda-1) -> array {
+  primitive array.filter(self, Fn);
+}
+
+def array remove-if(Fn: lambda-1) -> array {
+  self keep-if({X in not Fn(X)});
+}
+
+// -- Foldable collection ------------------------------------------------------
+def array fold(from Init: unknown, with Fn: lambda-2) -> unknown {
+  primitive array.fold-left(self, Init, Fn);
+}
+
+def array fold-right(from Init: unknown, with Fn: lambda-2) -> unknown {
+  primitive array.fold-right(self, Init, Fn);
+}
+
+def array fold(with Fn: lambda-2) -> unknown {
+  assert not self is-empty();
+  self rest() fold(from: self first(), with: Fn);
+}
+
+def array fold-right(with Fn: lambda-2) -> unknown {
+  assert not self is-empty();
+  self rest() fold-right(from: self last(), with: Fn);
+}
+
+def array all(Fn: lambda-1) -> bool {
+  primitive array.all(self, Fn);
+}
+
+def array some(Fn: lambda-1) -> bool {
+  primitive array.some(self, Fn);
+}
+
+def array none(Fn: lambda-1) -> bool {
+  not self all(Fn);
+}
+
+// -- Zippable collection ------------------------------------------------------
+def array zip(That: array, with Combine: lambda-2) -> array {
+  assert self count() === That count();
+  primitive array.zip-with(self, That, Combine);
+}
+
+// -- Modifiable container -----------------------------------------------------
+def array add(Value: unknown) -> array {
+  self append(Value);
+}
+
+def array remove(Value: unknown) -> Array {
+  self remove-if({X in X =:= Value});
+}
+
+// -- Conversions --------------------------------------------------------------
+def array as stream {
+  #stream from(self);
+}
+
+def array<T> mutable-copy() -> mutable-array<T> {
+  new mutable-array(self slice(from: 0) as array);
+}
+
+// -- Etc ----------------------------------------------------------------------
+def array<T> intersperse(Sep: T) -> array<T> {
+  when {
+    self count() <= 1 => self;
+    otherwise => self rest() fold(from: [self first!()], with: {A, B in [...A, Sep, B]});
+  }
+} test {
+  assert [] intersperse(0) ==> [];
+  assert [1] intersperse(0) ==> [1];
+  assert [1, 2, 3] intersperse(0) ==> [1, 0, 2, 0, 3];
+}

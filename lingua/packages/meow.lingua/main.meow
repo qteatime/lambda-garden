@@ -1,0 +1,16 @@
+% meow/1
+
+singleton lingua;
+singleton lingua-debug;
+
+union load-error {
+  syntax-error(message: text);
+}
+
+import "ast.meow";
+import "syntax.meow";
+import "pprint.meow";
+
+def main(_) {
+  transcript log("hello");
+}

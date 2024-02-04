@@ -1,9 +1,0 @@
-% meow/1
-
-def (F: lambda-1) >> (G: lambda-1) -> lambda-1 {
-  { X in G(F(X)) }
-}
-
-def (F: lambda-1) << (G: lambda-1) -> lambda-1 {
-  { X in F(G(X)) }
-}

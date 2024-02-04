@@ -1,15 +1,25 @@
 import * as Ast from "../syntax/parser";
-import { prelude_code } from "./prelude";
 import * as Path from "path";
 import * as FS from "fs";
 import { desugar } from "./desugar";
 
+export const prelude_code = FS.readFileSync(Path.join(__dirname, "../../meow-prelude.js"), "utf-8");
+
 export class Ctx {
   private next_id = 0;
-  constructor(readonly params: string[]) {}
+  private loc: Ast.Meta | null = null;
+  constructor(readonly params: string[], readonly options: Options) {}
 
   fresh() {
     return `$r${this.next_id++}`;
+  }
+
+  set_loc(loc: Ast.Meta | null) {
+    this.loc = loc;
+  }
+
+  get_loc() {
+    return this.loc;
   }
 }
 
@@ -17,6 +27,11 @@ export class Block {
   private lines: (string | Block)[] = [];
   constructor(readonly indent: number) {}
   static of(line: string) {
+    const r = new Block(0);
+    r.push(line);
+    return r;
+  }
+  static of_info(line: string, ctx: Ctx, loc: Ast.Meta | null) {
     const r = new Block(0);
     r.push(line);
     return r;
@@ -34,6 +49,13 @@ export class Block {
     const r = ctx.fresh();
     this.lines.push(`let ${r}`);
     return r;
+  }
+  push_stack(name: string, options: Options, ctx: Ctx, loc: Ast.Meta | null) {
+    if (loc != null) {
+      const pkg = options.pkg ?? "(root)";
+      const file = `${pkg}/${options.file}`;
+      this.push(`$t(${str(name + " at " + file + ":" + String(loc.position.line))})`);
+    }
   }
   block_wrap() {
     const res = new Block(0);
@@ -111,18 +133,35 @@ function mangle_fn(x: string) {
     .replace(/[^\$_a-zA-Z0-9]/g, "_");
 }
 
+function attach_info(info: Ast.Meta | null, pkg: string, file: string, name: string, fn: string) {
+  if (info == null) {
+    return fn;
+  } else {
+    const { line } = info.position;
+    return `$meow.info(${fn}, {name: ${str(name)}, file: ${str(
+      pkg + "/" + file
+    )}, line: ${line} })`;
+  }
+}
+
 export type Options = {
   no_prelude: boolean;
+  no_cache: boolean;
   cwd: string;
+  file: string;
   pkg: string | null;
   no_stdlib: boolean;
   no_test: boolean;
+  no_static_linking: boolean;
   compiling: boolean;
   search_path: string[];
+  // Goals
+  test: boolean;
+  build: boolean;
 };
-export type ImportContext = { pkgs: Set<string> };
+export type ImportContext = { pkgs: Set<string>; files: Set<string> };
 
-function find_package(name: string, search_path: string[]) {
+export function find_package(name: string, search_path: string[]) {
   for (const dir of search_path) {
     if (FS.existsSync(Path.resolve(dir, name, `main.meow`))) {
       return Path.resolve(dir, name, "main.meow");
@@ -133,21 +172,68 @@ function find_package(name: string, search_path: string[]) {
   );
 }
 
-export function lower(m: Ast.MModule, options: Options) {
+export function get_package_code(name: string, options: Options, ictx: ImportContext) {
+  const entry = find_package(name, options.search_path);
+  const cache = Path.join(Path.dirname(entry), ".pkg.meowc");
+  if (!options.no_cache && FS.existsSync(cache)) {
+    const data: PkgCache = JSON.parse(FS.readFileSync(cache, "utf-8"));
+    return pkg_from_cache(data, options, ictx);
+  } else {
+    return pkg_from_file(entry, name, options, ictx);
+  }
+}
+
+export type PkgCache = {
+  name: string;
+  created_at: number;
+  code: string;
+  deps: string[];
+};
+
+function pkg_from_cache(cache: PkgCache, options: Options, ictx: ImportContext): string {
+  const code = [];
+  for (const dep of cache.deps) {
+    if (!options.no_static_linking && !ictx.pkgs.has(dep)) {
+      ictx.pkgs.add(dep);
+      code.push(get_package_code(dep, options, ictx));
+    }
+  }
+  code.push(cache.code);
+  return code.join("\n;\n");
+}
+
+export function pkg_from_file(entry: string, name: string, options: Options, ictx: ImportContext) {
+  const source = FS.readFileSync(entry, "utf-8");
+  const ast = Ast.parse(source);
+  const js = lower(
+    ast,
+    {
+      ...options,
+      file: "main.meow",
+      pkg: name,
+      no_prelude: true,
+      cwd: Path.dirname(entry),
+    },
+    ictx
+  );
+  return js;
+}
+
+export function lower(m: Ast.MModule, options: Options, ictx: ImportContext) {
   const block = new Block(0);
   if (!options.no_prelude) {
     block.push("//-- START PRELUDE --");
-    block.push(prelude_code());
+    block.push(prelude_code);
     if (!options.no_stdlib) {
       block.push("//-- START_STDLIB --");
-      const lib = FS.readFileSync(Path.resolve(__dirname, "../../lib/_core.js"), "utf-8");
-      block.push(lib);
+      ictx.pkgs.add("meow.core");
+      block.push(get_package_code("meow.core", options, ictx));
+      block.push(`$scope.open_pkg(${str("meow.core")}, null);`);
     }
     block.push("//-- END_PRELUDE --");
     block.push("");
   }
 
-  const ictx: ImportContext = { pkgs: new Set([]) };
   block.push(`$meow.in_package(${options.pkg == null ? "null" : str(options.pkg)}, ($scope) => {`);
   for (const x of m.declarations) {
     block.push(lower_decl(x, options, ictx));
@@ -170,21 +256,24 @@ export function lower_decl(m: Ast.MDecl, options: Options, ictx: ImportContext):
       const n = str(fname);
       const sn = mangle_fn(fname);
       const ts = types.map(type_ref).join(", ");
+      const tn = types.map(type_name).join(", ");
       const as = args.map(mangle);
 
-      const ctx = new Ctx(as);
+      const ctx = new Ctx(as, options);
       const ref = ctx.fresh();
       const res = new Block(0);
       const b = new Block(2);
+      b.push_stack(fname, options, ctx, info);
       b.push(`let ${ref};`);
       b.push(lower_expr(desugar(body), ctx, ref));
+      b.push(`$stack.pop();`);
       b.push(`return ${ref};`);
 
-      res.push(
-        `$meow.defun(${n}, [${ts}], function* ${sn} (${as.join(", ")}) {\n${b.render(0)}\n});`
-      );
+      const fn0 = `function* ${sn} (${as.join(", ")}) {\n${b.render(0)}\n}`;
+      const fn = attach_info(info, options.pkg ?? "()", options.file, fname, fn0);
+      res.push(`$meow.defun(${n}, [${ts}], ${fn});`);
       if (test != null) {
-        res.push(lower_decl(new Ast.MDecl.Test(info, `${fname} for (${ts})`, test), options, ictx));
+        res.push(lower_decl(new Ast.MDecl.Test(info, `${fname} for (${tn})`, test), options, ictx));
       }
       return res;
     },
@@ -195,21 +284,24 @@ export function lower_decl(m: Ast.MDecl, options: Options, ictx: ImportContext):
       const n = str(fname);
       const sn = mangle_fn(fname);
       const ts = types.map(type_ref).join(", ");
+      const tn = types.map(type_name).join(", ");
       const as = args.map(mangle);
 
-      const ctx = new Ctx(as);
+      const ctx = new Ctx(as, options);
       const ref = ctx.fresh();
       const res = new Block(0);
       const b = new Block(2);
+      b.push_stack(fname, options, ctx, info);
       b.push(`let ${ref};`);
       b.push(lower_expr(desugar(body), ctx, ref));
+      b.push(`$stack.pop();`);
       b.push(`return ${ref};`);
 
-      res.push(
-        `$meow.defun(${n}, [${ts}], function* ${sn} (${as.join(", ")}) {\n${b.render(0)}\n});`
-      );
+      const fn0 = `function* ${sn} (${as.join(", ")}) {\n${b.render(0)}\n}`;
+      const fn = attach_info(info, options.pkg ?? "()", options.file, fname, fn0);
+      res.push(`$meow.defun(${n}, [${ts}], ${fn});`);
       if (test != null) {
-        res.push(lower_decl(new Ast.MDecl.Test(info, `${fname} for (${ts})`, test), options, ictx));
+        res.push(lower_decl(new Ast.MDecl.Test(info, `${fname} for (${tn})`, test), options, ictx));
       }
       return res;
     },
@@ -243,16 +335,18 @@ export function lower_decl(m: Ast.MDecl, options: Options, ictx: ImportContext):
 
     Def(info, name, typ, body) {
       const sn = mangle_fn(name);
-      const ctx = new Ctx([]);
+      const ctx = new Ctx([], options);
       const ref = ctx.fresh();
       const res = new Block(0);
       const b = new Block(2);
+      b.push_stack(`global ${name}`, options, ctx, info);
       b.push(`let ${ref}`);
       b.push(lower_expr(desugar(body), ctx, ref));
+      b.push(`$stack.pop();`);
       b.push(`return ${ref}`);
-      res.push(
-        `$meow.defglobal($scope.wrap(${str(name)}), function* ${sn} () {\n${b.render(0)}\n});`
-      );
+      const fn0 = `function* ${sn} () {\n${b.render(0)}\n}`;
+      const fn = attach_info(info, options.pkg ?? "()", options.file, name, fn0);
+      res.push(`$meow.defglobal($scope.wrap(${str(name)}), ${fn});`);
       return res;
     },
 
@@ -264,26 +358,36 @@ export function lower_decl(m: Ast.MDecl, options: Options, ictx: ImportContext):
       if (options.no_test) {
         return Block.of("");
       } else {
-        const ctx = new Ctx([]);
+        const ctx = new Ctx([], options);
         const b = new Block(2);
+        b.push_stack(`test ${str(name)}`, options, ctx, info);
         const v = b.push_atomic(desugar(body), ctx);
+        b.push(`$stack.pop();`);
         b.push(`return ${v}`);
         const res = new Block(0);
-        res.push(`$meow.deftest($scope.wrap(${str(name)}), function* () {\n${b.render(0)}\n});`);
+        const fn0 = `function* () {\n${b.render(0)}\n}`;
+        const fn = attach_info(info, options.pkg ?? "()", options.file, name, fn0);
+        res.push(`$meow.deftest($scope.wrap(${str(name)}), ${fn});`);
         return res;
       }
     },
 
     Import(info, id) {
       const path = Path.resolve(options.cwd, id);
+      ictx.files.add(path);
       const source = FS.readFileSync(path, "utf-8");
       const ast = Ast.parse(source);
-      const js = lower(ast, { ...options, no_prelude: true, cwd: Path.dirname(path) });
+      const js = lower(
+        ast,
+        { ...options, file: id, no_prelude: true, cwd: Path.dirname(path) },
+        ictx
+      );
       return Block.of(js);
     },
 
     ImportForeign(info, path) {
       const source = FS.readFileSync(Path.resolve(options.cwd, path), "utf-8");
+      ictx.files.add(path);
       const file = options.compiling
         ? `${options.pkg ?? "native"}/${path}`
         : Path.resolve(options.cwd, path);
@@ -302,7 +406,7 @@ $meow.defjs($scope, ${str(path)}, module.exports);
           return [];
         } else {
           const name = Ast.trait_req_name(x);
-          const fn = lower_trait_fn(x);
+          const fn = lower_trait_fn(x, options);
           return [[name, fn] as [string, Block]];
         }
       });
@@ -311,12 +415,22 @@ $meow.defjs($scope, ${str(path)}, module.exports);
       return res;
     },
 
+    Effect(info, name, cases) {
+      const xs = cases.map((x) => {
+        const types = x.params.map((x) => type_ref(x.typ));
+        return `$meow.defeff($scope.wrap(${str(name + "." + x.name)}), [${types.join(", ")}], ${
+          x.nonlocal_ret != null
+        }, ${info?.position.line ?? 0})`;
+      });
+      return Block.of(xs.join("\n;"));
+    },
+
     Implement(info, name, typ, decls) {
       const res = new Block(0);
       const dict = decls.map((x0) => {
         const x = x0 as any as Ast.$$MDecl$_SFun;
         const { name } = Ast.sfun_parts(x.name, x.self, x.params);
-        const fn = lower_trait_fn(new Ast.TraitReq.Provided(x));
+        const fn = lower_trait_fn(new Ast.TraitReq.Provided(x), options);
         return [name, fn] as [string, Block];
       });
       const dict1 = dict.map(([k, v]) => `${str(k)}: ${v.render(2)}`).join(",\n  ");
@@ -328,24 +442,46 @@ $meow.defjs($scope, ${str(path)}, module.exports);
       const res = new Block(0);
       if (!ictx.pkgs.has(name)) {
         ictx.pkgs.add(name);
-        const entry = find_package(name, options.search_path);
-        const source = FS.readFileSync(entry, "utf-8");
-        const ast = Ast.parse(source);
-        const js = lower(ast, {
-          ...options,
-          pkg: name,
-          no_prelude: true,
-          cwd: Path.dirname(entry),
-        });
-        res.push(js);
+        if (!options.no_static_linking) {
+          res.push(get_package_code(name, options, ictx));
+        }
       }
       res.push(`$scope.open_pkg(${str(name)}, ${mstr(alias)});`);
+      return res;
+    },
+
+    Handler(info, name0, params0, init, cases, auto_install) {
+      const { name, args, types } = Ast.handler_parts(name0, params0);
+      if (auto_install && args.length !== 0) {
+        throw new Error(
+          `Cannot make handler ${name} default because it's parameterised.\n\n${info?.formatted_position_message}`
+        );
+      }
+      const res = new Block(0);
+      const ps = args.map((x) => mangle(x));
+      const ts = types.map((x) => type_ref(x));
+
+      const ctx = new Ctx(args, options);
+      const b = new Block(2);
+      b.push_stack(`handler ${name}`, options, ctx, info);
+      if (init != null) {
+        b.push(lower_expr(init, ctx, null));
+      }
+      const { bind: h, code: hc } = make_handle_cases(cases, ctx);
+      b.push(hc);
+      b.push(`$stack.pop();`);
+      b.push(`return ${h};`);
+      const fn0 = `function* ${mangle_fn(name)}(${ps.join(", ")}) {\n${b.render(0)}\n}`;
+      const fn = attach_info(info, options.pkg ?? "()", options.file, name, fn0);
+      res.push(
+        `$meow.defhandler($scope.wrap(${str(name)}), ${fn}, [${ts.join(", ")}], ${auto_install})`
+      );
       return res;
     },
   });
 }
 
-function lower_trait_fn(x: Ast.TraitReq) {
+function lower_trait_fn(x: Ast.TraitReq, options: Options) {
   return x.match({
     Provided(fn: Ast.$$MDecl$_SFun) {
       const { name, args, types } = Ast.sfun_parts(fn.name, fn.self, fn.params);
@@ -353,16 +489,49 @@ function lower_trait_fn(x: Ast.TraitReq) {
       const sn = mangle_fn(name);
       const ts = types.map(type_ref).join(", ");
       const as = args.map(mangle);
-      const ctx = new Ctx(as);
+      const ctx = new Ctx(as, options);
       const res = new Block(0);
       const b = new Block(2);
+      b.push_stack(name, options, ctx, fn.info);
       const v = b.push_atomic(desugar(fn.body), ctx);
+      b.push(`$stack.pop();`);
       b.push(`return ${v}`);
-      res.push(`function* ${sn} (${as.join(", ")}) {\n${b.render(0)}\n}`);
+      const fn0 = `function* ${sn} () {\n${b.render(0)}\n}`;
+      const fn1 = attach_info(fn.info, options.pkg ?? "()", options.file, name, fn0);
+      res.push(fn1);
       return res;
     },
     Required(name, params) {
       return Block.of("null");
+    },
+  });
+}
+
+function type_name(x: Ast.MType) {
+  return x.match({
+    Infer(info) {
+      return "unknown";
+    },
+    Trait(info, ref) {
+      return `trait ${ref_name(ref)}`;
+    },
+    Ref(info, ref) {
+      return ref_name(ref);
+    },
+    Static(info, ref) {
+      return `#${ref_name(ref)}`;
+    },
+    Variant(info, ref, variant) {
+      return `${ref_name(ref)}..${variant}`;
+    },
+    Var(info, name) {
+      return name;
+    },
+    Fun(info, input, output) {
+      return `lambda-${input.length}`;
+    },
+    Record(info, fields) {
+      return `record`;
     },
   });
 }
@@ -490,7 +659,7 @@ export function lower_expr(x: Ast.MExpr, ctx: Ctx, k: string | null): Block {
     },
 
     Var(info, name) {
-      return Block.of(bind(k, `${mangle(name)}`));
+      return Block.of_info(bind(k, `${mangle(name)}`), ctx, info);
     },
 
     IntrinsicEq(info, left, right) {
@@ -511,7 +680,7 @@ export function lower_expr(x: Ast.MExpr, ctx: Ctx, k: string | null): Block {
     Project(info, value, field) {
       const res = new Block(0);
       const r = res.push_atomic(value, ctx);
-      res.push(bind(k, `${r}[${str(field)}]`));
+      res.push(bind(k, `$meow.checked(${r}[${str(field)}])`));
       return res;
     },
 
@@ -544,7 +713,7 @@ export function lower_expr(x: Ast.MExpr, ctx: Ctx, k: string | null): Block {
     },
 
     Static(info, ref) {
-      return Block.of(bind(k, `$scope.smake(${str(ref_name(ref))})`));
+      return Block.of_info(bind(k, `$scope.smake(${str(ref_name(ref))})`), ctx, info);
     },
 
     NewVariant(info, ref, variant, fields) {
@@ -579,11 +748,15 @@ export function lower_expr(x: Ast.MExpr, ctx: Ctx, k: string | null): Block {
     },
 
     GetVariant(info, ref, variant) {
-      return Block.of(bind(k, `$scope.get_variant(${str(ref_name(ref))}, ${str(variant)})`));
+      return Block.of_info(
+        bind(k, `$scope.get_variant(${str(ref_name(ref))}, ${str(variant)})`),
+        ctx,
+        info
+      );
     },
 
     GetGlobal(info, ref) {
-      return Block.of(bind(k, `$scope.global(${str(ref_name(ref))})`));
+      return Block.of_info(bind(k, `$scope.global(${str(ref_name(ref))})`), ctx, info);
     },
 
     List(info, items) {
@@ -605,10 +778,14 @@ export function lower_expr(x: Ast.MExpr, ctx: Ctx, k: string | null): Block {
 
     Lazy(info, expr) {
       const b = new Block(2);
-      const bctx = new Ctx(ctx.params);
+      b.push_stack(`thunk`, ctx.options, ctx, info);
+      const bctx = new Ctx(ctx.params, ctx.options);
       const v = b.push_atomic(expr, bctx);
+      b.push(`$stack.pop();`);
       b.push(`return ${v};`);
-      return Block.of(bind(k, `new $Thunk(function* () {\n${b.render(0)}\n})`));
+      const fn0 = `function* () {\n${b.render(0)}\n}`;
+      const fn = attach_info(info, ctx.options.pkg ?? "()", ctx.options.file, "thunk", fn0);
+      return Block.of(bind(k, `new $Thunk(${fn})`));
     },
 
     Force(info, thunk) {
@@ -640,16 +817,18 @@ export function lower_expr(x: Ast.MExpr, ctx: Ctx, k: string | null): Block {
     Assert(info, expr, tag) {
       const b = new Block(0);
       const v = b.push_atomic(expr, ctx);
-      const loc = str(info?.formatted_position_message ?? "(unknown location)");
+      const loc = str(
+        (info?.formatted_position_message ?? "(unknown location)") +
+          " in " +
+          (ctx.options.pkg ?? "()") +
+          "/" +
+          ctx.options.file
+      );
       const t = mstr(tag);
       b.push(`if (!${v}) { throw $meow.assert_fail(${t}, ${loc}); }`);
       b.push(bind(k, v));
       const res = new Block(0);
-      res.push(
-        `try {\n${b.render(
-          2
-        )}\n} catch (e) {\nthrow $meow.assert_fail(${t}, String(e) + "\\n\\n" + ${loc})\n}`
-      );
+      res.push(`try {\n${b.render(2)}\n} catch (e) {\nthrow $meow.assert_fail(${t}, ${loc}, e)\n}`);
       return res;
     },
 
@@ -679,11 +858,15 @@ export function lower_expr(x: Ast.MExpr, ctx: Ctx, k: string | null): Block {
 
     Lambda(info, params, body) {
       const b = new Block(0);
-      const lctx = new Ctx(ctx.params);
+      b.push_stack(`lambda`, ctx.options, ctx, info);
+      const lctx = new Ctx(ctx.params, ctx.options);
       const v = b.push_atomic(body, lctx);
+      b.push(`$stack.pop();`);
       b.push(`return ${v};`);
       const ps = params.map((x, i) => (x === "_" ? `$_${i}` : mangle(x))).join(", ");
-      return Block.of(bind(k, `(function* (${ps}) {\n${b.render(2)}\n})`));
+      const fn0 = `function* (${ps}) {\n${b.render(2)}\n}`;
+      const fn = attach_info(info, ctx.options.pkg ?? "()", ctx.options.file, "lambda", fn0);
+      return Block.of(bind(k, `(${fn})`));
     },
 
     Apply(info, callee, args) {
@@ -753,7 +936,97 @@ export function lower_expr(x: Ast.MExpr, ctx: Ctx, k: string | null): Block {
       res.push(bind(k, `new Uint8Array([${xs.join(",")}])`));
       return res;
     },
+
+    Extend(info, object, fields) {
+      const res = new Block(0);
+      const o = res.push_atomic(object, ctx);
+      const xs = fields.map((f) => res.push_atomic(f.value, ctx));
+      const pairs = fields.map((f, i) => `${str(f.name)}: ${xs[i]}`);
+      res.push(bind(k, `$meow.extend(${o}, {${pairs.join(", ")}})`));
+      return res;
+    },
+
+    AbortWith(info, value) {
+      const res = new Block(0);
+      const v = res.push_atomic(value, ctx);
+      res.push(`$stack.pop();`);
+      res.push(`yield $meow.eff_abort(${v});`);
+      return res;
+    },
+
+    ResumeWith(info, value) {
+      const res = new Block(0);
+      const v = res.push_atomic(value, ctx);
+      res.push(`$stack.pop();`);
+      res.push(`yield $meow.eff_resume(${v});`);
+      return res;
+    },
+
+    Perform(info, name, args) {
+      const res = new Block(0);
+      const xs = args.map((x) => res.push_atomic(x, ctx));
+      res.push(
+        bind(
+          k,
+          `yield $meow.eff_perform($scope.effect(${str(ref_name(name))}), [${xs.join(", ")}]);`
+        )
+      );
+      return res;
+    },
+
+    Handle(info, body, handlers) {
+      const res = new Block(0);
+
+      const b = new Block(2);
+      b.push_stack(`handle block`, ctx.options, ctx, info);
+      const v = b.push_atomic(body, ctx);
+      b.push(`$stack.pop()`);
+      b.push(`return ${v}`);
+      const fn0 = `function* () {\n${b.render(0)}\n}`;
+
+      const { bind: h, code: hc } = make_handle_cases(handlers, ctx);
+      res.push(hc);
+
+      const fn = attach_info(info, ctx.options.pkg ?? "()", ctx.options.file, "handle block", fn0);
+      res.push(bind(k, `yield $meow.eff_handle(${fn}, ${h})`));
+      return res;
+    },
   });
+}
+
+function make_handle_cases(handlers: Ast.HandlerCase[], ctx: Ctx) {
+  const res = new Block(0);
+  const hs = new Block(2);
+  for (const h of handlers) {
+    h.match({
+      On(info, name, params, body) {
+        const n = `$scope.effect(${str(ref_name(name))})`;
+        const fb = new Block(2);
+        fb.push_stack(`on ${name}`, ctx.options, ctx, info);
+        fb.push(lower_expr(body, ctx, null));
+        fb.push(`throw $meow.unreachable()`);
+        const fn0 = `function* ${mangle_fn("_hc_on_" + ref_name(name))}(${params
+          .map(mangle)
+          .join(", ")}) {\n${fb.render(0)}\n}`;
+        const fn = attach_info(
+          info,
+          ctx.options.pkg ?? "()",
+          ctx.options.file,
+          ref_name(name),
+          fn0
+        );
+        hs.push(`$meow.eff_on(${n}, ${fn}),`);
+      },
+      Use(info, name0, args0) {
+        const { name, args } = Ast.invoke_parts(ref_name(name0), args0);
+        const xs = args.map((x) => res.push_atomic(x, ctx));
+        hs.push(`yield* $meow.eff_use($scope.handler(${str(name)}), [${xs.join(", ")}]),`);
+      },
+    });
+  }
+  const v = ctx.fresh();
+  res.push(`const ${v} = $meow.eff_cases([\n${hs.render(0)}\n])`);
+  return { bind: v, code: res };
 }
 
 function assert_byte(x: bigint, signed: boolean) {
@@ -810,6 +1083,10 @@ function lower_const(x: Ast.MConst) {
     },
 
     Int(info, value) {
+      return `${value}`;
+    },
+
+    Int64(info, value) {
       return `${value}n`;
     },
 
@@ -822,7 +1099,22 @@ function lower_const(x: Ast.MConst) {
     },
 
     Text(info, value) {
-      return str(value);
+      return str(value.replace(/\r\n|\r/g, "\n"));
+    },
+
+    TemplateText(info, value) {
+      const col = info?.position.column ?? 1;
+      const space_re = new RegExp(`^[ \\t]{0,${col - 1}}`);
+      const lines = value.split(/\r\n|\r|\n/);
+      const result = [];
+      if (lines[0].trim()) {
+        result.push(lines[0]);
+      }
+      result.push(...lines.slice(1, -1).map((x) => x.replace(space_re, "")));
+      if (lines.length > 0 && lines[lines.length - 1].trim()) {
+        result.push(lines[lines.length - 1].replace(space_re, ""));
+      }
+      return str(result.join("\n"));
     },
   });
 }

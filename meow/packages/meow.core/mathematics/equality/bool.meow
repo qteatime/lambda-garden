@@ -1,0 +1,17 @@
+% meow/1
+
+def bool === (X: bool) -> bool {
+  primitive bool.eq(self, X);
+} test {
+  assert true === true ==> true;
+  assert false === false ==> true;
+  assert true === false ==> false;
+}
+
+def bool =/= (X: bool) -> bool {
+  primitive bool.neq(self, X);
+} test {
+  assert true =/= true ==> false;
+  assert false =/= false ==> false;
+  assert true =/= false ==> true;
+}

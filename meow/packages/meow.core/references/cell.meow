@@ -1,0 +1,61 @@
+% meow/1
+
+def #cell of(Value: T) -> cell<T> {
+  primitive cell.new(Value);
+}
+
+def cell<T> read() -> T {
+  perform cell.read(self);
+}
+
+def cell<T> <- (Value: T) -> T {
+  perform cell.exchange(self, Value);
+}
+
+def cell<T> set(Value: T, if-contains Old: T) -> bool {
+  perform cell.compare-and-swap(self, Value, Old);
+} test {
+  let A = #cell of(1);
+  assert A set(2, if-contains: 1) ==> true;
+  assert A read() ==> 2;
+  assert A set(3, if-contains: 1) ==> false;
+  assert A read() ==> 2;
+}
+
+test "basic cells" {
+  let A = #cell of(1);
+  assert A read() ==> 1;
+  let B = #cell of(nothing);
+  assert B read() ==> nothing;
+  assert (A <- 2) ==> 1;
+  assert A read() ==> 2;
+  assert (B <- 1) ==> nothing;
+  assert B read() ==> 1;
+}
+
+effect cell {
+  /// Return the current value in the cell
+  read(cell: cell<T>) -> T;
+
+  /// Return the old value in the cell.
+  exchange(cell: cell<T>, value: T) -> T;
+
+  /// Swaps the underlying value if the old value compares =:=
+  compare-and-swap(cell: cell<T>, value: T, old: T) -> bool;
+}
+
+default handler mutable-cell() with {
+  on cell.read(Cell) {
+    resume with (primitive cell.deref(Cell));
+  }
+
+  on cell.exchange(Cell, Value) {
+    let Old = primitive cell.exchange(Cell, Value);
+    resume with Old;
+  }
+
+  on cell.compare-and-swap(Cell, Value, Old) {
+    let Result = primitive cell.cas(Cell, Value, Old);
+    resume with Result;
+  }
+}

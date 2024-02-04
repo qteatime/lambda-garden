@@ -189,6 +189,44 @@ export function desugar(x: Ast.MExpr): Ast.MExpr {
     Binary(info, elements) {
       return x;
     },
+    Extend(info, object, fields) {
+      return lift([object, ...fields.map((x) => x.value)], ([object, ...vals]) => {
+        return new Ast.MExpr.Extend(
+          info,
+          object,
+          fields.map((f, i) => new Ast.EPair(f.name, vals[i]))
+        );
+      });
+    },
+    AbortWith(info, value) {
+      return lift([value], ([value]) => new Ast.MExpr.AbortWith(info, value));
+    },
+    ResumeWith(info, value) {
+      return lift([value], ([value]) => new Ast.MExpr.ResumeWith(info, value));
+    },
+    Perform(info, name, args) {
+      return lift(args, (args) => new Ast.MExpr.Perform(info, name, args));
+    },
+    Handle(info, body, handlers) {
+      return new Ast.MExpr.Handle(
+        info,
+        desugar(body),
+        handlers.map((x) => {
+          return x.match<Ast.HandlerCase>({
+            On(info, name, params, body) {
+              return new Ast.HandlerCase.On(info, name, params, desugar(body));
+            },
+            Use(info, name, args) {
+              return new Ast.HandlerCase.Use(
+                info,
+                name,
+                args.map((x) => new Ast.MInvokeArg(x.info, x.keyword, desugar(x.value)))
+              );
+            },
+          });
+        })
+      );
+    },
   });
 }
 

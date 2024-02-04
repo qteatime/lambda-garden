@@ -1,0 +1,34 @@
+% meow/1
+
+def #template parse(Text: text, env Env: env) -> result<template, parse-error> {
+  let Result = #result from(foreign template.parse(Text));
+  Result
+    map-error({ X in
+      new parse-error..syntax-error(reason: X.message, input: Text, offset: X.offset);
+    })
+    map({ Data in
+      let Tokens = 
+        Data.tokens map({X in
+          let Tag = X at!(0);
+          when {
+            Tag =:= "var" => new token..var(X at!(1), X at!(2));
+            Tag =:= "txt" => new token..text(X at!(1));
+            Tag =:= "line" => token..line-break;
+          }
+        });
+      new template(tokens: Tokens, env: Env);
+    });
+} test {
+  let Template = #template parse("const $name = ($args) => $name", env: #env empty()) unwrap();
+  assert Template.tokens === [
+    new token..text("const "),
+    new token..var(["name"], []),
+    new token..text(" = ("),
+    new token..var(["args"], []),
+    new token..text(") => "),
+    new token..var(["name"], []),
+  ];
+}
+
+def #template parse(Source: text) =
+  self parse(Source, env: #env basic());

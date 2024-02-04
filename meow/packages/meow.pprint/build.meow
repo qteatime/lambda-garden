@@ -1,0 +1,104 @@
+% meow/1
+
+open package meow.json;
+
+// -- Basic constructors -------------------------------------------------------
+def p empty() = doc..empty;
+
+def p space() = doc..space;
+
+def p line-break() = doc..line-break;
+
+def p text(X: text) =
+  new doc..text(content: X);
+
+def p indent(N: int, Child: doc) =
+  new doc..indent(padding: N, child: Child);
+
+def p stack(Xs: array<doc>) =
+  new doc..stack(Xs);
+
+def doc ++ (That: doc) = new doc..concat(self, That);
+
+def doc source(File: text, line Line: int, column Column: int) {
+  assert (Line >= 0) and (Column >= 0) :: valid-location;
+  new doc..source-info(File, Line, Column) ++ self;
+}
+
+// -- Type primitives ----------------------------------------------------------
+def p number(X: int) = self text(X as text);
+def p number(X: f64) = self text(X as text);
+def p number(X: i64) = self text(X as text);
+
+def p bool(X: bool) = self text(X as text);
+
+def p source-text(X: text) = self text(json serialise!(X));
+
+
+// -- Layouting ----------------------------------------------------------------
+def p spread(Xs: array<doc>) =
+  self concat(Xs intersperse(self space()));
+
+def p concat(Xs: array<doc>) =
+  Xs fold-right(from: self empty(), with: (_ ++ _));
+
+def p sep-by(Xs0: array<doc>, separator Sep: doc) {
+  when {
+    Xs0 is-empty() => doc..empty;
+    otherwise => self spread([...Xs0 without-last() map({X in X ++ Sep }), Xs0 last!()]);
+  }
+}
+
+def p comma-list(Xs: array<doc>) =
+  self sep-by(Xs, separator: self text(","));
+
+def doc between(start S: doc, end E: doc) =
+  p concat([S, self, E]);
+
+def doc parens() = self between(start: p text("("), end: p text(")"));
+def doc brackets() = self between(start: p text("["), end: p text("]"));
+def doc braces() = self between(start: p text("{"), end: p text("}"));
+def doc angle-brackets() = self between(start: p text("<"), end: p text(">"));
+
+def doc maybe-parens(Wrap: bool) {
+  when {
+    Wrap => self parens();
+    otherwise => self;
+  }
+}
+
+def p call(Callee: doc, Args: array<doc>, wrapper Wrapper: (doc) -> doc) =
+  self concat([Callee, Wrapper(self comma-list(Args))]);
+
+def p list(Xs: array<doc>) =
+  self comma-list(Xs) brackets();
+
+def p pair(Key: doc, Value: doc, separator Sep: doc) =
+  self spread([Key ++ Sep, Value]);
+
+def p pairs(Xs: array<#(key: doc, value: doc)>, separator Sep: doc) {
+  when {
+    Xs is-empty() => Sep;
+    otherwise => {
+      let Pairs = Xs map({ X in self pair(X.key, X.value, sparator: Sep) });
+      self comma-list(Pairs);
+    }
+  }
+}
+
+def p block(Indent: int, Children: array<doc>) =
+  self indent(Indent, p line-break() ++ self stack(Children));
+
+def p brace-block(Indent: int, Children: array<doc>) =
+  self concat([
+    p text("{"),
+    p block(Indent, Children),
+    p line-break(),
+    p text("}")
+  ]);
+
+def p meow-map(Xs: array<#(key: doc, value: doc)>) =
+  self pairs(Xs, separator: self text(":")) brackets();
+
+def p meow-record(Xs: array<#(key: doc, value: doc)>) =
+  self pairs(Xs, separator: self text(":")) parens();

@@ -1,67 +1,67 @@
 % meow/1
 
-struct point2d(x: i32, y: i32);
+struct point2d(x: int, y: int);
 
 test "application" {
-  assert 1n + 1n ==> 2n;
-  assert 1n - 1n ==> 0n;
-  assert 2n * 2n ==> 4n;
-  assert 4n \ 2n ==> 2n;
-  assert 2n ** 3n ==> 8n;
-  assert 4n % 3n ==> 1n;
+  assert 1 + 1 ==> 2;
+  assert 1 - 1 ==> 0;
+  assert 2 * 2 ==> 4;
+  assert 4 \ 2 ==> 2;
+  assert 2 ** 3 ==> 8;
+  assert 4 % 3 ==> 1;
 
-  assert 1n < 2n;
-  assert 2n <= 2n;
-  assert 2n > 1n;
-  assert 2n >= 2n;
-  assert 2n === 2n;
-  assert 1n =/= 2n;
+  assert 1 < 2;
+  assert 2 <= 2;
+  assert 2 > 1;
+  assert 2 >= 2;
+  assert 2 === 2;
+  assert 1 =/= 2;
 
-  assert 2n << 2n ==> 8n;
-  assert 8n >> 2n ==> 2n;
-  assert 8n >>> 8n ==> 0n;
-  assert 1n | 2n ==> 3n;
-  assert 1n & 2n ==> 0n;
-  assert 1n ^ 2n ==> 3n;
+  assert 2 << 2 ==> 8;
+  assert 8 >> 2 ==> 2;
+  assert 8 >>> 8 ==> 0;
+  assert 1 | 2 ==> 3;
+  assert 1 & 2 ==> 0;
+  assert 1 ^ 2 ==> 3;
 
   assert [1, 2, 3] ++ [4, 5] ==> [1, 2, 3, 4, 5];
   assert [1: 2, 3: 4, ...[3: 5]] ==> [1: 2, 3: 5];
   assert #(a: 1, b: 2) ==> #(b: 2, a: 1);
   assert "hello" ++ "world" ==> "helloworld";
 
-  assert 1n as integer ==> 1;
+  assert 1 as integer ==> 1;
   
-  let X = #cell of(1n);
-  assert (X <- 2n) ==> 1n;
+  let X = #cell of(1);
+  assert (X <- 2) ==> 1;
 
   let Z = #cell of([1, 2]);
   let Y = #weak-ref of(Z read());
   assert (Y read() unwrap()) ==> Z read();
 
-  assert 1n =:= 1n;
+  assert 1 =:= 1;
 }
 
 test "types" {
   let P = maybe..none;
-  let Q = new maybe..some(value: 3n);
+  let Q = new maybe..some(value: 3);
 
   assert P is maybe;
   assert P is maybe..none;
   assert Q is maybe..some;
 
-  assert Q.value ==> 3n;
+  assert Q.value ==> 3;
 
-  assert new point2d(x: 1n, y: 1n) is point2d;
-  assert (new point2d(x: 1n, y: 2n)).y ==> 2n;
+  assert new point2d(x: 1, y: 1) is point2d;
+  assert (new point2d(x: 1, y: 2)).y ==> 2;
 }
 
 test "thunks" {
   let A = lazy (force B);
-  let B = lazy 1n + 1n;
+  let B = lazy 1 + 1;
 
-  assert force A ==> 2n;
-  assert force B ==> 2n;
-  assert force A ==> 2n :: repeating;
+  assert force A ==> 2;
+  assert force B ==> 2;
+  assert force A ==> 2 :: repeating;
 }
 
 def maybe..some value() { self.value }
@@ -69,11 +69,11 @@ def maybe..none value() { nothing }
 
 test "methods" {
   assert maybe..none value() ==> nothing;
-  assert new maybe..some(value: 1n) value() ==> 1n;
+  assert new maybe..some(value: 1) value() ==> 1;
 }
 
 test "data" {
-  assert 1n ==> 1n;
+  assert 1 ==> 1;
   assert 1.0f ==> 1.0f;
   assert 1 ==> 1;
   assert "text" ==> "text";
@@ -106,27 +106,27 @@ test "foreign calls" {
 
 test "repeat loops" {
   // Functional repeat blocks
-  let B = (repeat with A = 1n {
+  let B = (repeat with A = 1 {
     when {
-      A < 10n => continue with A = A + 1n;
-      otherwise => break with A + 1n;
+      A < 10 => continue with A = A + 1;
+      otherwise => break with A + 1;
     }
   });
 
-  assert B ==> 11n;
+  assert B ==> 11;
 
   // Regular repeat blocks
-  let X = #cell of(1n);
+  let X = #cell of(1);
   repeat {
     when {
-      X read() < 10n => {
-        X <- X read() + 1n;
+      X read() < 10 => {
+        X <- X read() + 1;
         continue;
       }
       otherwise => break;
     }
   }
-  assert X read() ==> 10n;
+  assert X read() ==> 10;
 }
 
 test "binaries" {

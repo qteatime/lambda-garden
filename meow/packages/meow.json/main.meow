@@ -1,0 +1,14 @@
+% meow/1
+
+singleton json;
+
+union parse-error {
+  syntax-error(reason: text);
+}
+
+union serialise-error {
+  unknown-error(reason: text);
+}
+
+import foreign "native/json.js";
+import "./base.meow";

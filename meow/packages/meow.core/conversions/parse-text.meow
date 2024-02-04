@@ -1,0 +1,17 @@
+% meow/1
+
+union text-parse-error {
+  invalid-text(input: text);
+}
+
+def #text parse(Input: text) -> result<text, text-parse-error> {
+  #result
+    from(primitive text.parse(Input))
+    map-error({ X in new text-parse-error..invalid-text(Input) });
+} test {
+  assert #text parse("\"abc\"") unwrap() ==> "abc";
+  assert #text parse("\"a\nb\u2022\tc\"") unwrap() ==> "a\nb•\tc";
+  assert #text parse("abc") reason() is text-parse-error..invalid-text;
+  assert #text parse("\"abc") reason() is text-parse-error..invalid-text;
+  assert #text parse("'abc'") reason() is text-parse-error..invalid-text;
+}

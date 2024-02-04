@@ -1,0 +1,39 @@
+% meow/1
+
+def template render(Bindings: bindings) -> text {
+  #text join(self.tokens map(_ render(Bindings, env: self.env)), with: "");
+} test {
+  let Template = #template parse("const $name = ($args) => $name") unwrap();
+  assert Template render(#bindings from(["name": "hello", "args": "a, b, c"]))
+    ==> "const hello = (a, b, c) => hello";
+}
+
+def #template render(Source: text, with Bindings: T) {
+  #template
+    parse(Source)
+    unwrap(or-panic: "Invalid template")
+    render(#bindings from(Bindings));
+} test {
+  assert #template render("f($a, $b)", with: #(a: "1", b: "2") as map)
+    ==> "f(1, 2)";
+}
+
+
+def token..text render(Bindings: bindings, env Env: env) =
+  self.content;
+
+def token..var render(Bindings: bindings, env Env: env) {
+  let Value = Bindings lookup(self.names);
+  self.map fold(from: Value, with: {X, Name in Env apply(Name, to: X)});
+} test {
+  let Bindings = #bindings from(#(a: #(b: " x ", c: 1) as map) as map);
+  let Env = #env basic();
+  
+  assert new token..var(["a", "b"], ["trim"]) render(Bindings, env: Env)
+    ==> "x";
+  assert new token..var(["a", "c"], ["text", "source-text"]) render(Bindings, env: Env)
+    ==> "\"1\"";
+}
+
+def token..line-break render(Bindings: bindings, env Env: env) =
+  "\n";

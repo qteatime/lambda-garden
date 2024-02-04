@@ -1,0 +1,81 @@
+% meow/1
+
+singleton validate;
+
+def #plain-date-time from(
+  year Year: i64,
+  month Month: i64,
+  day Day: i64,
+  hours Hours: i64,
+  minutes Minutes: i64,
+  seconds Seconds: i64,
+  milliseconds Milliseconds: i64
+) {
+  assert (foreign date.valid(Year, Month, Day)) :: valid-date;
+  assert (Hours >= 0L) and (Hours < 24L) :: valid-hour;
+  assert (Minutes >= 0L) and (Minutes < 60L) :: valid-minutes;
+  assert (Seconds >= 0L) and (Seconds < 60L) :: valid-seconds;
+  assert (Milliseconds >= 0L) and (Milliseconds < 1_000L) :: valid-milliseconds;
+  let Timestamp = foreign date.instant(Year, Month, Day, Hours, Minutes, Seconds, Milliseconds);
+  new plain-date-time(#instant from-epoch(milliseconds: Timestamp));
+} test {
+  let Date = #plain-date-time from(year: 2024L, month: 2L, day: 29L,
+                                   hours: 14L, minutes: 15L, seconds: 10L, milliseconds: 150L);
+  assert Date year() ==> 2024L;
+  assert Date month() ==> 2L;
+  assert Date day() ==> 29L;
+  assert Date hours() ==> 14L;
+  assert Date minutes() ==> 15L;
+  assert Date seconds() ==> 10L;
+  assert Date milliseconds() ==> 150L;
+
+  // NOTE: JavaScript's date constructor will convert years between 0..99 to 1889/19xx,
+  // which is not a behaviour we want to copy!
+  let OddDate = #plain-date-time from(year: 90L, month: 1L, day: 1L, hours: 0L, minutes: 0L, seconds: 0L, milliseconds: 0L);
+  assert OddDate year() ==> 90L;
+}
+
+def #plain-date-time from(year Y: i64, month M: i64, day D: i64) {
+  #plain-date-time from(year: Y, month: M, day: D, hours: 0L, minutes: 0L, seconds: 0L, milliseconds: 0L);
+}
+
+def #plain-date-time from(X: instant) =
+  new plain-date-time(X);
+
+
+// -- Components ---------------------------------------------------------------
+def plain-date-time year() = foreign date.year(self.instant to-epoch-milliseconds());
+def plain-date-time month() = foreign date.month(self.instant to-epoch-milliseconds());
+def plain-date-time day() = foreign date.day(self.instant to-epoch-milliseconds());
+def plain-date-time hours() = foreign date.hours(self.instant to-epoch-milliseconds());
+def plain-date-time minutes() = foreign date.minutes(self.instant to-epoch-milliseconds());
+def plain-date-time seconds() = foreign date.seconds(self.instant to-epoch-milliseconds());
+def plain-date-time milliseconds() = foreign date.milliseconds(self.instant to-epoch-milliseconds());
+
+
+// -- Equality -----------------------------------------------------------------
+def plain-date-time === (X: plain-date-time) =
+  self.instant === X.instant;
+
+def plain-date-time =/= (X: plain-date-time) =
+  self.instant =/= X.instant;
+
+def plain-date-time < (X: plain-date-time) =
+  self.instant < X.instant;
+
+def plain-date-time <= (X: plain-date-time) =
+  self.instant <= X.instant;
+
+def plain-date-time > (X: plain-date-time) =
+  self.instant > X.instant;
+
+def plain-date-time >= (X: plain-date-time) =
+  self.instant >= X.instant;
+
+def plain-date-time compare-to(X: plain-date-time) =
+  self.instant compare-to(X.instant);
+
+
+// -- Conversions --------------------------------------------------------------
+def plain-date-time as instant = self.instant;
+def plain-date-time as text = self.instant as text;

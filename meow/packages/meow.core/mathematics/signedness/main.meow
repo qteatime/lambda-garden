@@ -1,0 +1,9 @@
+% meow/1
+
+// trait signedness {
+//   def A absolute() -> A;
+//   def A sign() -> sign;
+// }
+
+import "sized-integer.meow";
+import "sized-floating.meow";

@@ -1,0 +1,10 @@
+% meow/1
+
+singleton process;
+
+def process crash-dump() = foreign process.abort();
+def process arch() = foreign process.arch();
+def process argv() = foreign process.argv();
+def process cwd() = foreign process.cwd();
+def process env() = foreign process.env();
+def process exit(Code: int) = foreign process.exit(Code);

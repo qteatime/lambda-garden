@@ -1,0 +1,13 @@
+% meow/1
+
+def i64 hours() = #time-duration hours(self);
+def i64 minutes() = #time-duration minutes(self);
+def i64 seconds() = #time-duration seconds(self);
+def i64 milliseconds() = #time-duration milliseconds(self);
+def i64 microseconds() = #time-duration microseconds(self);
+def i64 nanoseconds() = #time-duration nanoseconds(self);
+
+def int hours() = #time-duration hours(self as i64);
+def int minutes() = #time-duration minutes(self as i64);
+def int seconds() = #time-duration seconds(self as i64);
+def int milliseconds() = #time-duration milliseconds(self as i64);

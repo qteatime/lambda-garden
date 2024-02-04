@@ -1,0 +1,47 @@
+% meow/1
+
+def transcript log(Value: unknown) -> transcript {
+  perform transcript.log(Value);
+  self;
+} test {
+  transcript log("log: ignore");
+}
+
+def transcript trace(Value: unknown, tag Tag: text) -> transcript {
+  perform transcript.trace(Value, Tag);
+  self;
+} test {
+  transcript trace("trace: ignore", tag: "tag");
+}
+
+
+def transcript write(Value: text) -> transcript {
+  perform transcript.write(Value);
+  self;
+} test {
+  transcript write("write: ignore");
+}
+
+
+effect transcript {
+  log(value: unknown) -> nothing;
+  trace(value: unknown, tag: text) -> nothing;
+  write(value: unknown) -> nothing;
+}
+
+default handler transcript-to-stdout() with {
+  on transcript.log(Value) {
+    primitive transcript.log(Value);
+    resume with nothing;
+  }
+
+  on transcript.trace(Value, Tag) {
+    primitive transcript.trace(Value);
+    resume with nothing;
+  }
+
+  on transcript.write(Value) {
+    primitive transcript.write(Value);
+    resume with nothing;
+  }
+}

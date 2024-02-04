@@ -1,0 +1,26 @@
+% meow/1
+
+//#region - sized integers -----------------------------------------------------
+def int as text {
+  primitive int.to-text(self);
+} test {
+  assert 123 as text ==> "123";
+}
+
+def i64 as text {
+  primitive i64.to-text(self);
+} test {
+  assert 123L as text ==> "123";
+}
+//#endregion
+
+//#region - sized floats -------------------------------------------------------
+def f64 as text {
+  primitive f64.to-text(self);
+} test {
+  assert 123.0f as text ==> "123";
+}
+
+//#endregion
+
+

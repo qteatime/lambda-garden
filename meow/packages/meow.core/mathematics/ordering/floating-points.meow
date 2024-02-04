@@ -1,0 +1,53 @@
+% meow/1
+
+// TODO: it's weird for IEEE754 floats to implement total-order :/
+
+//#region - 64-bit floating points ---------------------------------------------
+def f64 < (X: f64) -> bool {
+  primitive f64.lt(self, X);
+} test {
+  assert 0.0f < 1.0f;
+  assert -1.0f < 0.0f;
+  assert not (0.0f < 0.0f);
+  assert not (1.0f < 0.0f);
+}
+
+def f64 <= (X: f64) -> bool {
+  primitive f64.lte(self, X);
+} test {
+  assert 0.0f <= 1.0f;
+  assert -1.0f <= 0.0f;
+  assert 0.0f <= 0.0f;
+  assert not (1.0f <= 0.0f);
+}
+
+def f64 > (X: f64) -> bool {
+  primitive f64.gt(self, X);
+} test {
+  assert 1.0f > 0.0f;
+  assert 0.0f > -1.0f;
+  assert not (0.0f > 0.0f);
+  assert not (0.0f > 1.0f);
+}
+
+def f64 >= (X: f64) -> bool {
+  primitive f64.gte(self, X);
+} test {
+  assert 1.0f >= 0.0f;
+  assert 0.0f >= -1.0f;
+  assert 0.0f >= 0.0f;
+  assert not (0.0f >= 1.0f);
+}
+
+def f64 compare-to(X: f64) -> ordering {
+  when {
+    self < X => ordering..less-than;
+    self === X => ordering..equal;
+    self > X => ordering..greater-than;
+  }
+} test {
+  assert 1.0f compare-to(2.0f) ==> ordering..less-than;
+  assert 1.0f compare-to(0.5f) ==> ordering..greater-than;
+  assert 1.0f compare-to(1.0f) ==> ordering..equal;
+}
+//#endregion

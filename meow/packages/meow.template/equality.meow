@@ -1,0 +1,10 @@
+% meow/1
+
+def token === token = false;
+def token..text === (X: token..text) = self.content === X.content;
+def token..var === (X: token..var) = (self.names === X.names) and (self.map === X.map);
+def token..line-break === token..line-break = true;
+
+def template === (X: template) =
+  (self.tokens === X.tokens);
+

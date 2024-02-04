@@ -1,0 +1,73 @@
+% meow/1
+
+def array-slice count() = self.length;
+def array-slice offset() = self.offset;
+def array-slice length() = self.length;
+
+
+// -- Indexing -----------------------------------------------------------------
+def array-slice<T> at!(Index: int) {
+  assert (Index >= 0) and (Index <= self.length) :: in-bounds;
+  self.array at!(Index + self.offset);
+} test {
+  let A = [1, 2, 3, 4, 5] slice(from: 1, length: 3);
+  assert A at!(0) ==> 2;
+  assert A at!(2) ==> 4;
+}
+
+def array-slice at(Index: int) {
+  when {
+    (Index < 0) or (Index >= self.length) => maybe..none;
+    otherwise => self.array at(Index + self.offset);
+  }
+} test {
+  let A = [1, 2, 3, 4, 5] slice(from: 1, length: 3);
+  assert A at(0) unwrap() ==> 2;
+  assert A at(3) ==> maybe..none;
+}
+
+// -- Slicing ------------------------------------------------------------------
+def array-slice slice(from Start: int, length Length: int) {
+  assert Length >= 0 :: positive-slice;
+  assert (Start >= 0) and ((Start + Length) <= self count()) :: in-bounds;
+  new array-slice(self.array, self.offset + Start, Length);
+} test {
+  let A = [1, 2, 3, 4, 5] slice(from: 1, length: 3);
+  assert A as array ==> [2, 3, 4];
+  assert A slice(from: 1, length: 1) as array ==> [3];
+}
+
+def array-slice slice(from Start: int, to Stop: int) {
+  self slice(from: Start, length: Stop - Start);
+} test {
+  let A = [1, 2, 3, 4, 5] slice(from: 1, length: 3);
+  assert A slice(from: 1, to: 2) as array ==> [3];
+}
+
+def array-slice slice(from Start: int) {
+  self slice(from: Start, length: self count() - Start);
+} test {
+  let A = [1, 2, 3, 4, 5] slice(from: 1, length: 3);
+  assert A slice(from: 1) as array ==> [3, 4];
+}
+
+def array-slice slice(length Length: int) {
+  self slice(from: 0, length: Length);
+} test {
+  let A = [1, 2, 3, 4, 5] slice(from: 1, length: 3);
+  assert A slice(length: 2) as array ==> [2, 3];
+}
+
+// -- Equality -----------------------------------------------------------------
+def array-slice === (X: array-slice) -> bool {
+  primitive array.slice-eq(self.array, self.offset, self.length, X.array, X.offset, X.length);
+}
+
+def array-slice =/= (X: array-slice) -> bool {
+  not (self === X);
+}
+
+// -- Conversions --------------------------------------------------------------
+def array-slice as array {
+  primitive array.materialise-slice(self.array, self.offset, self.length);
+}

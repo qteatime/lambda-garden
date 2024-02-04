@@ -1,0 +1,91 @@
+% meow/1
+
+declare type-app;
+declare term;
+declare ref;
+declare const;
+
+union loc {
+  unknown;
+  range(source: text, start: int, stop: int);
+}
+
+struct grammar(
+  name: text,
+  rules: array<rule>,
+  types: array<type-decl>
+);
+
+union type-decl {
+  record(loc: loc, name: text, formals: array<text>, fields: array<field>);
+  'union(loc: loc, name: text, formals: array<text>, variants: array<variant>);
+}
+
+struct variant(loc: loc, name: text, fields: array<field>);
+struct field(loc: loc, name: text, type: type-app);
+
+union rule {
+  define(loc: loc, name: text, params: array<text>, desc: maybe<text>, body: array<rule-body>);
+  token(loc: loc, rule: rule);
+}
+
+struct rule-body(
+  loc: loc,
+  terms: array<binder>,
+  expr: maybe<expr>,
+);
+
+union binder {
+  bound(loc: loc, name: text, term: term);
+  unbound(loc: loc, term: term);
+}
+
+union term {
+  seq(loc: loc, terms: array<term>);
+  alt(loc: loc, terms: array<term>);
+  star(loc: loc, term: term);
+  plus(loc: loc, term: term);
+  opt(loc: loc, term: term);
+  'not(loc: loc, term: term);
+  lookahead(loc: loc, term: term);
+  lex(loc: loc, name: ref, args: array<term>);
+  apply(loc: loc, name: ref, args: array<term>);
+  range(loc: loc, from: text, to: text);
+  terminal(loc: loc, value: text);
+}
+
+union type-app {
+  ref(loc: loc, ref: ref);
+  var(loc: loc, name: text);
+  apply(loc: loc, callee: type-app, args: array<type-app>);
+  project(loc: loc, type: type-app, field: text);
+  list(loc: loc, type: type-app);
+  maybe(loc: loc, type: type-app);
+  meta(loc: loc);
+}
+
+union ref {
+  relative(loc: loc, names: array<text>);
+}
+
+union expr {
+  meta(loc: loc);
+  make(loc: loc, ctor: ref, args: array<expr>);
+  apply(loc: loc, name: text, args: array<expr>);
+  project(loc: loc, obj: expr, field: text);
+  var(loc: loc, name: text);
+  list(loc: loc, items: array<list-item>);
+  const(loc: loc, value: const);
+}
+
+union list-item {
+  value(loc: loc, expr: expr);
+  spread(loc: loc, expr: expr);
+}
+
+union const {
+  i64(loc: loc, value: i64);
+  text(loc: loc, value: text);
+  bool(loc: loc, value: bool);
+  null();
+}

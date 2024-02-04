@@ -4,3 +4,4 @@ build/
 *.tsbuildinfo
 .vscode/
 **/examples/**/*.js
+.pkg.meowc

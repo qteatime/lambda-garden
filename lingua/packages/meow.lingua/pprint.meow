@@ -1,0 +1,192 @@
+% meow/1
+
+open package meow.pprint;
+
+def term..alt precedence() = 0;
+def term..seq precedence() = 1;
+def term..star precedence() = 2;
+def term..plus precedence() = 2;
+def term..opt precedence() = 2;
+def term..not precedence() = 3;
+def term..lookahead precedence() = 3;
+def term..lex precedence() = 4;
+def term..apply precedence() = 4;
+def term..range precedence() = 4;
+def term..terminal precedence() = 4;
+def #term precedence-upper-bound() = 4;
+
+
+def grammar pprint() {
+  p stack([
+    p stack([...self.types map(_ pprint())]),
+    p spread([
+      p text("grammar"), p text(self.name), p brace-block(2, [
+        ...self.rules map({X in X pprint() ++ p line-break()})
+      ])
+    ])
+  ]);
+}
+
+def type-decl..record pprint() =
+  p spread([
+    p text("struct"),
+    p call(p text(self.name), self.formals map(p text(_)), wrapper: _ angle-brackets()),
+    p comma-list(self.fields map(_ pprint())) parens(),
+  ]);
+
+def type-decl..union pprint() =
+  p spread([
+    p text("union"),
+    p call(p text(self.name), self.formals map(p text(_)), wrapper: _ angle-brackets()),
+    p brace-block(2, self.variants map(_ pprint())),
+  ]);
+
+def variant pprint() =
+  p spread([
+    p text(self.name),
+    p comma-list(self.fields map(_ pprint())) parens()
+  ]);
+
+def field pprint() =
+  p pair(p text(self.name), self.type pprint(), separator: p text(":"));
+
+
+def type-app..ref pprint() =
+  self.ref pprint();
+
+def type-app..apply pprint() =
+  p call(self.callee pprint(), self.args map(_ pprint()), wrapper: _ angle-brackets());
+
+def type-app..project pprint() =
+  p concat([self.type pprint(), p text("." ++ self.field)]);
+
+def type-app..list pprint() =
+  self.type pprint() ++ p text("[]");
+
+def type-app..maybe pprint() =
+  self.type pprint() ++ p text("?");
+
+def type-app..var pprint() =
+  p text(self.name);
+
+def type-app..meta pprint() =
+  p text("meta");
+
+
+def const..integer pprint() =
+  p integer(self.value);
+
+def const..text pprint() =
+  p source-text(self.value);
+
+def const..bool pprint() =
+  p bool(self.value as text);
+
+def const..null pprint() =
+  p text("nothing");
+
+def list-item..value pprint() =
+  self.expr pprint();
+
+def list-item..spread pprint() =
+  p text("...") ++ self.expr pprint();
+
+def expr..meta pprint() =
+  p text("meta");
+
+def expr..make pprint() =
+  p call(self.ctor pprint(), self.args map(_ pprint()), wrapper: _ parens());
+
+def expr..apply pprint() =
+  p call(p text("@" ++ self.name), self.args map(_ pprint()), wrapper: _ parens());
+
+def expr..project pprint() =
+  self.obj pprint() ++ p text("." ++ self.field);
+
+def expr..list pprint() =
+  self.items map(_ pprint()) brackets();
+
+def expr..const pprint() =
+  self.value pprint();
+
+def expr..var pprint() =
+  p text(self.name);
+
+
+def rule..define pprint() =
+  p spread([
+    p call(p text(self.name), self.params map(p text(_)), wrapper: _ angle-brackets()),
+    self.desc map({X in p text(X) parens()}) unwrap(default: p empty()),
+    p text("="),
+    p block(2, [
+      ...self.body map(_ pprint())
+    ]),
+    p text(";"),
+  ]);
+
+def rule..token pprint() =
+  p spread([
+    p text("token"),
+    self.rule pprint(),
+  ]);
+
+def rule-body pprint() =
+  p spread([
+    p text("|"),
+    p spread(self.terms map(_ pprint())),
+    self.expr map({X in p spread([p text("->"), X pprint()])}) unwrap(default: p empty()),
+  ]);
+
+def binder..bound pprint() =
+  p concat([p text(self.name), p text(":"), self.term pprint(#term precedence-upper-bound())]);
+
+def binder..unbound pprint() =
+  self.term pprint(#term precedence-upper-bound());
+
+
+def term..seq pprint(Prec: int) =
+  p spread(self.terms map(_ pprint(self precedence()))) maybe-parens(Prec <= self precedence());
+
+def term..alt pprint(Prec: int) =
+  p sep-by(self.terms map(_ pprint(self precedence())), separator: p text(" |"))
+    parens();
+
+def term..star pprint(Prec: int) =
+  p concat([self.term pprint(self precedence()), p text("*")]) maybe-parens(Prec <= self precedence());
+
+def term..plus pprint(Prec: int) =
+  p concat([self.term pprint(self precedence()), p text("+")]) maybe-parens(Prec <= self precedence());
+
+def term..opt pprint(Prec: int) =
+  p concat([self.term pprint(self precedence()), p text("?")]) maybe-parens(Prec <= self precedence());
+
+def term..not pprint(Prec: int) =
+  p concat([p text("~"), self.term pprint(self precedence())]) maybe-parens(Prec <= self precedence());
+
+def term..lookahead pprint(Prec: int) =
+  p concat([p text("&"), self.term pprint(self precedence())]) maybe-parens(Prec <= self precedence());
+
+def term..lex pprint(Prec: int) =
+  p concat([
+    p text("#"),
+    p call(self.name pprint(), self.args map(_ pprint()), wrapper: _ angle-brackets())
+  ]);
+
+def term..apply pprint(Prec: int) =
+  p concat([
+    p call(self.name pprint(), self.args map(_ pprint()), wrapper: _ angle-brackets())
+  ]);
+
+def term..range pprint(Prec: int) =
+  p concat([p source-text(self.from), p text(".."), p source-text(self.to)]);
+
+def term..terminal pprint(Prec: int) =
+  p source-text(self.value);
+
+
+def ref pprint() = p text(#text join(self.names, with: "."));
+
+
+def lingua-debug show(Grammar: grammar) {
+  transcript write(p print(Grammar pprint()));
+}

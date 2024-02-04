@@ -1,0 +1,95 @@
+% meow/1
+
+// -- Constructing -------------------------------------------------------------
+def #instant from-epoch(nanoseconds X: i64) =
+  new instant(X);
+
+def #instant from-epoch(microseconds X: i64) =
+  new instant(X * 1_000L);
+
+def #instant from-epoch(milliseconds X: i64) =
+  new instant(X * (10L ** 6L));
+
+def #instant from-epoch(seconds X: i64) =
+  new instant(X * (10L ** 9L));
+
+
+def #instant from-iso8601(X: text) -> maybe<instant> {
+  #maybe
+    from(nullable: foreign instant.from-iso(X))
+    map(#instant from-epoch(milliseconds: _));
+} test {
+  assert (#instant from-iso8601("2021-12-23T18:00:00.000Z") unwrap()).timestamp
+    ==> 1_640_282_400_000_000_000L;
+
+  assert (#instant from-iso8601("not a date")) is maybe..none;
+}
+
+def #instant zero() =
+  new instant(0);
+
+
+// -- Conversions --------------------------------------------------------------
+def instant to-epoch-nanoseconds() = self.timestamp;
+def instant to-epoch-microseconds() = self.timestamp \ 1_000L;
+def instant to-epoch-milliseconds() = self.timestamp \ (10L ** 6L);
+def instant to-epoch-seconds() = self.timestamp \ (10L ** 9L);
+
+def instant to-iso8601() {
+  foreign instant.to-iso(self to-epoch-milliseconds());
+} test {
+  assert #instant from-epoch(milliseconds: 1_640_282_400_000L) to-iso8601()
+    ==> "2021-12-23T18:00:00.000Z";
+}
+
+def instant as plain-date-time =
+  new plain-date-time(self);
+
+def instant as text =
+  self to-iso8601();
+
+
+// -- Relative points in time --------------------------------------------------
+def instant time-until(X: instant) {
+  #time-duration nanoseconds(X.timestamp - self.timestamp) balanced-time();
+} test {
+  assert #instant zero() time-until(#instant zero() + 3L hours() + 15L minutes())
+    === (3L hours() + 15L minutes());
+}
+
+def instant time-since(X: instant) {
+  X time-until(self);
+}
+
+
+// -- Relational ---------------------------------------------------------------
+def instant === (X: instant) =
+  self.timestamp === X.timestamp;
+
+def instant =/= (X: instant) =
+  self.timestamp =/= X.timestamp;
+
+def instant < (X: instant) =
+  self.timestamp < X.timestamp;
+
+def instant <= (X: instant) =
+  self.timestamp <= X.timestamp;
+
+def instant > (X: instant) =
+  self.timestamp > X.timestamp;
+
+def instant >= (X: instant) =
+  self.timestamp >= X.timestamp;
+
+def instant compare-to(X: instant) =
+  self.timestamp compare-to(X);
+
+
+// -- Arithmetic ---------------------------------------------------------------
+def instant + (X: time-duration) {
+  new instant(self.timestamp + X to-nanoseconds());
+}
+
+def instant - (X: time-duration) {
+  new instant(self.timestamp - X to-nanoseconds());
+}

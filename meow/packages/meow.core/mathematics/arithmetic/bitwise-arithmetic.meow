@@ -1,0 +1,85 @@
+% meow/1
+
+//#region - Native-sized integers (int) ----------------------------------------
+def int bit-shl(X: int) -> int {
+  primitive int.bshl(self, X);
+} test {
+  assert 1 bit-shl(2) ==> 4;
+}
+
+def int bit-shr(X: int) -> int {
+  primitive int.bashr(self, X);
+} test {
+  assert 8 bit-shr(2) ==> 2;
+}
+
+def int bit-lshr(X: int) -> int {
+  primitive int.blshr(self, X);
+} test {
+  assert 8 bit-lshr(1) ==> 4;
+}
+
+def int bit-and(X: int) -> int {
+  primitive int.band(self, X);
+} test {
+  assert 1 bit-and(2) ==> 0;
+}
+
+def int bit-or(X: int) -> int {
+  primitive int.bor(self, X);
+} test {
+  assert 1 bit-or(2) ==> 3;
+}
+
+def int bit-xor(X: int) -> int {
+  primitive int.bxor(self, X);
+} test {
+  assert 1 bit-xor(2) ==> 3;
+}
+
+def int bit-not() -> int {
+  primitive int.bnot(self);
+} test {
+  assert 1 bit-not() ==> -2;
+}
+//#endregion
+
+//#region - 64-bit integers (i64) ----------------------------------------------
+def i64 bit-shl(X: i64) -> i64 {
+  primitive i64.bshl(self, X);
+} test {
+  assert 1L bit-shl(2L) ==> 4L;
+}
+
+def i64 bit-shr(X: i64) -> i64 {
+  primitive i64.bashr(self, X);
+} test {
+  assert 8L bit-shr(2L) ==> 2L;
+}
+
+// TODO: implement bit-lshr
+
+def i64 bit-and(X: i64) -> i64 {
+  primitive i64.band(self, X);
+} test {
+  assert 1L bit-and(2L) ==> 0L;
+}
+
+def i64 bit-or(X: i64) -> i64 {
+  primitive i64.bor(self, X);
+} test {
+  assert 1L bit-or(2L) ==> 3L;
+}
+
+def i64 bit-xor(X: i64) -> i64 {
+  primitive i64.bxor(self, X);
+} test {
+  assert 1L bit-xor(2L) ==> 3L;
+}
+
+def i64 bit-not() -> i64 {
+  primitive i64.bnot(self);
+} test {
+  assert 1L bit-not() ==> -2L;
+}
+//#endregion

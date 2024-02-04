@@ -1,0 +1,81 @@
+% meow/1
+
+def byte-slice count() -> int {
+  self.length;
+}
+
+def byte-slice offset() -> int {
+  self.offset;
+}
+
+def byte-slice length() -> int {
+  self.length;
+}
+
+
+// -- Indexing -----------------------------------------------------------------
+def byte-slice at!(Index: int) -> int {
+  assert (Index < self.length) and (Index >= 0) :: in-bounds;
+  self.array at!(Index + self.offset);
+} test {
+  let A = <<1,2,3,4,5>> slice(from: 1, length: 3);
+  assert A at!(0) ==> 2;
+  assert A at!(2) ==> 4;
+}
+
+def byte-slice at(Index: int) -> maybe<int> {
+  when {
+    (Index < 0) or (Index >= self.length) => maybe..none;
+    otherwise => self.array at(Index + self.offset);
+  }
+} test {
+  let A = <<1,2,3,4,5>> slice(from: 1, length: 3);
+  assert A at(0) unwrap() ==> 2;
+  assert A at(3) ==> maybe..none;
+}
+
+// -- Slicing ------------------------------------------------------------------
+def byte-slice slice(from Start: int, length Length: int) -> byte-slice {
+  assert Length >= 0 :: positive-slice;
+  assert (Start >= 0) and ((Start + Length) <= self count()) :: in-bounds;
+  new byte-slice(array: self.array, offset: self.offset + Start, length: Length);
+} test {
+  let A = <<1, 2, 3, 4, 5>> slice(from: 1, length: 3);
+  assert A as byte-array ==> <<2, 3, 4>>;
+  assert A slice(from: 1, length: 1) as byte-array ==> <<3>>;
+}
+
+def byte-slice slice(from Start: int, to Stop: int) -> byte-slice {
+  self slice(from: Start, length: Stop - Start);
+} test {
+  let A = <<1, 2, 3, 4, 5>> slice(from: 1, length: 3);
+  assert A slice(from: 1, to: 2) as byte-array ==> <<3>>;
+}
+
+def byte-slice slice(from Start: int) -> byte-slice {
+  self slice(from: Start, length: self count() - Start);
+} test {
+  let A = <<1, 2, 3, 4, 5>> slice(from: 1, length: 3);
+  assert A slice(from: 1) as byte-array ==> <<3, 4>>;
+}
+
+def byte-slice slice(length Length: int) -> byte-slice {
+  self slice(from: 0, length: Length);
+} test {
+  let A = <<1, 2, 3, 4, 5>> slice(from: 1, length: 3);
+  assert A slice(length: 2) as byte-array ==> <<2, 3>>;
+}
+
+// -- Equality -----------------------------------------------------------------
+def byte-slice === (X: byte-slice) -> bool {
+  primitive binary.slice-eq(self.array, self.offset, self.length, X.array, X.offset, X.length);
+}
+
+def byte-slice =/= (X: byte-slice) -> bool {
+  not (self === X);
+}
+
+// -- Conversions --------------------------------------------------------------
+def byte-slice as byte-array {
+  primitive binary.materialise-slice(self.array, self.offset, self.length);
+}

@@ -35,23 +35,22 @@ export function trait_req_name(x: Ast.TraitReq) {
 }
 
 export function fun_parts(name: string, params: Ast.MParam[]) {
-  const keywords = params.flatMap((x) => (x.keyword == null ? [] : [x.keyword + ":"])).join("");
-  const args = params.map((x, i) => (x.name == null || x.name === "_" ? `$${i}` : x.name));
-  const types = params.map((x) => x.typ);
-
-  return {
-    name: `${name}(${keywords})/${params.length}`,
-    args,
-    types,
-  };
+  return def_from_params(name, params);
 }
 
 export function sfun_parts(name: string, self: Ast.MParam, params0: Ast.MParam[]) {
   const params = [new Ast.MParam(self.info, "self", self.name, self.typ), ...params0];
-  const keywords = params.flatMap((x) => (x.keyword == null ? [] : [x.keyword + ":"])).join("");
-  const args = params.map((x, i) => (x.name == null ? `$${i}` : x.name));
-  const types = params.map((x) => x.typ);
+  return def_from_params(name, params);
+}
 
+export function handler_parts(name: string, params: Ast.MParam[]) {
+  return def_from_params(name, params);
+}
+
+function def_from_params(name: string, params: Ast.MParam[]) {
+  const keywords = params.flatMap((x) => (x.keyword == null ? [] : [x.keyword + ":"])).join("");
+  const args = params.map((x, i) => (x.name == null || x.name === "_" ? `$${i}` : x.name));
+  const types = params.map((x) => x.typ);
   return {
     name: `${name}(${keywords})/${params.length}`,
     args,

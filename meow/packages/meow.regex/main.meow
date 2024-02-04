@@ -1,0 +1,55 @@
+% meow/1
+
+singleton regex;
+
+union regex-error {}
+
+struct regex-match(input: text, groups: array<text>);
+
+struct compiled-pattern(code: unknown);
+
+union flag {
+  ignore-case;
+  multiline;
+  dot-all;
+}
+
+struct regex-id(name: text);
+
+union pattern {
+  // Structure
+  parens(expr: pattern);
+  // Basic constructors
+  anything;
+  word-boundary;
+  not-word-boundary;
+  range(start: text, stop: text);
+  not-range(start: text, stop: text);
+  charset(chars: array<text>);
+  not-charset(chars: array<text>);
+  char-class(class: text);
+  exact(text: pattern);
+  raw(code: text);
+  // Modifiers
+  pin-start(expr: pattern);
+  pin-end(expr: pattern);
+  // Peek
+  lookahead(peek: pattern, consume: pattern);
+  not-lookahead(peek: pattern, consume: pattern);
+  lookbehind(peek: pattern, consume: pattern);
+  not-lookbehind(peek: pattern, consume: pattern);
+  // Combinators
+  alt(left: pattern, right: pattern);
+  many(expr: pattern);
+  many1(expr: pattern);
+  opt(expr: pattern);
+  'repeat(expr: pattern, times: int);
+  repeat-at-least(expr: pattern, times: int);
+  repeat-between(expr: pattern, min: int, max: int);
+  seq(items: array<pattern>);
+  // Captures
+  capture(expr: pattern);
+  named-capture(name: regex-id, pattern: expr);
+  backref(index: int);
+  named-backref(name: regex-id);
+}

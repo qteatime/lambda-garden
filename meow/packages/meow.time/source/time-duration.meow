@@ -1,0 +1,238 @@
+% meow/1
+
+// -- Constructors -------------------------------------------------------------
+def #time-duration zero() =
+  new time-duration(
+    hours: 0L,
+    minutes: 0L,
+    seconds: 0L,
+    milliseconds: 0L,
+    microseconds: 0L,
+    nanoseconds: 0L,
+  );
+
+def #time-duration hours(X: i64) = self zero() hours(X);
+def #time-duration minutes(X: i64) = self zero() minutes(X);
+def #time-duration seconds(X: i64) = self zero() seconds(X);
+def #time-duration milliseconds(X: i64) = self zero() milliseconds(X);
+def #time-duration microseconds(X: i64) = self zero() microseconds(X);
+def #time-duration nanoseconds(X: i64) = self zero() nanoseconds(X);
+
+
+// -- Individual components ----------------------------------------------------
+def time-duration hours(X: i64) {
+  self#(hours: X);
+}
+
+def time-duration minutes(X: i64) {
+  self#(minutes: X);
+}
+
+def time-duration seconds(X: i64) {
+  self#(seconds: X);
+}
+
+def time-duration milliseconds(X: i64) {
+  self#(milliseconds: X);
+}
+
+def time-duration microseconds(X: i64) {
+  self#(microseconds: X);
+}
+
+def time-duration nanoseconds(X: i64) {
+  self#(nanoseconds: X);
+}
+
+def time-duration hours() = self.hours;
+def time-duration minutes() = self.minutes;
+def time-duration seconds() = self.seconds;
+def time-duration milliseconds() = self.milliseconds;
+def time-duration microseconds() = self.microseconds;
+def time-duration nanoseconds() = self.nanoseconds;
+
+// -- Equality -----------------------------------------------------------------
+def time-duration === (X: time-duration) =
+  self to-nanoseconds() === X to-nanoseconds();
+
+def time-duration =/= (X: time-duration) =
+  not (self === X);
+
+
+// -- Properties ---------------------------------------------------------------
+def time-duration largest-time-unit() {
+  when {
+    self.hours =/= 0L => unit..hours;
+    self.minutes =/= 0L => unit..minutes;
+    self.seconds =/= 0L => unit..seconds;
+    self.milliseconds =/= 0L => unit..milliseconds;
+    self.microseconds =/= 0L => unit..microseconds;
+    otherwise => unit..nanoseconds;
+  }
+} test {
+  assert new time-duration(1L, 1L, 1L, 1L, 1L, 1L) largest-time-unit() ==> unit..hours;
+  assert new time-duration(0L, 1L, 1L, 1L, 1L, 1L) largest-time-unit() ==> unit..minutes;
+  assert new time-duration(0L, 0L, 1L, 1L, 1L, 1L) largest-time-unit() ==> unit..seconds;
+  assert new time-duration(0L, 0L, 0L, 1L, 1L, 1L) largest-time-unit() ==> unit..milliseconds;
+  assert new time-duration(0L, 0L, 0L, 0L, 1L, 1L) largest-time-unit() ==> unit..microseconds;
+  assert new time-duration(0L, 0L, 0L, 0L, 0L, 1L) largest-time-unit() ==> unit..nanoseconds;
+  assert new time-duration(0L, 0L, 0L, 0L, 0L, 0L) largest-time-unit() ==> unit..nanoseconds;
+}
+
+
+// -- Arithmetic ---------------------------------------------------------------
+def time-duration + (X: time-duration) {
+  new time-duration(
+    hours: self.hours + X.hours,
+    minutes: self.minutes + X.minutes,
+    seconds: self.seconds + X.seconds,
+    milliseconds: self.milliseconds + X.milliseconds,
+    microseconds: self.microseconds + X.microseconds,
+    nanoseconds: self.nanoseconds + X.nanoseconds,
+  );
+} test {
+  assert (3L hours() + 150L minutes()) === #time-duration zero() hours(3L) minutes(150L);
+  assert (3L hours() + 4L hours()) === #time-duration zero() hours(3L + 4L);
+}
+
+def time-duration - (X: time-duration) {
+  new time-duration(
+    hours: self.hours - X.hours,
+    minutes: self.minutes - X.minutes,
+    seconds: self.seconds - X.seconds,
+    milliseconds: self.milliseconds - X.milliseconds,
+    microseconds: self.microseconds - X.microseconds,
+    nanoseconds: self.nanoseconds - X.nanoseconds,
+  );
+} test {
+  assert (3L hours() - 150L minutes()) === #time-duration zero() hours(3L) minutes(-150L);
+  assert (3L hours() - 4L hours()) === #time-duration zero() hours(-1L);
+}
+
+
+// -- Balancing ----------------------------------------------------------------
+def time-duration balanced-time() {
+  let Ns = self.nanoseconds % 1_000L;
+  let NsC = self.nanoseconds \ 1_000L;
+
+  let Us0 = self.microseconds + NsC;
+  let Us = Us0 % 1_000L;
+  let UsC = Us0 \ 1_000L;
+
+  let Ms0 = self.milliseconds + UsC;
+  let Ms = Ms0 % 1_000L;
+  let MsC = Ms0 \ 1_000L;
+
+  let Sec0 = self.seconds + MsC;
+  let Sec = Sec0 % 60L;
+  let SecC = Sec0 \ 60L;
+
+  let Min0 = self.minutes + SecC;
+  let Min = Min0 % 60L;
+  let MinC = Min0 \ 60L;
+
+  self#(
+    nanoseconds: Ns,
+    microseconds: Us,
+    milliseconds: Ms,
+    seconds: Sec,
+    minutes: Min,
+    hours: self.hours + MinC
+  );
+} test {
+  assert 50L milliseconds() balanced-time() === 50L milliseconds();
+  assert (1200L milliseconds() balanced-time()) === (1L seconds() + 200L milliseconds());
+  assert (
+    1100L nanoseconds() + 1200L microseconds() + 1300L milliseconds() + 80L seconds() + 963L minutes() + 3L hours()
+  ) balanced-time() === (
+    100L nanoseconds() + 201L microseconds() + 301L milliseconds() + 21L seconds() + 4L minutes() + 19L hours()
+  );
+}
+
+def time-duration balanced-time(unit _: unit..hours) {
+  self balanced-time();
+}
+
+def time-duration balanced-time(unit _: unit..minutes) {
+  let X = self balanced-time();
+  X#(
+    hours: 0L,
+    minutes: X.minutes + (X.hours * 60L),
+  );
+}
+
+def time-duration balanced-time(unit _: unit..seconds) {
+  let X = self balanced-time();
+  X#(
+    hours: 0L,
+    minutes: 0L,
+    seconds: X.seconds + (X.minutes * 60L) + (X.hours * 60L * 60L),
+  );
+}
+
+def time-duration balanced-time(unit _: unit..milliseconds) {
+  self#(
+    hours: 0L,
+    minutes: 0L,
+    seconds: 0L,
+    milliseconds: (self.hours * 60L * 60L * 1_000L)
+                + (self.minutes * 60L * 1_000L)
+                + (self.seconds * 1_000L)
+                + self.milliseconds,
+  );
+}
+
+def time-duration balanced-time(unit _: unit..microseconds) {
+  self#(
+    hours: 0L,
+    minutes: 0L,
+    seconds: 0L,
+    milliseconds: 0L,
+    microseconds: (self.hours * 60L * 60L * 1_000L * 1_000L)
+                + (self.minutes * 60L * 1_000L * 1_000L)
+                + (self.seconds * 1_000L * 1_000L)
+                + (self.milliseconds * 1_000L)
+                + self.microseconds,
+  );
+}
+
+def time-duration balanced-time(unit _: unit..nanoseconds) {
+    self#(
+    hours: 0L,
+    minutes: 0L,
+    seconds: 0L,
+    milliseconds: 0L,
+    microseconds: 0L,
+    nanoseconds: (self.hours * 60L * 60L * 1_000L * 1_000L * 1_000L)
+                + (self.minutes * 60L * 1_000L * 1_000L * 1_000L)
+                + (self.seconds * 1_000L * 1_000L * 1_000L)
+                + (self.milliseconds * 1_000L * 1_000L)
+                + (self.microseconds * 1_000L)
+                + self.nanoseconds,
+  );
+}
+
+// -- Unit conversions ---------------------------------------------------------
+def time-duration to-nanoseconds() -> i64 {
+  (self balanced-time(unit: unit..nanoseconds)).nanoseconds;
+}
+
+def time-duration to-microseconds() -> f64 {
+  (self to-nanoseconds() as f64) / 1_000.0f;
+}
+
+def time-duration to-milliseconds() -> i64 {
+  (self to-microseconds() as f64) / 1_000.0f;
+}
+
+def time-duration to-seconds() -> f64 {
+  (self to-milliseconds() as f64) / 1_000.0f;
+}
+
+def time-duration to-minutes() -> f64 {
+  (self to-seconds() as f64) / 60.0f;
+}
+
+def time-duration to-hours() -> f64 {
+  (self to-minutes() as f64) / 60.0f;
+}

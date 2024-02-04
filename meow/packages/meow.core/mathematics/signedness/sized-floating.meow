@@ -1,0 +1,25 @@
+% meow/1
+
+//#region - 64-bit floating points ---------------------------------------------
+def f64 absolute() -> f64 {
+  when {
+    self < 0.0f => -(self);
+    otherwise => self;
+  }
+} test {
+  assert 0.0f absolute() ==> 0.0f;
+  assert 1.0f absolute() ==> 1.0f;
+  assert -1.0f absolute() ==> 1.0f;
+}
+
+def f64 sign() -> sign {
+  when {
+    self < 0.0f => sign..negative;
+    otherwise => sign..positive;
+  }
+} test {
+  assert -1.0f sign() ==> sign..negative;
+  assert 0.0f sign() ==> sign..positive;
+  assert 1.0f sign() ==> sign..positive;
+}
+//#endregion

@@ -1,0 +1,62 @@
+% meow/1
+
+//#region - Native-sized integers (int)
+def int === (X: int) -> bool {
+  primitive int.eq(self, X);
+} test {
+  assert 0 === 0;
+  assert 1 === 1;
+  assert not (1 === -1);
+  assert not (1 === 2);
+}
+
+def int =/= (X: int) -> bool {
+  primitive int.neq(self, X);
+} test {
+  assert 1 =/= -1;
+  assert 1 =/= 2;
+  assert not (0 =/= 0);
+  assert not (1 =/= 1);
+}
+//#endregion
+
+//#region - 64-bit sized integers (i64)
+def i64 === (X: i64) -> bool {
+  primitive i64.eq(self, X);
+} test {
+  assert 0L === 0L;
+  assert 1L === 1L;
+  assert not (1L === -1L);
+  assert not (1L === 2L);
+}
+
+def i64 =/= (X: i64) -> bool {
+  primitive i64.neq(self, X);
+} test {
+  assert 1L =/= -1L;
+  assert 1L =/= 2L;
+  assert not (0L =/= 0L);
+  assert not (1L =/= 1L);
+}
+//#endregion
+
+//#region - 64-bit floating points (f64)
+// TODO: floats don't uphold equality laws, should they implement ===?
+def f64 === (X: f64) -> bool {
+  primitive f64.eq(self, X);
+} test {
+  assert 0.0f === 0.0f;
+  assert 1.0f === 1.0f;
+  assert not (1.0f === -1.0f);
+  assert not (1.0f === 2.0f);
+}
+
+def f64 =/= (X: f64) -> bool {
+  primitive f64.neq(self, X);
+} test {
+  assert 1.0f =/= -1.0f;
+  assert 1.0f =/= 2.0f;
+  assert not (0.0f =/= 0.0f);
+  assert not (1.0f =/= 1.0f);
+}
+//#endregion

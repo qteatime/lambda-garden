@@ -1,0 +1,194 @@
+Lingua {
+  Grammar =
+    | header TypeDecl* grammar_ name "{" Rule* "}" end
+
+  Rule =
+    | token_ Rule                                                               -- token
+    | name Formals rule_desc? "=" RuleBody ";"                                  -- parse
+
+  RuleBody =
+    | "|"? NonemptyListOf<TopTerm, "|">
+
+  TopTerm =
+    | Binder* "->" Action                                                       -- action
+    | Binder*                                                                   -- no_action
+
+  Binder =
+    | var ":" Iter                                                              -- bound
+    | Iter                                                                      -- unbound
+
+  Formals =
+    | "<" ListOf<name, ","> ">"                                                 -- list
+    |                                                                           -- empty
+
+  Params =
+    | "<" ListOf<Seq, ","> ">"                                                  -- list
+    |                                                                           -- empty
+
+  Alt =
+    | NonemptyListOf<Seq, "|">
+
+  Seq =
+    | Iter*
+
+  Iter =
+    | Pred "*"                                                                  -- star
+    | Pred "+"                                                                  -- plus
+    | Pred "?"                                                                  -- opt
+    | Pred
+
+  Pred =
+    | "~" Base                                                                  -- not
+    | "&" Base                                                                  -- lookahead
+    | Base
+
+  Base =
+    | "#" Ref Params                                                            -- lex
+    | Ref Params                                                                -- apply
+    | char_terminal ".." char_terminal                                          -- range
+    | terminal                                                                  -- terminal
+    | "(" Alt ")"                                                               -- parens
+
+  Ref = NonemptyListOf<name, ".">
+
+
+  // -- Type declarations ------------------------------------------------------
+  TypeDecl =
+    | struct_ name Formals "(" ListOf<TDField, ","> ")" ";"                     -- record
+    | union_ name Formals "{" TDVariant* "}"                                    -- union
+
+  TDField =
+    | name ":" Type
+
+  TDVariant =
+    | name "(" ListOf<TDField, ","> ")" ";"
+
+  Type =
+    | TypeApp
+
+  TypeApp =
+    | TypePos TypeParams                                                        -- apply
+    | TypePos
+  
+  TypeParams =
+    | "<" ListOf<Type, ","> ">"                                                 -- list
+    |                                                                           -- empty
+
+  TypePos =
+    | TypeMem "?"                                                               -- opt
+    | TypeMem "[]"                                                              -- array
+    | TypeMem
+
+  TypeMem =
+    | TypeMem "." name                                                          -- project
+    | TypePrim
+
+  TypePrim =
+    | var                                                                       -- var
+    | meta_                                                                     -- meta
+    | Ref                                                                       -- ref
+    | "(" Type ")"                                                              -- parens
+
+
+  // -- Action language --------------------------------------------------------
+  Action =
+    | AApply
+
+  AApply =
+    | Ref "(" ListOf<Action, ","> ")"                                         -- make
+    | "@" foreign_name "(" ListOf<Action, ","> ")"                              -- call
+    | AProj
+
+  AProj =
+    | AProj "." name                                                            -- project
+    | APrim
+
+  APrim =
+    | meta_                                                                     -- meta
+    | var                                                                       -- var
+    | Const                                                                     -- const
+    | List
+    | "(" Action ")"                                                            -- parens
+
+  List =
+    | "["ListOf<ListItem, ","> "]"
+
+  ListItem =
+    | "..." Action                                                              -- spread
+    | Action                                                                    -- value
+
+  Const =
+    | integer                                                                   -- int
+    | terminal                                                                  -- text
+    | true_                                                                     -- true
+    | false_                                                                    -- false
+    | nothing_                                                                  -- null
+
+
+  // -- Lexer ------------------------------------------------------------------
+  header (a file header) = "%" hs* "lingua/1"
+  hs = " " | "\t"
+  line = (~newline any)*
+  newline = "\r\n" | "\r" | "\n"
+  comment = "//" line
+  space += comment
+
+  atom_start = "a".."z"
+  atom_rest = "a".."z" | "-" | "0".."9"
+  atom (an atom) = atom_start atom_rest*
+
+  var_start = "A".."Z"
+  var_rest = "A".."Z" | "a".."z" | "-" | "0".."9"
+  var =
+    | var_start var_rest*                                                       -- name
+    | "_"                                                                       -- ignored
+
+  name =
+    | "'" atom                                                                  -- escaped
+    | ~reserved atom                                                            -- naked
+
+  foreign_name = nonemptyListOf<atom, ".">
+
+
+  rule_desc =
+    | "(" rule_desc_text ")"
+
+  rule_desc_text =
+    | (~")" any)*
+
+  terminal =
+    | "\"" terminal_char* "\""
+
+  char_terminal =
+    | "\"" terminal_char "\""
+
+  terminal_char =
+    | escape_char
+    | ~("\\" | "\"") any
+
+  escape_char =
+    | "\\\\"
+    | "\\\""
+    | "\\b"
+    | "\\n"
+    | "\\r"
+    | "\\t"
+    | "\\u" hexDigit hexDigit hexDigit hexDigit                                 -- unicode
+    | "\\x" hexDigit hexDigit                                                   -- ascii
+
+  integer =
+    | "-"? digit+
+
+
+  kw<t> = t ~(atom_rest)
+  grammar_ = kw<"grammar">
+  token_ = kw<"token">
+  struct_ = kw<"struct">
+  union_ = kw<"union">
+  meta_ = kw<"meta">
+  true_ = kw<"true">
+  false_ = kw<"false">
+  nothing_ = kw<"nothing">
+
+  reserved = grammar_ | token_ | struct_ | union_ | meta_ | true_ | false_ | nothing_
+}

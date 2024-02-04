@@ -1,0 +1,38 @@
+% meow/1
+
+def #weak-ref of(Value: T) -> weak-ref<T> {
+  primitive weak-ref.new(Value);
+}
+
+def weak-ref read() -> T {
+  perform weak-ref.read(self);
+}
+
+test "basic weakref" {
+  let A = #cell of(1);
+  let B = #weak-ref of(A);
+  assert B read() unwrap() ==> A;
+  assert B read() unwrap() read() ==> 1;
+  A <- 2;
+  assert B read() unwrap() ==> A;
+  assert B read() unwrap() read() ==> 2;
+
+  // once GC kicks in, we should not get the reference anymore
+  handle {
+    assert B read() is maybe..none;
+  } with {
+    on weak-ref.read() { resume with maybe..none }
+  }
+}
+
+
+effect weak-ref {
+  read(ref: weak-ref<T>) -> maybe<T>;
+}
+
+default handler gc-weak-ref() with {
+  on weak-ref.read(Ref) {
+    let Result = #maybe from(nullable: primitive weak-ref.deref(Ref));
+    resume with Result;
+  }
+}

@@ -1,0 +1,107 @@
+% meow/1
+
+import foreign "native/parser.js";
+
+
+def #loc from(Range: array) {
+  new loc..range(
+    source: Range at!(0),
+    start: Range at!(2),
+    stop: Range at!(3)
+  );
+}
+
+def #loc source(Range: array) {
+  Range at!(1);
+}
+
+def lingua load-grammar(Source: text) -> result<grammar, load-error> {
+  let Result0 = foreign parse(Source, "Grammar", [
+    "Grammar": {R, _, Types, _, Name, _, Rules, _ in new grammar(Name, Rules, Types) },
+
+    "Rule_token": {R, _, Rule in new rule..token(#loc from(R), Rule) },
+    "Rule_parse": {R, Name, Params, Desc, _, Body, _ in new rule..define(#loc from(R), Name, Params, #maybe from(nullable: Desc), Body) },
+    "RuleBody": {R, _, Terms in Terms},
+
+    "TopTerm_action": {R, Xs, _, Action in new rule-body(#loc from(R), Xs, #maybe some(Action))},
+    "TopTerm_no_action": {R, Xs in new rule-body(#loc from(R), Xs, maybe..none) },
+
+    "Binder_bound": {R, Name, _, Term in new binder..bound(#loc from(R), Name, Term) },
+    "Binder_unbound": {R, Term in new binder..unbound(#loc from(R), Term) },
+
+    "Formals_list": {R, _, Xs, _ in Xs },
+    "Formals_empty": {R in []},
+    "Params_list": {R, _, Xs, _ in Xs },
+    "Params_empty": {R in []},
+
+    "Alt": {R, Xs in new term..alt(#loc from(R), Xs)},
+    "Seq": {R, Xs in new term..seq(#loc from(R), Xs)},
+    "Iter_star": {R, Term, _ in new term..star(#loc from(R), Term)},
+    "Iter_plus": {R, Term, _ in new term..plus(#loc from(R), Term)},
+    "Iter_opt": {R, Term, _ in new term..opt(#loc from(R), Term)},
+    "Pred_not": {R, _, Term in new term..not(#loc from(R), Term)},
+    "Pred_lookahead": {R, _, Term in new term..lookahead(#loc from(R), Term)},
+    "Base_lex": {R, _, Ref, Params in new term..lex(#loc from(R), Ref, Params)},
+    "Base_apply": {R, Ref, Params in new term..apply(#loc from(R), Ref, Params)},
+    "Base_range": {R, S, _, E in new term..range(#loc from(R), S, E)},
+    "Base_terminal": {R, T in new term..terminal(#loc from(R), T)},
+    "Base_parens": {R, _, T, _ in T},
+
+    "TypeDecl_record": {R, _, Name, Formals, _, Fields, _ in new type-decl..record(#loc from(R), Name, Formals, Fields) },
+    "TypeDecl_union": {R, _, Name, Formals, _, Variants, _ in new type-decl..union(#loc from(R), Name, Formals, Variants) },
+    "TDField": {R, Name, _, Type in new field(#loc from(R), Name, Type)},
+    "TDVariant": {R, Name, _, Fields, _ in new variant(#loc from(R), Name, Fields)},
+    "TypeApp_apply": {R, Type, Args in new type-app..apply(#loc from(R), Type, Args)},
+    "TypeParams_list": {R, _, Args, _ in Args},
+    "TypeParams_empty": {R in []},
+    "TypePos_opt": {R, Type, _ in new type-app..maybe(#loc from(R), Type)},
+    "TypePos_array": {R, Type, _ in new type-app..list(#loc from(R), Type)},
+    "TypeMem_project": {R, Type, _, Field in new type-app..project(#loc from(R), Type, Field)},
+    "TypePrim_var": {R, Name in new type-app..var(#loc from(R), Name)},
+    "TypePrim_ref": {R, Ref in new type-app..ref(#loc from(R), Ref)},
+    "TypePrim_meta": {R in new type-app..meta(#loc from(R))},
+    "TypePrim_parens": {R, _, Type, _ in Type},
+
+    "AApply_make": {R, Ctor, _, Args, _ in new expr..make(#loc from(R), Ctor, Args)},
+    "AApply_call": {R, _, Name, _, Args, _ in new expr..apply(#loc from(R), Name, Args)},
+    "AProj_project": {R, Obj, _, Field in new expr..project(#loc from(R), Obj, Field)},
+    "APrim_meta": {R in new expr..meta(#loc from(R))},
+    "APrim_var": {R, Name in new expr..var(#loc from(R), Name)},
+    "APrim_const": {R, X in new expr..const(#loc from(R), X)},
+    "APrim_parens": {R, _, T, _ in T},
+    "List": {R, _, Xs, _ in new expr..list(#loc from(R), Xs)},
+    "ListItem_spread": {R, _, X in new list-item..spread(#loc from(R), X)},
+    "ListItem_value": {R, X in new list-item..value(#loc from(R), X)},
+    "Const_int": {R, X in new const..integer(#loc from(R), X)},
+    "Const_text": {R, X in new const..text(#loc from(R), X)},
+    "Const_true": {R in new const..bool(#loc from(R), true)},
+    "Const_false": {R in new const..bool(#loc from(R), false)},
+    "Const_null": {R in new const..null()},
+
+    "Ref": {R, Xs in new ref..relative(#loc from(R), Xs)},
+
+    "var": {R in #loc source(R)},
+    "var_name": {R in #loc source(R)},
+    "var_ignored": {R in #loc source(R)},
+    "atom": {R in #loc source(R)},
+    "name_escaped": {R, T in T},
+    "name_naked": {R, T in T},
+    "rule_desc": {R, _, T, _ in T},
+    "rule_desc_text": {R in #loc source(R)},
+    "terminal": {R in #text parse(#loc source(R)) unwrap() },
+    "char_terminal": {R in #text parse(#loc source(R)) unwrap() },
+    "integer": {R in #integer parse(#loc source(R)) unwrap()},
+
+    "escape_char_unicode": {R, _, A, B, C, D in #loc source(R) },
+    "escape_char_ascii": {R, _, A, B in #loc source(R) },
+
+    "foreign_name": {R in #loc source(R)},
+
+    "header": {RR, _, _, _ in nothing}
+  ]);
+
+  when {
+    Result0 at!(0) => #result ok(Result0 at!(1));
+    otherwise => #result error(new load-error..syntax-error(Result0 at!(1)));
+  }
+}

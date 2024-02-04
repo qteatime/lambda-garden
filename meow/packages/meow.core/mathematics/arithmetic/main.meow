@@ -1,0 +1,100 @@
+% meow/1
+
+//#region - Integral arithmetic ------------------------------------------------
+/// Integral arithmetic works on the space of integral numbers, and is
+/// guaranteed to always produce values that remain in the space of
+/// integral numbers.
+///
+/// Implementations of this trait are allowed to be partial on the
+/// implementation of each method. In that case the implementation
+/// *must* panic when the behaviour would fall outside of its defined
+/// space.
+///
+/// That is, adding two i32 numbers might not be possible because the
+/// resulting value would fall outside of the space of i32 numbers. When
+/// this happens the implementation *must* panic --- it cannot treat just
+/// clamp or wrap the values around and merrily continue the program
+/// execution because that would violate laws such as `(a + b) > a` when
+/// the operands are both positive!
+// trait integral-arithmetic {
+//   /// Addition.
+//   def A + A -> A;
+
+//   /// Subtraction.
+//   def A - A -> A;
+
+//   /// Multiplication.
+//   def A * A -> A;
+
+//   /// Integral division.
+//   def A \ A -> A; // requires divisor =/= 0
+
+//   /// Exponentiation.
+//   def A ** A -> A;
+
+//   /// Modulo division.
+//   def A % A -> A; // requires divisor =/= 0
+
+//   /// Unary negation.
+//   def - A;
+// }
+
+import "sized-integers.meow";
+//#endregion
+
+
+//#region - Fractional arithmetic ----------------------------------------------
+// trait fractional-arithmetic {
+//   /// Addition.
+//   def A + A -> A;
+
+//   /// Subtraction.
+//   def A - A -> A;
+
+//   /// Multiplication.
+//   def A * A -> A;
+
+//   /// Fractional division.
+//   def A / A -> A; // requires divisor =/= 0
+
+//   /// Exponentiation.
+//   def A ** A -> A;
+
+//   /// Modulo division.
+//   def A % A -> A; // requires divisor =/= 0
+
+//   /// Unary negation.
+//   def - A;
+// }
+
+import "sized-floating.meow";
+//#endregion
+
+//#region - Bitwise arithmetic -------------------------------------------------
+/// Bitwise arithmetic works on the space of bits under a constrained size.
+/// Overflows are handled by wrapping values around.
+// trait bitwise-arithmetic {
+//   /// Bitwise shift left.
+//   def A bit-shl(A) -> A;
+
+//   /// Bitwise shift right (arithmetic).
+//   def A bit-shr(A) -> A;
+
+//   /// Bitwise shift right (logical).
+//   def A bit-lshr(A) -> A;
+
+//   /// Bitwise or.
+//   def A bit-or(A) -> A;
+
+//   /// Bitwise and.
+//   def A bit-and(A) -> A;
+
+//   /// Bitwise xor.
+//   def A bit-xor(A) -> A;
+
+//   /// Btiwise not.
+//   def A bit-not() -> A;
+// }
+
+import "bitwise-arithmetic.meow";
+//#endregion

@@ -1,0 +1,24 @@
+% meow/1
+
+singleton p;
+
+union doc {
+  empty;
+  line-break;
+  space;
+  text(content: text);
+  stack(children: array<doc>);
+  concat(left: doc, right: doc);
+  indent(padding: int, child: doc);
+  source-info(source: text, line: int, column: int);
+}
+
+union flat {
+  text(content: text);
+  line(indent: int);
+  source-info(info: doc..source-info);
+}
+
+import "equality.meow";
+import "build.meow";
+import "render.meow";

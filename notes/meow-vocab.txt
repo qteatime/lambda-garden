@@ -1,0 +1,302 @@
+Meow vocabulary
+---------------
+
+Meow favours predictability and control, while also allowing for some
+higher level features, so it leans towards things like Rust or Swift,
+but requires a good tracing garbage collector. It might make more sense
+to compare it to the CLI.
+
+
+== Numerics:
+
+Meow assumes a 64-bit machine, but also compiles to JS directly if not
+compiling to WASM. Since JS does not have a native i64, we distinguish
+between `int` and `i64`. `int` is the native integer (53 or 64 bits).
+
+Then we offer sized ints: i/u8, i/u16, i/u32, i/u64
+Sized floating points: f32, f64
+Precise numbers: integer, rational, decimal
+
+Predictable code should favour sized numbers, higher-level code can
+default to precise numbers. When dealing with sized numbers we never
+perform automatic conversions, so operations *must* have consistent types
+in the operands and return!
+
+
+== Arithmetic:
+
+- Addition: a + b
+- Subtraction: a - b
+- Multiplication: a * b
+- Integer division (truncated towards 0): a \ b
+- Fractional division (to float or rational): a / b
+- Modulo division: a % b
+- Exponentiation: a ** b
+- Negation: -a
+
+
+== Bitwise arithmetic (only available on integers):
+
+- Arithmetic shift left: a << b
+- Arithmetic shift right: a >> b
+- Logical shift left: a >>> b  (operands are unsigned)
+- Or: a | b
+- And: a & b
+- Xor: a ^ b
+- Bitwise negation: ~a
+
+
+== Relational operations:
+
+- Equals and not equals: a === b, a =/= b
+- Less than, less or equal: a < b, a <= b
+- Greater than, greater or equal: a > b, a >= b
+- Ordering: a compare-to(b)      -- the result is a discrete enumeration
+
+
+== Ranges and bounds on values:
+
+- Clamping: a clamp(min: _, max: _)   = max >= x >= min
+- In range: a is-between(min: _, max: _)
+- Successor/predecessor: a successor(), a predecessor()
+- Bounds: #a lower-bound(), #a upper-bound()
+- Ranges: A to(B, step: _), A to(including: B, step: _)
+
+
+== Rounding strategies:
+
+- a truncate()        -- ignore fractional bits
+- a floor()           -- round towards zero
+- a ceiling()         -- rounds away from zero
+- a round()           -- rounds to nearest
+
+
+== Signed numbers:
+
+- a absolute()        -- always positive
+- a sign()            -- current sign
+
+
+== Conversions
+
+Casts are always checked: i.e.: `123456 as i8` will panic with overflow.
+A type should not provide a cast if it has no concept of canonical conversion
+between the types. E.g.: converting from i32 to byte-array can't be done since
+there are multiple ways of serialising it, but from i32 to json there's only
+one canonical way.
+
+Canonical representations are arbitrarily chosen, but one must make sure
+they're at least common enough and not bound to create confusion frequently.
+
+Support for conversions with different semantics is done with a more
+explicit method:
+
+  - X into(truncated: #i8)    -- keep only bits that fit
+  - X into(clamped: #i8)      -- semantic equivalent but clamped at boundaries
+  - X into(wrapped: #i8)      -- wrapped on overflow/underflow
+  - X try-into(#i8)           -- total, by returning a maybe
+
+Support for implicit conversions is done by providing a coercion
+implementation:
+
+  - X safe-coerce-into(#i8)          -- must panic if coercion is unsafe/lossy/not total
+
+
+== Parsing
+
+Always means "taking a value from a serialised representation and
+reconstructing its semantics". Always total by using results:
+
+  - #t parse(Input) -> result<T, custom-parse-error>
+
+Types might provide more parse functions for controlling parsing
+behaviour and relaxing rules. E.g.:
+
+  - #i32 parse(truncate: Input)       -- accept decimals, but get rid of the fractional part
+  - #i32 parse(little-endian: Bytes)  -- assumes little-endian encoding
+
+
+== Sized types
+
+Types that have a known static size must implement 'sized'. This allows
+things like packing binaries and stuff.
+
+  - #t packed-bit-size() -> int     -- the static known size if the value is packed.
+  - #t aligned-bit-size() -> int;   -- the static known size if the value is aligned.
+  - #t byte-alignment() -> int      -- how we align the value
+
+
+== References, sharing, mutability, and observability
+
+Meow relies on observability properties to decide if something can be
+mutated or not, in a way that's similar to Pony or languages using
+uniqueness typing. Less similar to Rust, though there's some overlap.
+
+In general:
+
+- A value can be mutated safely if there's only one reference to it (it's "owned")
+
+- A value that is shared (more than 1 reference) **must** be immutable.
+  This is because otherwise the ones holding a reference to the value could
+  observe changes in it, thereby breaking Meow's purity and safety guarantees.
+
+- Immutable values can be copied freely by just passing the pointer around.
+
+- Mutable values must be cloned before they're shared (new memory is allocated
+  for the shared copy, two copies of the data exist). Or it the reference must
+  be moved into an immutable one (no copies are made, but the data cannot be
+  mutated anymore).
+
+Operations on these types generally follows:
+
+  - imm into-mutable-copy()           -- duplicates memory, returns an owned mutable ref
+  - mut read-only-copy()              -- duplicates memory, returns a shared immutable ref
+  - mut read-only()                   -- invalidates mut, returns a shared immutable ref to the same memory
+
+The `mutable<T>` wrapper can be used to keep track of these and check all
+referencing invariants either statically or dynamically (in case it crosses
+type boundaries). Dynamic checks incurr in a flag check overhead.
+
+
+== Memory, allocation, GC
+
+Meow uses a tracing garbage collector, so memory is properly managed by
+default and there's no need to worry about statically-known lifetimes.
+
+Sometimes however code needs to handle memory itself. Meow supports both
+arena allocations and reference counted items.
+
+  - #arena allocate(size: N, default: D)    -- allocate space for N items, initialised to D
+  - arena grow(size: N)                     -- resize upwards, N >= current capacity
+  - arena shrink(size: N)                   -- resize downwards, drop elements
+  - arena fill(Value, from: S, to: E)       -- fills offset / fill sfully
+  - arena capacity()
+  - arena copy-within(source: range, target: range)
+  - arena copy-from(Source, source: range, target: range)
+
+For reference counting, the `counted-ref<T>` manages all references.
+`weak-ref<T>` handles ephemeral references that are still managed by the
+tracing collector. `destructor-group<T>` manages destructors for a group
+of objects of the given type, but with no guarantees on whether the GC will
+ever call those destructors.
+
+
+== Error handling
+
+Meow encourages relying on errors to strictly denote boundaries on the
+possibility space. This requires one to think about what errors are
+recoverable and what errors are not recoverable *in advance*, as they're
+segregated in Meow --- panic is always non-recoverable.
+
+To this end Meow makes use of:
+
+  - Contracts/invariants: `assert`, `requires`, `ensures`, `invariant`, and
+    `unreachable` annotations in functions and types provide contracts that
+    the code must uphold in order for the semantics to be well-defined.
+
+    Contract violation results in panic, and is non-recoverable. Contracts
+    can be checked at compile time, runtime, or only for particular
+    execution goals (e.g.: a debug contract can be specified as a best-effort
+    safe guard that has no overhead in a production release).
+
+  - Panics: code can use `panic raise(...)` family of functions to halt the
+    execution of the program with information about what went wrong. Panic
+    is always non-recoverable from the program itself, however it can be
+    tested for in tests with a special capability, and it can be recovered
+    in a debugger/REPL by fixing the program and resuming from the panic
+    point.
+
+  - Effects: effects can model recoverable errors with dynamically scoped
+    handlers. This mode of modelling errors is very similar to try/catch
+    blocks in other languages, but since the stack is not unwound by default
+    the program can programmatically fix the issue and resume itself.
+
+  - Reified errors: result<A, E> and maybe<A> are two instances in the core
+    library that reify errors into values, similar to what functional languages
+    tend to use and also similar to Rust/Swift. Reified errors are handled
+    in the same way as any other value in the language.
+
+---- Errors through effects
+
+Effects are great for error handling that you wish to be configurable to
+different contexts. For example, if you're writing a compiler that will be
+used in a REPL loop, interactively in an IDE, and offline to generate a
+production executable, you would want to treat errors in the compiler passes
+differently:
+
+  - for REPLs you want to stop on the first error, but let the user fix the
+    error and continue execution.
+
+  - for IDEs you want to capture as many errors as possible to report them
+    where the user is looking at, but *most of the programs fed to your
+    compiler will not be complete*! Your compiler needs to be able to
+    provide useful compilation and reports even for invalid programs,
+    possibly generating an actual executable with errors deferred to
+    runtime (e.g.: by using holes/partial programs where some of the
+    expressions are a special "invalid" type).
+
+  - for offline cases you want to report as many errors as possible but you
+    DO NOT want to let the compiler progress to the next phase if the previous
+    phase had any errors, as those subsequent errors will be very likely
+    misleading. You also do not want to generate invalid programs, as these
+    might actually be shipped to production where there's no human in the
+    loop to fix the errors.
+
+It's very difficult to achieve this kind of contextual behaviour with reified
+errors, but trivial with effects. You define your effects as reified types as
+normal, but also define an error effect for them:
+
+    union ast-error {
+      invalid-value(node: ast-node);
+    }
+
+    effect ast-error {
+      raise(error: ast-error) -> ast-node;
+    }
+
+Note that `raise` has a chance of returning a new ast-node here, this allows
+expressing things like:
+
+    def ast-node..integer constant() {
+      when {
+        self.value > #i64 upper-bound() => ast-error.raise(new ast-error.invalid-value(self));
+        otherwise => new ast-node.i64(self.loc, self.value as i64);
+      }
+    }
+
+    handler allow-partial-errors with {
+      on ast-error.raise(Error) {
+        compiler log-error(Error);
+        resume with new ast-node.invalid(Error.node);
+      }
+    }
+
+---- Errors through reified errors
+
+Reified errors in Meow follow the same pattern as other functional languages.
+A union type specifies the total possibility space while capturing all error
+possibilities, and functions are provided for recovering. When doing this
+we favour the following vocabulary:
+
+For transforming non-error values:
+
+  - T<A> map(Fn: (A) -> B) -> T<B>            -- like fmap in haskell
+  - T<A> and-then(Fn: (A) -> T<B>) -> T<B>    -- like bind in haskell
+  - T<A> keep-if(Fn: (A) -> bool)  -> T<A>    -- maybe propagate to error
+
+For getting values outside of the reified error space:
+
+  - T<A> unwrap() -> A                        -- partial, ignoring error values
+  - T<A> unwrap(default: A) -> A              -- total, replacing error values
+  - T<A> unwrap(or-else: () -> A) -> A        -- total, computing error values
+  - T<A> unwrap(or-panic: text)               -- partial, with custom panic messages
+
+For transforming error values:
+
+  - T<A> map-error(Fn: () -> A) -> T<A>
+  - T<A> or-else(Fn: () -> T<B>) -> T<B>
+
+
+----
+boolean algebra (and, or, not) vs. lazy boolean algebra (and-then, or-else, ...)
+

@@ -1,0 +1,99 @@
+% meow/1
+
+// -- Constructors -------------------------------------------------------------
+def #maybe from(nullable Value: nothing) -> maybe<T> {
+  maybe..none;
+}
+
+def #maybe from(nullable Value: T) -> maybe<T> {
+  new maybe..some(value: Value);
+}
+
+def #maybe from(Result: result<T, _>) -> maybe<T> {
+  when {
+    Result is result..ok => #maybe some(Result unwrap());
+    otherwise => maybe..none;
+  }
+}
+
+def #maybe some(Value: T) -> maybe<T> {
+  new maybe..some(value: Value);
+}
+
+def #maybe none() -> maybe<T> {
+  maybe..none;
+}
+
+test "constructing maybes" {
+  assert #maybe from(nullable: nothing) ==> maybe..none;
+  assert #maybe from(nullable: 1) unwrap() ==> 1;
+
+  assert #maybe from(#result ok(1)) unwrap() ==> 1;
+  assert #maybe from(#result error(1)) is maybe..none;
+
+  assert #maybe some(nothing) unwrap() ==> nothing;
+  assert #maybe none() is maybe..none;
+}
+
+// -- Getters ------------------------------------------------------------------
+def maybe..some<T> unwrap() -> T = self.value;
+
+def maybe..some<T> unwrap(default _: T) -> T = self.value;
+def maybe..none<T> unwrap(default Value: T) -> T = Value;
+
+def maybe..some<T> unwrap(or-panic Message: text) -> T = self.value;
+def maybe..none<T> unwrap(or-panic Message: text) -> T {
+  #panic raise(message: Message);
+}
+
+def maybe..some<T> unwrap(or-else Fn: () -> T) -> T = self.value;
+def maybe..none<T> unwrap(or-else Fn: () -> T) -> T = Fn();
+
+
+test "unwrapping maybes" {
+  assert #maybe some(1) unwrap() ==> 1;
+
+  assert #maybe some(1) unwrap(default: 2) ==> 1;
+  assert maybe..none unwrap(default: 2) ==> 2;
+
+  assert #maybe some(1) unwrap(or-panic: "no") ==> 1;
+  assert panic catch({ maybe..none unwrap(or-panic: "no"); }) is result..error;
+
+  assert #maybe some(1) unwrap(or-else: { 2 }) ==> 1;
+  assert maybe..none unwrap(or-else: { 2 }) ==> 2;
+}
+
+// -- Transformations ----------------------------------------------------------
+def maybe..some<T> map(Fn: (T) -> U) -> maybe<U> = #maybe some(Fn(self.value));
+def maybe..none<T> map(Fn: (T) -> U) -> maybe<U> = self;
+
+def maybe..some<T> and-then(Fn: (T) -> maybe<U>) -> maybe<U> = Fn(self.value);
+def maybe..none<T> and-then(Fn: (T) -> maybe<U>) -> maybe<U> = self;
+
+def maybe..some<T> or-else(Fn: () -> maybe<U>) -> maybe<U> = self;
+def maybe..none<T> or-else(Fn: () -> maybe<U>) -> maybe<U> = Fn();
+
+def maybe..some<T> keep-if(Fn: (T) -> bool) -> maybe<T> {
+  when {
+    Fn(self.value) => self;
+    otherwise => maybe..none;
+  }
+}
+
+def maybe..none<T> keep-if(Fn: (T) -> bool) -> maybe<T> = self;
+
+
+test "maybe transformations" {
+  assert #maybe some(1) map(_ + 1) unwrap() ==> 2;
+  assert maybe..none map(_ + 1) is maybe..none;
+  
+  assert #maybe some(1) and-then({X in #maybe some(X + 1)}) unwrap() ==> 2;
+  assert maybe..none and-then({X in #maybe some(1)}) is maybe..none;
+
+  assert #maybe some(1) or-else({ #maybe some(2) }) unwrap() ==> 1;
+  assert maybe..none or-else({ #maybe some(2) }) unwrap() ==> 2;
+
+  assert #maybe some(1) keep-if(_ > 0) unwrap() ==> 1;
+  assert #maybe some(1) keep-if(_ > 1) is maybe..none;
+  assert maybe..none keep-if(_ > 1) is maybe..none;
+}

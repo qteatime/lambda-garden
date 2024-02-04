@@ -1,5 +1,0 @@
-% meow/1
-
-def ordering..less-than as i32 = -1;
-def ordering..equal as i32 = 0;
-def ordering..greater-than as i32 = 1;

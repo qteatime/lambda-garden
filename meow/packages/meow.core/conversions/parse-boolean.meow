@@ -1,0 +1,18 @@
+% meow/1
+
+union bool-parse-error {
+  invalid-bool(input: text);
+}
+
+def #bool parse(Input0: text) -> result<bool, bool-parse-error> {
+  let Input = Input0 trim();
+  when {
+    Input =:= "true" => #result ok(true);
+    Input =:= "false" => #result ok(false);
+    otherwise => #result error(new bool-parse-error..invalid-bool(Input0));
+  }
+} test {
+  assert #bool parse("true") unwrap() ==> true;
+  assert #bool parse("  false  ") unwrap() ==> false;
+  assert #bool parse("no") reason() is bool-parse-error..invalid-bool;
+}

@@ -1,0 +1,55 @@
+% meow/1
+
+//#region - Native-sized integers (int) ----------------------------------------
+def int as i64 {
+  primitive int.to-i64(self);
+} test {
+  assert 0 as i64 ==> 0L;
+  assert 4 as i64 ==> 4L;
+  assert -4 as i64 ==> -4L;
+}
+
+def int as f64 {
+  primitive int.to-f64(self);
+} test {
+  assert 0 as f64 ==> 0.0f;
+  assert 4 as f64 ==> 4.0f;
+  assert -4 as f64 ==> -4.0f;
+}
+//#endregion
+
+//#region - 64-bit sized integers (i64) ----------------------------------------
+def i64 as int {
+  primitive i64.to-int(self);
+} test {
+  assert 0L as int ==> 0;
+  assert 4L as int ==> 4;
+  assert -4L as int ==> -4;
+}
+
+def i64 as f64 {
+  primitive i64.to-f64(self);
+} test {
+  assert 0L as f64 ==> 0.0f;
+  assert 4L as f64 ==> 4.0f;
+  assert -4L as f64 ==> -4.0f;
+}
+//#endregion
+
+//#region - 64-bit floating points (f64) ---------------------------------------
+def f64 as int {
+  primitive f64.to-int(self);
+} test {
+  assert 4.0f as int ==> 4;
+  assert -4.0f as int ==> -4;
+  assert 2.7f as int ==> 2; // TODO: maybe these should throw?
+}
+
+def f64 as i64 {
+  primitive f64.to-i64(self);
+} test {
+  assert 4.0f as i64 ==> 4L;
+  assert -4.0f as i64 ==> -4L;
+  assert 2.7f as i64 ==> 2L;
+}
+//#endregion

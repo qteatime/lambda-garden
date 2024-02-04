@@ -1,0 +1,199 @@
+% meow/1
+
+effect io {
+  read() -> text;
+  write(value: text) -> nothing;
+  exit(code: int) -> nothing, nonlocal int;
+}
+
+test "effects are supported" {
+  let Input = #cell of(["Alice"]);
+  let Output = #cell of([]);
+
+  let Code =
+    handle {
+      let Name = perform io.read();
+      assert Name ==> "Alice";
+      perform io.write("Hello, " ++ Name);
+      perform io.exit(0);
+      1;
+    } with {
+      on io.read() {
+        let Value = Input read() first!();
+        Input <- Input read() rest();
+        resume with Value;
+      }
+
+      on io.write(Value) {
+        Output <- Output read() append(Value);
+        resume with nothing;
+      }
+
+      on io.exit(Code) {
+        abort with Code;
+      }
+    };
+
+  assert Input read() ==> [];
+  assert Output read() ==> ["Hello, Alice"];
+  assert Code ==> 0;
+}
+
+
+effect dice {
+  roll() -> int;
+}
+
+test "Handler blocks can nest" {
+  handle {
+    let A = perform dice.roll();
+    assert A ==> 1;
+
+    let C = 
+      handle {
+        let B = perform dice.roll();
+        assert B ==> 2;
+        B;
+      } with {
+        on dice.roll() {resume with 2}
+      };
+
+    assert C ==> 2;
+    assert (perform dice.roll()) ==> 1;
+  } with {
+    on dice.roll() { resume with 1 }
+  }
+}
+
+
+singleton random;
+def random of(Value: int, do Fn: () -> int) -> int {
+  handle {
+    Fn() + 1;
+  } with {
+    on dice.roll() { resume with Value }
+  }
+}
+
+def random roll() { perform dice.roll() }
+
+test "Effects can be abstracted over" {
+  let A = random of(1, do: {
+    assert random roll() ==> 1;
+    let B = random of(2, do: {
+      assert random roll() ==> 2;
+      3;
+    });
+    assert B ==> 4;
+    assert random roll() ==> 1;
+    B;
+  });
+  assert A ==> 5;
+}
+
+
+struct io(input: cell<text>, output: cell<text>);
+
+def #io of(Input: array<text>, do Block: () -> text) -> #(result: text, io: io) {
+  let Io = new io(input: #cell of(Input), output: #cell of([]));
+  let Result =
+    handle {
+      Block(Io);
+    } with {
+      on io.read() {
+        let X = Io.input read() first!();
+        Io.input <- Io.input read() rest();
+        resume with X;
+      }
+
+      on io.write(What) {
+        Io.output <- Io.output read() append(What);
+        resume with nothing;
+      }
+
+      on io.exit(Code) {
+        abort with Code;
+      }
+    };
+  #(result: Result, io: Io);
+}
+
+def #io read() { perform io.read() }
+def #io write(X: text) { perform io.write(X) }
+def #io exit(Code: int) { perform io.exit(Code) }
+
+
+test "'perform' finds the closest implementation on the dynamic stack" {
+  let X = #io of(["Alice", "Mary"], do: {
+    random of(2, do: {
+      random of(3, do: {
+        let Name = #io read();
+        #io write("Hello, " ++ Name);
+        #io exit(1);
+      })
+      assert false ==> "will never be executed";
+    })
+    assert "this too will never run" ==> true;
+  });
+
+  assert X.result ==> 1;
+  assert X.io.input read() ==> ["Mary"];
+  assert X.io.output read() ==> ["Hello, Alice"];
+}
+
+effect fuzzy {
+  answer() -> text;
+}
+
+default handler fuzzy-feels() {
+  let Answer = "feels";
+} with {
+  on fuzzy.answer() { resume with Answer }
+}
+
+handler fuzzy-thing(Thing: text) with {
+  on fuzzy.answer() { resume with Thing }
+}
+
+handler fuzzy-other() with {
+  on fuzzy.answer() { resume with "i guess" }
+}
+
+handler dice-roll(answer Result: int) with {
+  on dice.roll() { resume with Result }
+}
+
+test "Default handlers are supported and can be overriden" {
+  assert perform fuzzy.answer() ==> "feels"; // default handler
+
+  // simple override
+  assert handle {
+    assert perform fuzzy.answer() ==> "i guess";
+    true;
+  } with {
+    use fuzzy-other();
+  }
+
+  // parameterised override
+  assert handle {
+    assert perform fuzzy.answer() ==> "yup";
+    true;
+  } with {
+    use fuzzy-thing("yup");
+  }
+
+  // combining handlers
+  assert handle {
+    assert perform fuzzy.answer() ==> "ya";
+    assert perform dice.roll() ==> 3;
+    assert perform io.read() ==> "input";
+    true;
+  } with {
+    use fuzzy-thing("ya");
+    on io.read() { resume with "input" }
+    use dice-roll(answer: 3);
+  }
+}
+
+// TODO: saving and overriding stack context for lambda calls
+// TODO: implement super(...) calls to handlers in frames upper in the stack

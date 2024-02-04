@@ -1,0 +1,26 @@
+% meow/1
+
+def #f64 upper-bound() = primitive f64.max();
+def #f64 lower-bound() = primitive f64.min();
+
+def f64 clamp(min Min: f64, max Max: f64) -> f64 {
+  when {
+    self < Min => Min;
+    self > Max => Max;
+    otherwise => self;
+  }
+} test {
+  assert 2.0f clamp(min: 0.0f, max: 5.0f) ==> 2.0f;
+  assert -3.0f clamp(min: 0.0f, max: 5.0f) ==> 0.0f;
+  assert 9.0f clamp(min: 0.0f, max: 5.0f) ==> 5.0f;
+}
+
+def f64 is-between(min Min: f64, max Max: f64) -> f64 {
+  (self >= Min) and (self <= Max);
+} test {
+  assert 2.0f is-between(min: 0.0f, max: 5.0f) ==> true;
+  assert 0.0f is-between(min: 0.0f, max: 5.0f) ==> true;
+  assert 5.0f is-between(min: 0.0f, max: 5.0f) ==> true;
+  assert -3.0f is-between(min: 0.0f, max: 5.0f) ==> false;
+  assert 9.0f is-between(min: 0.0f, max: 5.0f) ==> false;
+}

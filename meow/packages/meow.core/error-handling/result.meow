@@ -1,0 +1,144 @@
+% meow/1
+
+// -- Constructors -------------------------------------------------------------
+def #result from(Maybe: maybe<T>) -> result<T, nothing> {
+  when {
+    Maybe is maybe..some => #result ok(Maybe unwrap());
+    Maybe is maybe..none => #result error(nothing);
+  }
+}
+
+def #result from(nullable Value: nothing) -> result<T, E> {
+  new result..error(nothing);
+}
+
+def #result from(nullable Value: T) -> result<T, E> {
+  new result..ok(Value);
+}
+
+def #result from(Record: #(ok: bool, value: T, reason: E)) -> result<T, E> {
+  when {
+    Record.ok => new result..ok(Record.value);
+    otherwise => new result..error(Record.reason);
+  }
+}
+
+def #result ok(Value: T) -> result<T, E> {
+  new result..ok(Value);
+}
+
+def #result error(Reason: E) -> result<T, E> {
+  new result..error(Reason);
+}
+
+
+test "constructing results" {
+  assert #result from(nullable: nothing) reason() ==> nothing;
+  assert #result from(nullable: 1) value() ==> 1;
+
+  assert #result from(#maybe some(1)) value() ==> 1;
+  assert #result from(#maybe none()) reason() ==> nothing;
+
+  assert #result from(#(ok: true, value: 1, reason: 2)) value() ==> 1;
+  assert #result from(#(ok: false, reason: 1, value: 2)) reason() ==> 1;
+
+  assert #result ok(1) value() ==> 1;
+  assert #result error(2) reason() ==> 2;
+}
+
+
+// -- Getters ------------------------------------------------------------------
+def result..ok<T, E> unwrap() -> T = self.value;
+
+def result..ok<T, E> unwrap(default _: T) -> T = self.value;
+def result..error<T, E> unwrap(default Value: T) -> T = Value;
+
+def result..ok<T, E> unwrap(or-panic Message: text) -> T = self.value;
+def result..error<T, E> unwrap(or-panic Message: text) -> T = #panic raise(message: Message, data: self);
+
+def result..ok<T, E> unwrap(or-else Fn: (E) -> T) -> T = self.value;
+def result..error<T, E> unwrap(or-else Fn: (E) -> T) -> T = Fn(self.reason);
+
+def result..ok<T, T> value-or-reason() -> T = self.value;
+def result..error<T, T> value-or-reason() -> T = self.reason;
+
+def result..ok<T, E> value() -> T = self.value;
+def result..error<T, E> reason() -> E = self.reason;
+
+test "unwrapping results" {
+  assert #result ok(1) unwrap() ==> 1;
+  
+  assert #result ok(1) unwrap(default: 2) ==> 1;
+  assert #result error(1) unwrap(default: 2) ==> 2;
+
+  assert #result ok(1) unwrap(or-panic: "no") ==> 1;
+  assert panic catch({ #result error(1) unwrap(or-panic: "no") }) reason() is caught-panic;
+
+  assert #result ok(1) unwrap(or-else: { _ in 2 }) ==> 1;
+  assert #result error(1) unwrap(or-else: { _ in 2 }) ==> 2;
+
+  assert #result ok(1) value-or-reason() ==> 1;
+  assert #result error(1) value-or-reason() ==> 1;
+
+  assert #result ok(1) value() ==> 1;
+  assert #result error(1) reason() ==> 1;
+}
+
+
+// -- Transformations ----------------------------------------------------------
+def result..ok<T, E> map(Fn: (T) -> U) -> result<U, E> =
+  new result..ok(Fn(self.value));
+
+def result..error<T, E> map(Fn: (T) -> U) -> result<U, E> =
+  self;
+
+
+def result..ok<T, E> map-error(Fn: (E) -> E2) -> result<T, E2> =
+  self;
+
+def result..error<T, E> map-error(Fn: (E) -> E2) -> result<T, E2> =
+  new result..error(Fn(self.reason));
+
+
+def result..ok<T, E> and-then(Fn: (T) -> result<U, E>) -> result<U, E> =
+  Fn(self.value);
+
+def result..error<T, E> and-then(Fn: (T) -> result<U, E>) -> result<U, E> =
+  self;
+
+
+def result..ok<T, E> or-else(Fn: (T) -> result<T, E2>) -> result<T, E2> =
+  self;
+
+def result..error<T, E> or-else(Fn: (T) -> result<T, E2>) -> result<T, E2> =
+  Fn(self.reason);
+
+
+def result..ok<T, T> keep-if(Fn: (T) -> bool) -> result<T, T> =
+  when {
+    Fn(self.value) => self;
+    otherwise => #result error(self.value);
+  };
+
+def result..error<T, T> keep-if(Fn: (T) -> bool) -> result<T, T> =
+  self;
+
+
+test "result transformations" {
+  assert #result ok(1) map(_ + 1) value() ==> 2;
+  assert #result error(1) map(_ + 1) reason() ==> 1;
+
+  assert #result ok(1) map-error(_ + 1) value() ==> 1;
+  assert #result error(1) map-error(_ + 1) reason() ==> 2;
+
+  assert #result ok(1) and-then({ X in #result error(X + 1) }) reason() ==> 2;
+  assert #result error(1) and-then({ X in #result ok(X + 1) }) reason() ==> 1;
+
+  assert #result ok(1) or-else({ X in #result error(X + 1) }) value() ==> 1;
+  assert #result error(1) or-else({ X in #result ok(X + 1) }) value() ==> 2;
+
+  assert #result ok(1) keep-if(_ > 0) value() ==> 1;
+  assert #result ok(1) keep-if(_ > 2) reason() ==> 1;
+  assert #result error(1) keep-if(_ > 0) reason() ==> 1;
+  assert #result error(1) keep-if(_ > 2) reason() ==> 1;
+}

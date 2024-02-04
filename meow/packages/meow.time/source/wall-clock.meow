@@ -1,0 +1,5 @@
+% meow/1
+
+// TODO: put this behind an effect and capability
+def wall-clock now() =
+  #instant from-epoch(milliseconds: foreign clock.now());

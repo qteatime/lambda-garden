@@ -1,0 +1,43 @@
+% meow/1
+
+//#region - 64-bit floating points (f64) ---------------------------------------
+def f64 truncate() -> f64 {  
+  primitive f64.truncate(self);
+} test {
+  assert 10.0f  truncate() ==> 10.0f;
+  assert 10.1f  truncate() ==> 10.0f;
+  assert 10.9f  truncate() ==> 10.0f;
+  assert -10.1f truncate() ==> -10.0f;
+  assert -10.9f truncate() ==> -10.0f;
+}
+
+def f64 floor() -> f64 {
+  primitive f64.floor(self);
+} test {
+  assert 10.0f  floor() ==> 10.0f;
+  assert 10.1f  floor() ==> 10.0f;
+  assert 10.9f  floor() ==> 10.0f;
+  assert -10.1f floor() ==> -11.0f;
+  assert -10.9f floor() ==> -11.0f;
+}
+
+def f64 ceiling() -> f64 {
+  primitive f64.ceiling(self);
+} test {
+  assert 10.0f  ceiling() ==> 10.0f;
+  assert 10.1f  ceiling() ==> 11.0f;
+  assert 10.9f  ceiling() ==> 11.0f;
+  assert -10.1f ceiling() ==> -10.0f;
+  assert -10.9f ceiling() ==> -10.0f;
+}
+
+def f64 round() -> f64 {
+  primitive f64.round(self);
+} test {
+  assert 10.0f  round() ==> 10.0f;
+  assert 10.1f  round() ==> 10.0f;
+  assert 10.9f  round() ==> 11.0f;
+  assert -10.1f round() ==> -10.0f;
+  assert -10.9f round() ==> -11.0f;
+}
+//#endregion

@@ -1,0 +1,7 @@
+% meow/1
+
+//#region - Ordering -----------------------------------------------------------
+def ordering..less-than as int = -1;
+def ordering..equal as int = 0;
+def ordering..greater-than as int = 1;
+//#endregion

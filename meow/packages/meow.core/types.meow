@@ -1,0 +1,48 @@
+% meow/1
+
+//#region Mathematics ----------------------------------------------------------
+union ordering {
+  less-than;
+  equal;
+  greater-than;
+}
+
+union sign {
+  negative;
+  positive;
+}
+//#endregion
+
+//#region Error-handling -------------------------------------------------------
+singleton panic;
+
+union maybe {
+  none;
+  some(value: T);
+}
+
+union result {
+  error(reason: E);
+  ok(value: T);
+}
+//#endregion
+
+// -- Collections
+struct byte-slice(array: byte-array, offset: int, length: int);
+struct mutable-byte-array(array: byte-array);
+
+struct array-slice(array: array<T>, offset: int, length: int);
+struct mutable-array(array: array<T>);
+
+union linked-list {
+  empty;
+  cons(head: A, tail: linked-list<A>);
+}
+
+union stream {
+  empty;
+  cons(head: A, tail: thunk<stream<A>>);
+}
+
+// -- Debugging
+singleton transcript;

@@ -1,0 +1,20 @@
+% meow/1
+
+def doc === doc = false;
+def doc =/= (X: doc) = not (self === X);
+
+def doc..empty === doc..empty = true;
+def doc..line-break === doc..line-break = true;
+def doc..space === doc..space = true;
+
+def doc..text === (X: doc..text) =
+  self.content === X.content;
+
+def doc..stack === (X: doc..stack) =
+  self.children zip(X.children, with: (_ === _)) all({X in X});
+
+def doc..concat === (X: doc..concat) =
+  (self.left === X.left) and (self.right === X.right);
+
+def doc..indent === (X: doc..indent) =
+  (self.padding === X.padding) and (self.child === X.child);

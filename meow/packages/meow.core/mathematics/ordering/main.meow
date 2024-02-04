@@ -1,0 +1,26 @@
+% meow/1
+
+/// A value exhibits a total-order when for any pair of values in its
+/// space, if `A <= B` and `B <= C`, then `A <= C`.
+// trait total-order {
+//   requires trait equality;
+
+//   /// The relative position of the pair of elements when considered in the
+//   /// type's value space.
+//   def A compare-to(A) -> ordering;
+
+//   /// left 'less than' right.
+//   def A < A -> bool;
+
+//   /// left 'less or equal to' right.
+//   def A <= A -> bool;
+
+//   /// left 'greater than' right.
+//   def A > A -> bool;
+
+//   /// left 'greater or equal to' right.
+//   def A >= A -> bool;
+// }
+
+import "sized-integers.meow";
+import "floating-points.meow";

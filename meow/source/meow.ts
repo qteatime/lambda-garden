@@ -8,7 +8,10 @@ const { file, options } = parse(`meow`, `Run Meow programs`, process.argv.slice(
 
 const source = FS.readFileSync(file!, "utf-8");
 const ast = syntax.parse(source);
-const js = compile.lower(ast, options);
+const js = compile.lower(ast, options, {
+  pkgs: new Set(),
+  files: new Set(file == null ? [] : [Path.resolve(file)]),
+});
 new Function("__dirname", "require", "module", "exports", js + `\n//# sourceURL=${file}`)(
   Path.resolve(Path.dirname(file!)),
   require,

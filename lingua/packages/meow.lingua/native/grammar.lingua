@@ -1,0 +1,182 @@
+grammar Lingua : result {
+  TypeDecl =
+    | type_ Name Formals "(" ListOf<TypeField, ","> ")"                         -> null
+    | type_ Name Formals "=" "|"? NonemptyListOf<TypeVariant, "|">              -> null
+
+  TypeVariant =
+    | Name "(" ListOf<TypeField, ","> ")"                                       -> null
+  
+  TypeField =
+    | Name ":" TypeApp                                                          -> null
+
+  TypeApp =
+    | TypeApp "[]"                                                              -> null
+    | TypeApp1
+
+  TypeApp1 =
+    | TypeApp2 "?"                                                              -> null
+    | TypeApp2
+
+  TypeApp2 =
+    | TypeApp3 "<" NonemptyListOf<TypeApp, ","> ">"                             -> null
+    | TypeApp3
+
+  TypeApp3 =
+    | TypeApp3 "." Name                                                         -> null
+    | TypeApp4
+
+  TypeApp4 =
+    | Name                                                                      -> null
+    | "(" TypeApp ")"                                                           -> null
+
+
+
+  Grammar =
+    | TypeDecl* grammar_ Name ":" TypeApp "{" Rule* "}"                         -> null
+
+  Rule =
+    | token_ Rule                                                               -> null
+    | ident Formals ruleDescr? "="  RuleBody                                    -> null
+    | ident Formals ":=" RuleBody                                               -> null
+    | ident Formals? "+=" RuleBody                                              -> null
+
+  RuleBody =
+    | "|"? NonemptyListOf<TopLevelTerm, "|">                                    -> null
+
+  TopLevelTerm =
+    | Binder* "->" Action                                                       -> null
+    | Binder*                                                                   -> null
+
+  Binder =
+    | Name ":" Iter                                                             -> null
+    | Iter                                                                      -> null
+
+  Action =
+    | ActionProject "(" ListOf<Action, ","> ")"                                 -> null
+    | "@" Name "(" ListOf<Action, ","> ")"                                      -> null
+    | ActionProject
+
+  ActionProject =
+    | ActionProject "." Name                                                    -> null
+    | ActionPrimary
+
+  ActionPrimary =
+    | meta_                                                                     -> null
+    | Name                                                                      -> null
+    | null_                                                                     -> null
+    | ActionList
+    | "(" Action ")"                                                            -> null
+
+  ActionList =
+    | "[" NonemptyListOf<Action, ","> "," "..." Action "]"                      -> null
+    | "[" ListOf<Action, ","> "]"                                               -> null
+
+  Formals =
+    | "<" ListOf<ident, ","> ">"                                                -> null
+    |                                                                           -> null
+
+  Params =
+    | "<" ListOf<Seq, ","> ">"                                                  -> null
+    |                                                                           -> null
+
+  Alt
+    = NonemptyListOf<Seq, "|">                                                  -> null
+
+  Seq
+    = Iter*                                                                     -> null
+
+  Iter
+    = Pred "*"                                                                  -> null
+    | Pred "+"                                                                  -> null
+    | Pred "?"                                                                  -> null
+    | Pred
+
+  Pred
+    = "~" Lex                                                                   -> null
+    | "&" Lex                                                                   -> null
+    | Lex
+
+  Lex
+    = "#" Base                                                                  -> null
+    | Base
+
+  Base
+    = ~reserved Ref Params ~(ruleDescr? "=" | ":=" | "+=")                      -> null
+    | oneCharTerminal ".." oneCharTerminal                                      -> null
+    | terminal                                                                  -> null
+    | "(" Alt ")"                                                               -> null
+
+  ruleDescr  (a rule description)
+    = "(" ruleDescrText ")"                                                     -> null
+
+  ruleDescrText
+    = (~")" any)*
+
+  name  (a name)
+    = nameFirst nameRest*
+
+  nameFirst
+    = "_"
+    | letter
+
+  nameRest
+    = "_"
+    | alnum
+
+  ident  (an identifier)
+    = name
+
+  terminal =
+    | t_terminal
+
+  t_terminal
+    = "\"" terminalChar* "\""
+
+  oneCharTerminal =
+    | t_oneCharTerminal
+
+  t_oneCharTerminal
+    = "\"" terminalChar "\""
+      
+
+  terminalChar
+    = escapeChar
+    | ~"\\" ~"\"" ~"\n" any
+
+  escapeChar  (an escape sequence)
+    = "\\\\"                                     
+    | "\\\""                                     
+    | "\\b"                                      
+    | "\\n"                                      
+    | "\\r"                                      
+    | "\\t"                                      
+    | "\\u" hexDigit hexDigit hexDigit hexDigit  
+    | "\\x" hexDigit hexDigit                    
+
+  space += comment
+
+  comment
+    = "//" (~"\n" any)* "\n"  
+    | "/*" (~"*/" any)* "*/"  
+
+  tokens = any_token*
+
+  any_token = comment | ident | operator | punctuation | terminal | any
+
+  operator = "<:" | "=" | ":=" | "+=" | "*" | "+" | "?" | "~" | "&"
+
+  punctuation = "<" | ">" | "," | "--"
+
+  kw<k> = k ~nameRest
+
+  type_ = kw<"type">
+  grammar_ = kw<"grammar">
+  meta_ = kw<"meta">
+  null_ = kw<"null">
+  token_ = kw<"token">
+
+  reserved = type_ | grammar_ | meta_ | null_ | token_
+
+  Name = ~reserved name
+  Ref = NonemptyListOf<Name>
+}

@@ -1,13 +1,13 @@
 % meow/1
 
-def i32 fib() -> i32 {
+def int fib() -> int {
   when {
-    self === 0n => 0n;
-    self === 1n => 1n;
-    otherwise => (self - 1n) fib() + (self - 2n) fib();
+    self === 0 => 0;
+    self === 1 => 1;
+    otherwise => (self - 1) fib() + (self - 2) fib();
   }
 }
 
 def main(_: array) {
-  transcript log(30n fib());
+  transcript log(30 fib());
 }

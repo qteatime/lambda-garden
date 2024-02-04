@@ -1,0 +1,26 @@
+% meow/1
+
+import foreign "./native/parser.js";
+
+struct env(filters: map<text, (unknown) -> unknown>);
+struct template(tokens: array<token>, env: env);
+
+singleton filter;
+
+union token {
+  line-break;
+  text(content: text);
+  var(names: array<text>, map: array<text>);
+}
+
+union parse-error {
+  syntax-error(reason: text, input: text, offset: int);
+}
+
+struct bindings(mapping: unknown, on-not-found: (array<text>) -> text);
+
+import "./equality.meow";
+import "./bindings.meow";
+import "./parsing.meow";
+import "./rendering.meow";
+import "./env.meow";

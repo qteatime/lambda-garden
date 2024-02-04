@@ -1,0 +1,18 @@
+% lingua/1
+
+union expr {
+  mul(loc: meta, x: expr, y: expr);
+  add(loc: meta, x: expr, y: expr);
+  num(loc: meta, x: int);
+}
+
+struct int(loc: meta, x: i32);
+
+grammar arith {
+  expr = A:expr "*" B:expr    -> expr.mul(meta, A, B)
+       | A:expr "+" B:expr    -> expr.add(meta, A, B)
+       | N:#integer           -> expr.num(meta, int(meta, 12))
+       ;
+
+  token integer = ("0".."9")+ ;
+}

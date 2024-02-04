@@ -1,6 +1,6 @@
 % meow/1
 
-def value: i32 = 10n;
+def value: int = 10;
 
 def list = [1, 2, 3];
 def list2 = lazy [1, 2, 3, ...list];

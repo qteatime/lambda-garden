@@ -1,0 +1,120 @@
+% meow/1
+
+singleton re-compiler;
+
+def pattern compile(Flags: array<flag>) {
+  let Code = foreign re.compile(re-compiler do(self), Flags map(re-compiler flag(_)));
+  new compiled-regex-pattern(Code);
+} test {
+  let Compiled = regex from("\\w") pin-start() pin-end() compile([]);
+  assert Compiled as text ==> "(?:^(?:\\w))$";
+}
+
+
+def re-compiler flag(flag..ignore-case) = "i";
+def re-compiler flag(flag..multiline) = "m";
+def re-compiler flag(flag..dot-all) = "s";
+
+
+def re-compiler paren(Symbol: text, X: pattern) =
+  "(" ++ Symbol ++ self do(X) ++ ")";
+
+def re-compiler paren(X: pattern) =
+  self paren("?:", X);
+
+
+def re-compiler do(X: pattern..raw) =
+  X.code;
+
+def re-compiler do(X: pattern..anything) =
+  ".";
+
+
+def re-compiler do(X: pattern..pin-start) =
+  "^" ++ self paren(X.expr);
+
+def re-compiler do(X: pattern..pin-end) =
+  self paren(X.expr) ++ "$";
+
+def re-compiler do(X: pattern..word-boundary) =
+  "\\b";
+
+def re-compiler do(X: pattern..not-word-boundary) =
+  "\\B";
+
+def re-compiler do(X: pattern..char-class) =
+  "\\" ++ X.class;
+
+def re-compiler do(X: pattern..exact) =
+  foreign re.escape(X.text);
+
+def re-compiler do(X: pattern..range) =
+  "[" ++ foreign re.escape(X.start) ++ "-" ++ foreign re.escape(X.stop) ++ "]";
+
+def re-compiler do(X: pattern..not-range) =
+  "[^" ++ foreign re.escape(X.start) ++ "-" ++ foreign re.escape(X.stop) ++ "]";
+
+def re-compiler do(X: pattern..charset) {
+  let Chars = #text join(X.chars map(foreign re.escape(_)), with: "");
+  "[" ++ Chars ++ "]";
+}
+
+def re-compiler do(X: pattern..not-charset) {
+  let Chars = #text join(X.chars map(foreign re.escape(_)), with: "");
+  "[^" ++ Chars ++ "]";
+}
+
+
+def re-compiler do(X: pattern..lookahead) = 
+  self paren(X.consume) ++ self paren("?=", X.peek);
+
+def re-compiler do(X: pattern..not-lookahead) =
+  self paren(X.consume) ++ self paren("?!", X.peek);
+
+def re-compiler do(X: pattern..lookbehind) =
+  self paren(X.consume) ++ self paren("?<=", X.peek);
+
+def re-compiler do(X: pattern..not-lookbehind) =
+  self paren(X.consume) ++ self paren("?<!", X.peek);
+
+
+def re-compiler do(X: pattern..alt) =
+  self paren(self paren(X.left) ++ "|" ++ self paren(X.right));
+
+def re-compiler do(X: pattern..many) =
+  self paren(X.expr) ++ "*";
+
+def re-compiler do(X: pattern..many1) =
+  self paren(X.expr) ++ "+";
+
+def re-compiler do(X: pattern..opt) =
+  self paren(X.expr) ++ "?";
+
+def re-compiler do(X: pattern..repeat) =
+  self paren(X.expr) ++ "{" ++ (X.times as text) ++ "}";
+
+def re-compiler do(X: pattern..repeat-at-least) =
+  self paren(X.expr) ++ "{" ++ (X.times as text) ++ ",}";
+
+def re-compiler do(X: pattern..repeat-between) =
+  self paren(X.expr) ++ "{" ++ (X.min as text) ++ "," ++ (X.max as text) ++ "}";
+
+def re-compiler do(X: pattern..seq) =
+  #text join(X.items map(self do(_)), with: "");
+
+
+def re-compiler do(X: pattern..capture) =
+  self paren(X.expr);
+
+def re-compiler do(X: pattern..named-capture) =
+  self paren("<" ++ self name(X.name) ++ ">", X.expr);
+
+def re-compiler do(X: pattern..backref) =
+  "\\" ++ (X.index as text);
+
+def re-compiler do(X: pattern..named-backref) =
+  "\\k<" ++ self name(X.name) ++ ">";
+
+
+def re-compiler do(X: pattern..parens) =
+  self parens(X.expr);

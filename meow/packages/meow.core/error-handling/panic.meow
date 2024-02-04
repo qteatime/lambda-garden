@@ -1,0 +1,30 @@
+% meow/1
+
+/// Halts the program with the given panic message.
+///
+/// Arbitrary data might be associated with the panic event.
+def panic raise(Message: text, tag Tag: text, data Data: unknown) {
+  primitive panic.raise(Tag, Message, Data);
+}
+
+def panic raise(Message: text) {
+  self raise(Message, tag: "panic", data: nothing);
+}
+
+def panic raise(Message: text, tag Tag: text) {
+  self raise(Message, tag: Tag, data: nothing);
+}
+
+
+/// Catches and reifies any type of panic error (only in test mode)
+struct caught-panic(tag: text, message: text);
+
+def panic catch(Block: () -> A) -> result<A, caught-panic> {
+  let Result = #result from((primitive panic.catch(Block))());
+  Result map-error({A in new caught-panic(A.tag, A.message)});
+} test {
+  assert panic catch({ 1 }) unwrap() ==> 1;
+  let Error = panic catch({ panic raise("no!", tag: "nope")}) reason();
+  assert Error.message ==> "no!";
+  assert Error.tag ==> "nope";
+}

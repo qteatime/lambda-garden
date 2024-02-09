@@ -1,13 +1,16 @@
 % meow/1
 
 //#region - sized integers -----------------------------------------------------
-def int as text {
+implement cast-to-text for int;
+implement cast-to-text for i64;
+
+pure def int as text {
   primitive int.to-text(self);
 } test {
   assert 123 as text ==> "123";
 }
 
-def i64 as text {
+pure def i64 as text {
   primitive i64.to-text(self);
 } test {
   assert 123L as text ==> "123";
@@ -15,12 +18,24 @@ def i64 as text {
 //#endregion
 
 //#region - sized floats -------------------------------------------------------
-def f64 as text {
+implement cast-to-text for f64;
+
+pure def f64 as text {
   primitive f64.to-text(self);
 } test {
   assert 123.0f as text ==> "123";
 }
-
 //#endregion
 
+//#region - text ---------------------------------------------------------------
+implement cast-to-text for text;
+implement cast-to-text for text-slice;
 
+pure def text as text = self;
+
+pure def text-slice as text {
+  primitive text.unsafe-slice(self.text, self.offset, self.length);
+} test {
+  assert new text-slice(text: "abc", offset: 1, length: 1) as text ==> "b";
+}
+//#endregion

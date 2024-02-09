@@ -1,0 +1,7 @@
+% meow/1
+
+import foreign "_native/future.js";
+import foreign "_native/process.js";
+
+import "process/main.meow";
+import "future/main.meow";

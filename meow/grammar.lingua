@@ -14,8 +14,8 @@ type MRCommand =
   | DeclCode(x: MDecl)
 
 type MDecl =
-  | Fun(info: Meta?, name: string, params: MParam[], ret: MType, body: MExpr, test: MExpr?)
-  | SFun(info: Meta?, name: string, self: MParam, params: MParam[], ret: MType, body: MExpr, test: MExpr?)
+  | Fun(info: Meta?, name: string, params: MParam[], ret: MType, constraints: MTypeConstraint[], body: MExpr, test: MExpr?, pure: string?)
+  | SFun(info: Meta?, name: string, self: MParam, params: MParam[], ret: MType, constraints: MTypeConstraint[], body: MExpr, test: MExpr?, pure: string?)
   | Struct(info: Meta?, name: string, fields: Field[])
   | Union(info: Meta?, name: string, variants: Variant[])
   | Singleton(info: Meta?, name: string)
@@ -24,17 +24,29 @@ type MDecl =
   | Import(info: Meta?, id: string)
   | ImportForeign(info: Meta?, path: string)
   | Trait(info: Meta?, name: string, reqs: (TraitReq?)[])
-  | Implement(info: Meta?, name: string, typ: MType, decls: MDecl[])
+  | Implement(info: Meta?, name: MRef, typ: MType)
   | OpenPkg(info: Meta?, name: string, alias: string?)
-  | DeclareType(info: Meta?, name: string)
+  | DeclareTrait(info: Meta?, name: MRef)
+  | DeclareType(info: Meta?, name: MRef)
   | Effect(info: Meta?, name: string, cases: EffectCase[])
   | Handler(info: Meta?, name: string, params: MParam[], init: MExpr?, cases: HandlerCase[], auto_install: boolean)
+  | Decorator(info: Meta?, name: string, args: ConstExpr[], decl: MDecl)
+  | Asset(info: Meta?, name: string, kind: AssetDef)
+  | Namespace(info: Meta?, name: string[], decls: MDecl[])
+  | OpenNamespace(info: Meta?, ref: MRef, alias: string)
 
-type EffectCase(info: Meta?, name: string, params: Field[], ret: MType, nonlocal_ret: MType?)
+type AssetDef =
+  | File(info: Meta?, path: string)
+
+type ConstExpr =
+  | Literal(info: Meta?, value: MConst)
+  | List(info: Meta?, values: ConstExpr[])
+  | Symbol(info: Meta?, name: string)
 
 type TraitReq =
-  | Required(name: string, params: MParam[])
-  | Provided(fn: MDecl)
+  | Implies(info: Meta?, ref: MRef)
+
+type EffectCase(info: Meta?, name: string, params: Field[], ret: MType, nonlocal_ret: MType?)
 
 type Variant(info: Meta?, name: string, fields: (Field[])?)
 
@@ -46,11 +58,19 @@ type MType =
   | Ref(info: Meta?, ref: MRef)
   | Static(info: Meta?, ref: MRef)
   | Variant(info: Meta?, ref: MRef, variant: string)
-  | Trait(info: Meta?, ref: MRef)
+  | Trait(info: Meta?, name: MRef)
   | Var(info: Meta?, name: string)
   | Fun(info: Meta?, input: MType[], output: MType)
+  | Self(info: Meta?)
+  | StaticSelf(info: Meta?)
+  | StaticVar(info: Meta?, name: string)
   | Record(info: Meta?, fields: TPair[])
+  | WithTraits(info: Meta?, bound: MType, traits: MRef[])
+  | Package(info: Meta?)
   | Infer(info: Meta?)
+
+type MTypeConstraint =
+  | HasTrait(info: Meta?, name: string, ref: MRef)
 
 type TPair(name: string, typ: MType)
 
@@ -99,9 +119,12 @@ type MExpr =
   | Perform(info: Meta?, name: MRef, args: MExpr[])
   | ResumeWith(info: Meta?, value: MExpr)
   | AbortWith(info: Meta?, value: MExpr)
+  | Unreachable(info: Meta?)
+  | HasTrait(info: Meta?, value: MExpr, ref: MRef)
+  | Package(info: Meta?)
 
 type HandlerCase =
-  | On(info: Meta?, name: MRef, params: string[], body: MExpr)
+  | On(info: Meta?, name: MRef, params: string[], cont: string?, body: MExpr)
   | Use(info: Meta?, name: MRef, args: MInvokeArg[])
 
 type EBind(name: string, typ: MType, value: MExpr)
@@ -149,6 +172,7 @@ grammar Meow_Grammar : MModule {
     | header xs:Declaration* end                                                -> MModule(meta, xs)
 
   Declaration =
+    | DDecorator
     | DHandler
     | DFun
     | DDeclare
@@ -161,14 +185,37 @@ grammar Meow_Grammar : MModule {
     | DTrait
     | DImplement
     | DEffect
+    | DAsset
+    | DNamespace
+
+
+  // == Assets =================================================================
+  DAsset =
+    | asset_ n:name "=" x:DAssetDef ";"                                         -> MDecl.Asset(meta, n, x)
+
+  DAssetDef =
+    | file_ x:text                                                              -> AssetDef.File(meta, x)
+
+  // == Decorators =============================================================
+  DDecorator =
+    | "@" n:name "(" xs:CommaList<ConstExpr> ")" d:Declaration                  -> MDecl.Decorator(meta, n, xs, d)
+
+  ConstExpr =
+    | "[" xs:CommaList<ConstExpr> "]"                                           -> ConstExpr.List(meta, xs)
+    | x:Const                                                                   -> ConstExpr.Literal(meta, x)
+    | n:name                                                                    -> ConstExpr.Symbol(meta, n)
 
   // == FUNCTIONS ==============================================================
   DFun =
-    | def_ p:DFPParam n:name "(" ps:CommaList<DFParam> ")" r:DFRet e:DFBody t:DFTest     -> MDecl.SFun(meta, n, p, ps, r, e, t)
-    | def_ n:name "(" ps:CommaList<DFParam> ")" r:DFRet e:DFBody t:DFTest                -> MDecl.Fun(meta, n, ps, r, e, t)
-    | def_ l:DFPParam op:any_binary_op r:DFPParam rt:DFRet e:DFBody t:DFTest             -> MDecl.Fun(meta, op, [l, r], rt, e, t)
-    | def_ op:prefix_op l:DFPParam rt:DFRet e:DFBody t:DFTest                            -> MDecl.Fun(meta, op, [l], rt, e, t)
-    | def_ p:DFPParam op:as_ r:Ref e:DFBody t:DFTest                                     -> MDecl.Fun(meta, op, [p, MParam(meta, null, null, MType.Static(meta, r))], MType.Ref(meta, r), e, t)
+    | pu:DFPure def_ p:DFPParam n:name "(" ps:CommaList<DFParam> ")" r:DFRet ct:DFWhere e:DFBody t:DFTest      -> MDecl.SFun(meta, n, p, ps, r, ct, e, t, pu)
+    | pu:DFPure def_ n:name "(" ps:CommaList<DFParam> ")" r:DFRet ct:DFWhere e:DFBody t:DFTest                 -> MDecl.Fun(meta, n, ps, r, ct, e, t, pu)
+    | pu:DFPure def_ l:DFPParam op:any_binary_op r:DFPParam rt:DFRet ct:DFWhere e:DFBody t:DFTest              -> MDecl.Fun(meta, op, [l, r], rt, ct, e, t, pu)
+    | pu:DFPure def_ op:prefix_op l:DFPParam rt:DFRet ct:DFWhere e:DFBody t:DFTest                             -> MDecl.Fun(meta, op, [l], rt, ct, e, t, pu)
+    | pu:DFPure def_ p:DFPParam op:as_ r:Ref TParams? ct:DFWhere e:DFBody t:DFTest                             -> MDecl.Fun(meta, op, [p, MParam(meta, null, null, MType.Static(meta, r))], MType.Ref(meta, r), ct, e, t, pu)
+
+  DFPure =
+    | x:pure_                                                                   -> x
+    |                                                                           -> null
 
   DFBody =
     | "=" e:ESimple ";"                                                         -> e
@@ -193,6 +240,10 @@ grammar Meow_Grammar : MModule {
     | "->" t:Type                                                               -> t
     |                                                                           -> MType.Infer(meta)
 
+  DFWhere =
+    | where_ cs:CommaList1<TypeConstraint>                                      -> cs
+    |                                                                           -> []
+
   DDefine =
     | def_ n:name ":" t:Type "=" e:ESimple ";"                                  -> MDecl.Def(meta, n, t, e)
     | def_ n:name "=" e:ESimple ";"                                             -> MDecl.Def(meta, n, MType.Infer(meta), e)
@@ -202,14 +253,15 @@ grammar Meow_Grammar : MModule {
 
   // == CUSTOM TYPES ===========================================================
   DDeclare =
-    | declare_ n:name ";"                                                       -> MDecl.DeclareType(meta, n)
+    | declare_ trait_ n:Ref ";"                                                -> MDecl.DeclareTrait(meta, n)
+    | declare_ n:Ref ";"                                                       -> MDecl.DeclareType(meta, n)
 
   DStruct =
-    | struct_ n:name "(" xs:CommaList<DSField> ")" ";"                          -> MDecl.Struct(meta, n, xs)
+    | struct_ n:name TParams? "(" xs:CommaList<DSField> ")" ";"                 -> MDecl.Struct(meta, n, xs)
     | singleton_ n:name ";"                                                     -> MDecl.Singleton(meta, n)
 
   DUnion =
-    | union_ n:name "{" xs:DUVariant* "}"                                       -> MDecl.Union(meta, n, xs)
+    | union_ n:name TParams? "{" xs:DUVariant* "}"                              -> MDecl.Union(meta, n, xs)
 
   DUVariant =
     | n:name "(" xs:CommaList<DSField> ")" ";"                                  -> Variant(meta, n, xs)
@@ -222,7 +274,7 @@ grammar Meow_Grammar : MModule {
 
   // == EFFECTS AND HANDLERS ===================================================
   DEffect =
-    | effect_ n:name "{" xs:DECase* "}"                                         -> MDecl.Effect(meta, n, xs)
+    | effect_ n:name TParams? "{" xs:DECase* "}"                                -> MDecl.Effect(meta, n, xs)
 
   DECase =
     | n:name "(" xs:CommaList<DSField> ")" r:DFRet nr:DENLRet ";"               -> EffectCase(meta, n, xs, r, nr)
@@ -241,12 +293,15 @@ grammar Meow_Grammar : MModule {
   // == TYPES AND REFS =========================================================
   TTop = Type
 
+  TypeConstraint =
+    | n:variable has_ t:Ref TParams?                                            -> MTypeConstraint.HasTrait(meta, n, t)
+
   Type =
     | "(" ts:CommaList<Type> ")" "->" r:Type                                    -> MType.Fun(meta, ts, r)
     | TApply
-  
+
   TApply =
-    | t:TApply "<" CommaList1<TTop> ">"                                           -> t
+    | t:TApply TParams                                                          -> t
     | TPrim
 
   TPrim =
@@ -255,6 +310,10 @@ grammar Meow_Grammar : MModule {
     | "&" x:Ref                                                                 -> MType.Trait(meta, x)
     | x:Ref ".." v:atom                                                         -> MType.Variant(meta, x, v)
     | x:Ref                                                                     -> MType.Ref(meta, x)
+    | self_                                                                     -> MType.Self(meta)
+    | package_                                                                  -> MType.Package(meta)
+    | "#" self_                                                                 -> MType.StaticSelf(meta)
+    | "#" n:variable                                                            -> MType.StaticVar(meta, n)
     | n:variable                                                                -> MType.Var(meta, n)
     | "(" t:TTop ")"                                                            -> t
 
@@ -266,28 +325,33 @@ grammar Meow_Grammar : MModule {
     | n:Ns                                                                      -> MRef.Named(meta, n)
     | n:nothing_                                                                -> MRef.Named(meta, [n])
 
+  TParams =
+    | "<" xs:CommaList1<TTop> ">"                                               -> xs
+
   Ns =
     | NonemptyListOf<name, ".">
 
 
   // == TRAITS =================================================================
   DTrait =
-    | trait_ n:name "{" xs:DTReq* "}"                                           -> MDecl.Trait(meta, n, xs)
+    | trait_ n:name TParams? "{" xs:DTReq* "}"                                  -> MDecl.Trait(meta, n, xs)
   
   DImplement =
-    | implement_ n:name for_ t:Type "{" xs:DTFun+ "}"                           -> MDecl.Implement(meta, n, t, xs)
+    | implement_ n:Ref TParams? for_ t:Type DFWhere ";"                         -> MDecl.Implement(meta, n, t)
 
   DTReq =
-    | requires_ trait_ Ref ";"                                                  -> null
-    | def_ Type n:name "(" xs:CommaList<DTParam> ")" DFRet ";"                  -> TraitReq.Required(n, xs)
-    | x:DTFun                                                                   -> TraitReq.Provided(x)
+    | requires_ trait_ Ref TParams? for_ t:Type DFWhere ";"                     -> null
+    | implies_ trait_ x:Ref TParams? ";"                                        -> TraitReq.Implies(meta, x)
+    | optional_ DTFun                                                           -> null
+    | DTFun                                                                     -> null
 
   DTFun =
-    | def_ p:Type n:name "(" ps:CommaList<DFParam> ")" r:DFRet e:DFBody t:DFTest  -> MDecl.SFun(meta, n, MParam(meta, null, null, p), ps, r, e, t)
+    | def_ p:DFPParam n:name "(" ps:CommaList<DFParam> ")" r:DFRet DFWhere ";"          
+    | def_ n:name "(" ps:CommaList<DFParam> ")" r:DFRet DFWhere ";"                     
+    | def_ l:DFPParam op:any_binary_op r:DFPParam rt:DFRet DFWhere ";"                  
+    | def_ op:prefix_op l:DFPParam rt:DFRet DFWhere ";"                                 
+    | def_ p:DFPParam op:as_ r:Ref TParams? DFWhere ";"                                          
 
-  DTParam =
-    | k:name ":" t:Type                                                         -> MParam(meta, k, null, t)
-    | t:Type                                                                    -> MParam(meta, null, null, t)
 
 
   // == ETC ====================================================================
@@ -295,9 +359,13 @@ grammar Meow_Grammar : MModule {
     | import_ foreign_ t:text ";"                                               -> MDecl.ImportForeign(meta, t)
     | import_ t:text ";"                                                        -> MDecl.Import(meta, t)
 
+  DNamespace =
+    | namespace_ ns:Ns "{" xs:Declaration* "}"                                  -> MDecl.Namespace(meta, ns, xs)
+
   DOpen =
     | open_ package_ n:foreign_name as_ a:name ";"                              -> MDecl.OpenPkg(meta, n, a)
     | open_ package_ n:foreign_name ";"                                         -> MDecl.OpenPkg(meta, n, null)
+    | open_ ns:Ref as_ n:name ";"                                               -> MDecl.OpenNamespace(meta, ns, n)
 
   
   // == EXPRESSIONS ============================================================
@@ -315,20 +383,21 @@ grammar Meow_Grammar : MModule {
     | ESimple
 
   EBlock =
-    | "{" xs:Exprs "}"                                                          -> MExpr.Block(meta, xs)
+    | "{" xs:Exprs1 "}"                                                         -> MExpr.Block(meta, xs)
 
   EDoBlock =
     | do_ e:EBlock                                                              -> e
 
   ETrail =
     | x:ESimple ";"                                                             -> x
-    | EBasic
+    | EBasicBlock
 
   Exprs =
     | ETrail*
 
   Exprs1 =
     | ETrail+
+    | x:Expr                                                                    -> [x]
 
   EIf =
     | when_ "{" xs:EIClause+ "}"                                                -> MExpr.If(meta, xs)
@@ -342,15 +411,23 @@ grammar Meow_Grammar : MModule {
     | n:variable "=" e:ETop                                                     -> EBind(n, MType.Infer(meta), e)
 
   EIClause =
-    | otherwise_ "=>" b:ETrail                                                  -> MIfClause(meta, MExpr.Const(meta, MConst.True(meta)), b)
-    | e:ESimple "=>" b:ETrail                                                   -> MIfClause(meta, e, b)
+    | otherwise_ b:EPointBlock                                                  -> MIfClause(meta, MExpr.Const(meta, MConst.True(meta)), b)
+    | e:ESimple b:EPointBlock                                                   -> MIfClause(meta, e, b)
+
+  EPointBlock =
+    | "->" x:ETrail                                                             -> x
+    | EBlock
 
   EHandle =
     | handle_ e:EBlock with_ "{" xs:EHCase* "}"                                 -> MExpr.Handle(meta, e, xs)
 
   EHCase =
-    | on_ n:Ref "(" xs:CommaList<variable> ")" e:EBlock                         -> HandlerCase.On(meta, n, xs, e)
+    | on_ n:Ref "(" xs:CommaList<variable> ")" v:EHCap e:EBlock                 -> HandlerCase.On(meta, n, xs, v, e)
     | use_ n:Ref "(" xs:CommaList<EInvokeArg> ")" ";"                           -> HandlerCase.Use(meta, n, xs)
+
+  EHCap =
+    | lift_ v:variable                                                          -> v
+    |                                                                           -> null
 
   ESimple =
     | ELet
@@ -399,9 +476,10 @@ grammar Meow_Grammar : MModule {
   EInvokeInfix2 =
     | l:EInvokePre op:binary_op r:EInvokeInfix2                                 -> MExpr.Invoke(meta, op, [MInvokeArg(meta, null, l), MInvokeArg(meta, null, r)])
     | l:EInvokePre "=:=" r:EInvokeInfix2                                        -> MExpr.IntrinsicEq(meta, l, r)
-    | l:EInvokePre op:as_ t:Ref                                                 -> MExpr.Invoke(meta, op, [MInvokeArg(meta, null, l), MInvokeArg(meta, null, MExpr.Static(meta, t))])
+    | l:EInvokePre op:as_ t:Ref TParams?                                         -> MExpr.Invoke(meta, op, [MInvokeArg(meta, null, l), MInvokeArg(meta, null, MExpr.Static(meta, t))])
     | l:EInvokePre is_ t:Ref ".." v:atom                                        -> MExpr.IsVariant(meta, l, t, v)
     | l:EInvokePre is_ t:Ref                                                    -> MExpr.Is(meta, l, t)
+    | l:EInvokePre has_ t:Ref                                                   -> MExpr.HasTrait(meta, l, t)
     | EInvokePre
 
   EInvokePre =
@@ -457,7 +535,9 @@ grammar Meow_Grammar : MModule {
     | v:variable                                                                -> MExpr.Var(meta, v)
     | l:Const                                                                   -> MExpr.Const(meta, l)
     | self_                                                                     -> MExpr.Self(meta)
+    | package_                                                                  -> MExpr.Package(meta)
     | n:Ref                                                                     -> MExpr.GetGlobal(meta, n)
+    | unreachable_                                                              -> MExpr.Unreachable(meta)
     | EList
     | EBinary
     | EMap
@@ -515,8 +595,8 @@ grammar Meow_Grammar : MModule {
     | x:integer                                                                 -> MConst.Int(meta, x)
     | true_                                                                     -> MConst.True(meta)
     | false_                                                                    -> MConst.False(meta)
-    | x:template_text                                                           -> MConst.TemplateText(meta, x)
-    | x:text                                                                    -> MConst.Text(meta, x)
+    | x:raw_template_text                                                       -> MConst.TemplateText(meta, x)
+    | x:raw_text                                                                -> MConst.Text(meta, x)
     | nothing_                                                                  -> MConst.Nothing(meta)
 
 
@@ -600,7 +680,7 @@ grammar Meow_Grammar : MModule {
 
   token escape_sequence =
     | "u" hex_digit hex_digit hex_digit hex_digit
-    | "x" hex_digit hex_digit
+    | "u" "{" hex_digit+ "}"
     | any
 
   token t_text (a text) =
@@ -610,8 +690,8 @@ grammar Meow_Grammar : MModule {
     | "\\" escape_sequence
     | ~("\"\"\"") any
 
-  token t_template_text (a template text) =
-    | "\"" ttext_char* "\""
+  token raw_text = t_text
+  raw_template_text = "\"\"" x:raw_text "\"\"" -> x
 
   text = x:t_text -> @parse_string(x)
   template_text = "\"\"" x:t_text "\"\"" -> @parse_string(x)
@@ -707,26 +787,36 @@ grammar Meow_Grammar : MModule {
   handler_ = kw<"handler">
   default_ = kw<"default">
   use_ = kw<"use">
+  unreachable_ = kw<"unreachable">
+  optional_ = kw<"optional">
+  has_ = kw<"has">
+  implies_ = kw<"implies">
+  lift_ = kw<"lift">
+  pure_ = kw<"pure">
+  where_ = kw<"where">
+  asset_ = kw<"asset">
+  file_ = kw<"file">
+  namespace_ = kw<"namespace">
 
 
   reserved =
-    | and_ | assert_ | as_ | abort_
+    | and_ | assert_ | as_ | abort_ | asset_
     | break_
     | continue_
     | default_ | def_ | declare_ | do_
     | effect_
-    | handler_ | handle_    
+    | handler_ | handle_ | has_
     | false_ | force_ | for_ | foreign_
-    | is_ | import_ | in_ | implement_
-    | let_ | lazy_
-    | nothing_ | not_ | new_ | nonlocal_
-    | otherwise_ | or_ | open_ | on_
-    | primitive_ | package_ | perform_
+    | is_ | import_ | in_ | implement_ | implies_
+    | let_ | lazy_ | lift_
+    | nothing_ | not_ | new_ | nonlocal_ | namespace_
+    | otherwise_ | or_ | open_ | on_ | optional_
+    | primitive_ | package_ | perform_ | pure_
     | requires_ | repeat_ | resume_
     | self_ | struct_ | singleton_
     | true_ | test_ | trait_
-    | union_ | use_
-    | when_ | with_
+    | union_ | use_ | unreachable_
+    | when_ | with_ | where_
 
 
   // -- REPL -------------------------------------------------------------------

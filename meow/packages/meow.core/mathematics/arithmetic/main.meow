@@ -1,5 +1,15 @@
 % meow/1
 
+trait addition {
+  def #self zero() -> self;
+  def self + self -> self;
+}
+
+trait multiplication {
+  def #self one() -> self;
+  def self * self -> self;
+}
+
 //#region - Integral arithmetic ------------------------------------------------
 /// Integral arithmetic works on the space of integral numbers, and is
 /// guaranteed to always produce values that remain in the space of
@@ -16,56 +26,56 @@
 /// clamp or wrap the values around and merrily continue the program
 /// execution because that would violate laws such as `(a + b) > a` when
 /// the operands are both positive!
-// trait integral-arithmetic {
-//   /// Addition.
-//   def A + A -> A;
+trait integral-arithmetic {
+  /// Addition.
+  def self + self -> self;
 
-//   /// Subtraction.
-//   def A - A -> A;
+  /// Subtraction.
+  def self - self -> self;
 
-//   /// Multiplication.
-//   def A * A -> A;
+  /// Multiplication.
+  def self * self -> self;
 
-//   /// Integral division.
-//   def A \ A -> A; // requires divisor =/= 0
+  /// Integral division.
+  def self \ self -> self; // requires divisor =/= 0
 
-//   /// Exponentiation.
-//   def A ** A -> A;
+  /// Exponentiation.
+  def self ** self -> self;
 
-//   /// Modulo division.
-//   def A % A -> A; // requires divisor =/= 0
+  /// Modulo division.
+  def self % self -> self; // requires divisor =/= 0
 
-//   /// Unary negation.
-//   def - A;
-// }
+  /// Unary negation.
+  def - self;
+}
 
 import "sized-integers.meow";
 //#endregion
 
 
 //#region - Fractional arithmetic ----------------------------------------------
-// trait fractional-arithmetic {
-//   /// Addition.
-//   def A + A -> A;
+trait fractional-arithmetic {
+  /// Addition.
+  def self + self -> self;
 
-//   /// Subtraction.
-//   def A - A -> A;
+  /// Subtraction.
+  def self - self -> self;
 
-//   /// Multiplication.
-//   def A * A -> A;
+  /// Multiplication.
+  def self * self -> self;
 
-//   /// Fractional division.
-//   def A / A -> A; // requires divisor =/= 0
+  /// Fractional division.
+  def self / self -> self; // requires divisor =/= 0
 
-//   /// Exponentiation.
-//   def A ** A -> A;
+  /// Exponentiation.
+  def self ** self -> self;
 
-//   /// Modulo division.
-//   def A % A -> A; // requires divisor =/= 0
+  /// Modulo division.
+  def self % self -> self; // requires divisor =/= 0
 
-//   /// Unary negation.
-//   def - A;
-// }
+  /// Unary negation.
+  def - self;
+}
 
 import "sized-floating.meow";
 //#endregion
@@ -73,28 +83,28 @@ import "sized-floating.meow";
 //#region - Bitwise arithmetic -------------------------------------------------
 /// Bitwise arithmetic works on the space of bits under a constrained size.
 /// Overflows are handled by wrapping values around.
-// trait bitwise-arithmetic {
-//   /// Bitwise shift left.
-//   def A bit-shl(A) -> A;
+trait bitwise-arithmetic {
+  /// Bitwise shift left.
+  def self bit-shl(self) -> self;
 
-//   /// Bitwise shift right (arithmetic).
-//   def A bit-shr(A) -> A;
+  /// Bitwise shift right (arithmetic).
+  def self bit-shr(self) -> self;
 
-//   /// Bitwise shift right (logical).
-//   def A bit-lshr(A) -> A;
+  /// Bitwise shift right (logical).
+  def self bit-lshr(self) -> self;
 
-//   /// Bitwise or.
-//   def A bit-or(A) -> A;
+  /// Bitwise or.
+  def self bit-or(self) -> self;
 
-//   /// Bitwise and.
-//   def A bit-and(A) -> A;
+  /// Bitwise and.
+  def self bit-and(self) -> self;
 
-//   /// Bitwise xor.
-//   def A bit-xor(A) -> A;
+  /// Bitwise xor.
+  def self bit-xor(self) -> self;
 
-//   /// Btiwise not.
-//   def A bit-not() -> A;
-// }
+  /// Btiwise not.
+  def self bit-not() -> self;
+}
 
 import "bitwise-arithmetic.meow";
 //#endregion

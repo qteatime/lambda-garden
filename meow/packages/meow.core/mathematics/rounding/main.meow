@@ -1,17 +1,17 @@
 % meow/1
 
-// trait rounding-strategy {
-//   /// Ignore fractional bits.
-//   def A truncate();
+trait rounding-strategy {
+  /// Ignore fractional bits.
+  def self truncate();
 
-//   /// Round towards zero.
-//   def A floor();
+  /// Round towards zero.
+  def self floor();
 
-//   /// Round away from zero.
-//   def A ceiling();
+  /// Round away from zero.
+  def self ceiling();
 
-//   /// Round to the nearest integer value.
-//   def A round();
-// }
+  /// Round to the nearest integer value.
+  def self round();
+}
 
 import "sized-floating.meow";

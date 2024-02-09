@@ -1,0 +1,169 @@
+% meow/1
+
+/// Waits all given futures in parallel, but short-circuits on the first failure.
+def #future all-ok(Futures: array<future<T, E>>) -> future<array<T>, E> {
+  assert not (Futures is-empty());
+
+  current-zone
+    spawn({
+      let Results = #mutable-array allocate(size: Futures count(), default: nothing);
+      let Settled = #cell of(false);
+      let Pending = #cell of(Futures count());
+      let Value = #deferred defer();
+
+      let Settle = { Result, Index in
+        Pending <- Pending read() - 1;
+        when {
+          Settled read() -> nothing;
+
+          Result is future-result..ok {
+            Results put(at: Index, value: Result unwrap());
+            when {
+              Pending read() === 0 -> Value resolve(Results as array);
+              otherwise -> nothing;
+            }
+          }
+
+          Result is future-result..error {
+            Settled <- true;
+            Value reject(Result reason());
+          }
+
+          Result is future-result..cancelled {
+            Settled <- true;
+            Value cancel();
+          }
+        }
+      };
+
+      Futures iterator() enumerate() each({ Item in
+        Item.value on-settled(Settle(_, Item.index));
+      });
+
+      Value future() wait-settled();
+    })
+    future-result();
+} test {
+  let A = #future ok(1);
+  let B = #future ok(2);
+  let C = #future ok(3);
+  let D = #future error("no");
+  let E = #future cancelled();
+
+  assert #future all-ok([A, B, C]) wait-settled() ==> #future-result ok([1, 2, 3]);
+  assert #future all-ok([A, D, C]) wait-settled() ==> #future-result error("no");
+  assert #future all-ok([A, E, C]) wait-settled() ==> #future-result cancelled();
+}
+
+/// Waits all given futures in parallel, take the first one to *settle*.
+def #future any(Futures: array<future<T, E>>) -> future<T, E> {
+  assert not (Futures is-empty());
+
+  current-zone
+    spawn({
+      let Settled = #cell of(false);
+      let Value = #deferred defer();
+
+      let Settle = { Result in 
+        when {
+          Settled read() -> nothing;
+
+          Result is future-result..ok {
+            Settled <- true;
+            Value resolve(Result value());
+          }
+
+          Result is future-result..error {
+            Settled <- true;
+            Value reject(Result reason());
+          }
+
+          Result is future-result..cancelled {
+            Settled <- true;
+            Value cancel();
+          }
+        }
+      };
+
+      Futures iterator() each({ Item in
+        Item on-settled(Settle(_));
+      });
+
+      Value future() wait-settled();
+    })
+    future-result();
+} test {
+  let A = #future ok(1);
+  let C = #deferred defer();
+  let D = #future error("no");
+  let E = #future cancelled();
+
+  assert #future any([C future(), A]) wait-settled() ==> #future-result ok(1);
+  assert #future any([A, D]) wait-settled() ==> #future-result ok(1);
+  assert #future any([E, A]) wait-settled() ==> #future-result cancelled();
+  assert #future any([D, A]) wait-settled() ==> #future-result error("no");
+  assert #future any([C future(), E]) wait-settled() ==> #future-result cancelled();
+}
+
+/// Waits all given futures in parallel, take the first one that succeeds.
+def #future any-ok(Futures: array<future<T, E>>) -> future<T, E> {
+  assert not (Futures is-empty());
+
+  current-zone
+    spawn({
+      let Settled = #cell of(false);
+      let Pending = #cell of(Futures count());
+      let Value = #deferred defer();
+
+      let Settle = { Result in 
+        Pending <- Pending read() - 1;
+        when {
+          Settled read() -> nothing;
+
+          Result is future-result..ok {
+            Settled <- true;
+            Value resolve(Result value());
+          }
+
+          (Result is future-result..error) and (Pending read() === 0) {
+            Settled <- true;
+            Value reject(Result reason());
+          }
+
+          (Result is future-result..cancelled) and (Pending read() === 0) {
+            Settled <- true;
+            Value cancel();
+          }
+
+          otherwise -> nothing;
+        }
+      };
+
+      Futures iterator() each({ Item in
+        Item on-settled(Settle(_));
+      });
+
+      Value future() wait-settled();
+    })
+    future-result();
+} test {
+  let A = #future ok(1);
+  let C = #deferred defer();
+  let D = #future error("no");
+  let E = #future cancelled();
+
+  assert #future any-ok([C future(), A]) wait-settled() ==> #future-result ok(1);
+  assert #future any-ok([A, D]) wait-settled() ==> #future-result ok(1);
+  assert #future any-ok([A, E]) wait-settled() ==> #future-result ok(1);
+  assert #future any-ok([E, D]) wait-settled() ==> #future-result error("no");
+  assert #future any-ok([E, E]) wait-settled() ==> #future-result cancelled();
+}
+
+/// Takes the first future to settle.
+def future<T, E> or (That: future<T, E>) -> future<T, E> {
+  #future any([self, That]);
+} test {
+  assert (#future ok(1) or #future error("no")) wait-settled() ==> new future-result..ok(1);
+  assert (#future error("no") or #future ok(1)) wait-settled() ==> new future-result..error("no");
+}
+

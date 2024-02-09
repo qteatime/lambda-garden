@@ -1,0 +1,93 @@
+% meow/1
+
+implement iterable<A> for empty-iterator;
+implement iterator<A> for empty-iterator;
+def empty-iterator take-next() -> maybe<A> {
+  maybe..none;
+} test {
+  assert empty-iterator take-next() ==> maybe..none;
+  assert empty-iterator take-next() ==> maybe..none;
+}
+
+
+implement iterable<A> for constant-iterator<A>;
+implement iterator<A> for constant-iterator<A>;
+def constant-iterator take-next() -> maybe<A> {
+  #maybe some(self.value);
+} test {
+  let A = new constant-iterator(1);
+  assert A take-next() ==> new maybe..some(1);
+  assert A take-next() ==> new maybe..some(1);
+}
+
+
+implement iterable<A> for iterate-iterator<A>;
+implement iterator<A> for iterate-iterator<A>;
+def iterate-iterator take-next() -> maybe<A> {
+  let Value = self.state read();
+  let Next = self.fn(Value);
+  self.state <- Next;
+  #maybe some(Value);
+} test {
+  let A = new iterate-iterator(state: #cell of(0), fn: _ + 1);
+  assert A take-next() ==> #maybe some(0);
+  assert A take-next() ==> #maybe some(1);
+  assert A take-next() ==> #maybe some(2);
+}
+
+implement iterable<A> for cycle-iterator<A>;
+implement iterator<A> for cycle-iterator<A>;
+def cycle-iterator take-next() -> maybe<A> {
+  when {
+    self.items is-empty() -> maybe..none;
+    otherwise {
+      let Index = self.index read();
+      let Value = self.items at(Index);
+      self.index <- (Index + 1) % self.items count();
+      Value;
+    }
+  }
+} test {
+  let A = new cycle-iterator(items: ["a", "b"], index: #cell of(0));
+  assert A take-next() ==> #maybe some("a");
+  assert A.index read() ==> 1;
+  assert A take-next() ==> #maybe some("b");
+  assert A.index read() ==> 0;
+  assert A take-next() ==> #maybe some("a");
+  assert A.index read() ==> 1;
+
+  let B = new cycle-iterator(items: [], index: #cell of(0));
+  assert B take-next() ==> maybe..none;
+  assert B.index read() ==> 0;
+  assert B take-next() ==> maybe..none;
+  assert B.index read() ==> 0;
+}
+
+
+def iterator empty() =
+  empty-iterator;
+
+def iterator constant(Value: A) -> constant-iterator<A> {
+  new constant-iterator(value: Value);
+} test {
+  let Ones = iterator constant(1);
+  assert Ones take(5) into(#array) ==> [1, 1, 1, 1, 1];
+}
+
+def iterator iterate(from Init: A, with Fn: (A) -> A) -> iterate-iterator<A> {
+  new iterate-iterator(state: #cell of(Init), fn: Fn);
+} test {
+  let Nats = iterator iterate(from: 0, with: _ + 1);
+  assert Nats take(10) into(#array) ==> [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+}
+
+def iterator cycle(Items: &iterable<A>) -> cycle-iterator<A> {
+  new cycle-iterator(items: Items iterator() into(#array), index: #cell of(0));
+} test {
+  let Fruits = iterator cycle(["apple", "kiwi", "banana"]);
+  assert Fruits take(7) into(#array) ==> [
+    "apple", "kiwi", "banana",
+    "apple", "kiwi", "banana",
+    "apple"
+  ];
+}

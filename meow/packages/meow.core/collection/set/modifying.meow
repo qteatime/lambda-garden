@@ -1,0 +1,24 @@
+% meow/1
+
+implement modifiable-set<A> for set<A>;
+
+def set<A> put(Value: A) -> set<A> {
+  new set(self.map put(at: Value, value: nothing));
+}
+
+def set<A> remove(Value: A) -> set<A> {
+  new set(self.map remove(at: Value));
+}
+
+
+implement modifiable-set<A> for mutable-set<A>;
+
+def mutable-set<A> put(Value: A) -> mutable-set<A> {
+  self.map put(at: Value, value: nothing);
+  self;
+}
+
+def mutable-set<A> remove(Value: A) -> mutable-set<A> {
+  self.map remove(at: Value);
+  self;
+}

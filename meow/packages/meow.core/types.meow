@@ -1,5 +1,27 @@
 % meow/1
 
+//#region Pervasive traits -----------------------------------------------------
+trait mutable<A> {
+  // Invalidates itself, yields a shared reference B
+  def self freeze() -> A;
+}
+
+/// Copies the memory directly pointed by the reference, but not that of any
+/// objects it refers to. Does not need to concern itself with circular
+/// references.
+trait shallow-copy {
+  def self shallow-copy() -> self;
+}
+
+declare trait enum;
+
+declare trait list;
+declare trait modifiable-list;
+declare trait growable-list;
+declare trait joinable-list;
+declare trait sortable-list;
+//#endregion
+
 //#region Mathematics ----------------------------------------------------------
 union ordering {
   less-than;
@@ -16,33 +38,108 @@ union sign {
 //#region Error-handling -------------------------------------------------------
 singleton panic;
 
-union maybe {
+trait panic-message {
+  def panic raise(Msg: self, tag Tag: text, data Data: unknown) -> nothing;
+}
+
+union maybe<T> {
   none;
   some(value: T);
 }
 
-union result {
+union result<T, E> {
   error(reason: E);
   ok(value: T);
 }
 //#endregion
 
-// -- Collections
-struct byte-slice(array: byte-array, offset: int, length: int);
+//#region - JS hosts -----------------------------------------------------------
+struct js-generator(value: unknown);
+//#endregion
+
+//#region - Iterators ----------------------------------------------------------
+trait iterator<A> {
+  def self take-next() -> maybe<A>;
+  optional def self size-hint() -> maybe<int>;
+}
+
+trait iterable<A> {
+  def self iterator() -> Iter where Iter has iterator<A>;
+}
+
+singleton iterator;
+
+//#region - Generic combining iterators ----------------------------------------
+struct map-iter<A, B>(iter: &iterator<A>, fn: (A) -> B);
+struct enumerate-iter<A>(iter: &iterator<A>, index: cell<int>);
+struct flatmap-iter<A, B>(state: cell<flatmap-iter-state>, fn: (A) -> &iterable<B>);
+struct intersperse-iter<A>(state: cell<intersperse-iter-state<A>>, iter: &iterator<A>, separator: A);
+struct take-iter<A>(iter: &iterator<A>, count: cell<int>);
+struct skip-iter<A>(iter: &iterator<A>, count: cell<int>);
+struct filter-iter<A>(iter: &iterator<A>, pred: (A) -> bool);
+struct take-while-iter<A>(iter: &iterator<A>, pred: (A) -> bool, check: cell<bool>);
+struct skip-while-iter<A>(iter: &iterator<A>, pred: (A) -> bool, check: cell<bool>);
+struct distinct-iter<A>(iter: &iterator<A>, eq: (A, A) -> bool, prev: cell<maybe<A>>);
+struct zipwith-iter<A, B, C>(a: &iterator<A>, b: &iterator<B>, fn: (A, B) -> C);
+
+union intersperse-iter-state<A> {
+  value;
+  separator;
+  buffer(value: A);
+  done;
+}
+
+union flatmap-iter-state<A> {
+  next(iter: &iterator<A>);
+  mapcat(iter: &iterator<&iterable<A>>, return-to: &iterator<A>);
+}
+//#endregion
+
+//#region - Concrete collection iterators --------------------------------------
+singleton empty-iterator;
+struct constant-iterator<A>(value: A);
+struct iterate-iterator<A>(state: cell<A>, fn: (A) -> A);
+struct cycle-iterator<A>(items: array<A>, index: cell<int>);
+//#endregion
+//#endregion
+
+//#region - Text ---------------------------------------------------------------
+struct text-slice(text: text, offset: int, length: int);
+struct utf16-code-units-iterator(text: text, index: cell<int>, end: int);
+struct unicode-scalars-iterator(text: text, index: cell<int>, start: int, end: int);
+struct graphemes-iterator(iter: js-generator, length: int);
+struct unicode-words-iterator(iter: js-generator, length: int);
+struct unicode-sentences-iterator(iter: js-generator, length: int);
+struct lines-iterator(iter: js-generator, length: int);
+
+struct utf16-code-unit(code: int);
+union utf16-surrogate {
+  pair(leading: int, trailing: int);
+  lone(code: int);
+  scalar(code: int);
+}
+//#endregion
+
+//#region Collections ----------------------------------------------------------
+struct int-range(start: int, stop: int, step: int);
+struct contiguous-int-range(start: int, stop: int);
+struct int-range-iterator(current: cell<int>, stop: int, step: int);
+
+struct list-slice<A>(list: &list<A>, start: int, stop: int);
+struct list-iterator<A>(list: &list<A>, index: cell<int>, stop: int);
+struct mutable-list-iterator<A>(list: &list<A>, index: cell<int>, stop: int);
+
+// TODO: struct byte-slice(array: byte-array, offset: int, length: int);
 struct mutable-byte-array(array: byte-array);
+struct mutable-array<T>(array: array<T>);
+struct mutable-map<K, V>(map: map<K, V>);
+struct map-entry-iterator<K, V>(iter: js-generator<#(key: K, value: V)>, length: int);
+struct map-key-iterator<K>(iter: js-generator<K>, length: int);
+struct map-value-iterator<V>(iter: js-generator<V>, length: int);
 
-struct array-slice(array: array<T>, offset: int, length: int);
-struct mutable-array(array: array<T>);
-
-union linked-list {
-  empty;
-  cons(head: A, tail: linked-list<A>);
-}
-
-union stream {
-  empty;
-  cons(head: A, tail: thunk<stream<A>>);
-}
+struct set<V>(map: map<V, nothing>);
+struct mutable-set<V>(map: mutable-map<V, nothing>);
+//#endregion
 
 // -- Debugging
 singleton transcript;

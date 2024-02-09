@@ -3,8 +3,8 @@
 def json parse(Source: text) -> result<unknown, parse-error> {
   let Result0 = foreign json.parse(Source);
   when {
-    Result0 at!(0) => #result ok(Result0 at!(1));
-    otherwise => #result error(new parse-error..syntax-error(Result0 at!(1)));
+    Result0 at!(0) -> #result ok(Result0 at!(1));
+    otherwise -> #result error(new parse-error..syntax-error(Result0 at!(1)));
   }
 } test {
   assert json parse("1234") unwrap() ==> 1234.0f;
@@ -19,8 +19,8 @@ def json parse!(Source: text) = self parse(Source) unwrap(or-panic: "Invalid JSO
 def json serialise(Value: unknown, indent Indent: int) -> result<text, serialise-error> {
   let Result0 = foreign json.serialise(Value, Indent);
   when {
-    Result0 at!(0) => #result ok(Result0 at!(1));
-    otherwise => #result error(new serialise-error..unknown-error(Result0 at!(1)));
+    Result0 at!(0) -> #result ok(Result0 at!(1));
+    otherwise -> #result error(new serialise-error..unknown-error(Result0 at!(1)));
   }
 } test {
   assert json serialise(1234.0f, indent: 0) unwrap() ==> "1234";

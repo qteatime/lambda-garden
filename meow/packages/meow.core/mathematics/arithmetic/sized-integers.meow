@@ -1,7 +1,9 @@
 % meow/1
 
 //#region: Native sized integers (int) -----------------------------------------
-def int + (X: int) -> int {
+implement integral-arithmetic for int;
+
+pure def int + (X: int) -> int {
   primitive int.add(self, X);
 } test {
   assert 0 + 0 ==> 0;
@@ -12,7 +14,7 @@ def int + (X: int) -> int {
   assert 20 + 22 ==> 42;
 }
 
-def int - (X: int) -> int {
+pure def int - (X: int) -> int {
   primitive int.sub(self, X);
 } test {
   assert 0 - 0 ==> 0;
@@ -24,7 +26,7 @@ def int - (X: int) -> int {
   assert 22 - 20 ==> 2;
 }
 
-def int * (X: int) -> int {
+pure def int * (X: int) -> int {
   primitive int.mul(self, X);
 } test {
   assert 0 * 0 ==> 0;
@@ -34,7 +36,7 @@ def int * (X: int) -> int {
   assert 20 * 2 ==> 40;
 }
 
-def int \ (X: int) -> int {
+pure def int \ (X: int) -> int {
   assert X =/= 0 :: non-zero-divisor;
   primitive int.div(self, X);
 } test {
@@ -46,7 +48,7 @@ def int \ (X: int) -> int {
   assert panic catch({ 3 \ 0 }) is result..error;
 }
 
-def int ** (X: int) -> int {
+pure def int ** (X: int) -> int {
   assert X >= 0 :: positive-exponent;
   primitive int.pow(self, X);
 } test {
@@ -58,7 +60,7 @@ def int ** (X: int) -> int {
   assert 2 ** 6 ==> 64;
 }
 
-def int % (X: int) -> int {
+pure def int % (X: int) -> int {
   assert X =/= 0 :: non-zero-divisor;
   primitive int.mod(self, X);
 } test {
@@ -71,17 +73,26 @@ def int % (X: int) -> int {
   assert panic catch({ (3 % 0) }) is result..error;
 }
 
-def -int -> int {
+pure def -int -> int {
   primitive int.negate(self);
 } test {
   assert -(0) ==> 0;
   assert -(1) ==> -1;
   assert -(-1) ==> 1;
 }
+
+
+implement addition for int;
+implement multiplication for int;
+
+pure def #int zero() = 0;
+pure def #int one() = 1;
 //#endregion
 
 //#region: 64-bit sized integers (i64) -----------------------------------------
-def i64 + (X: i64) -> i64 {
+implement integral-arithmetic for i64;
+
+pure def i64 + (X: i64) -> i64 {
   primitive i64.add(self, X);
 } test {
   assert 0L + 0L ==> 0L;
@@ -93,7 +104,7 @@ def i64 + (X: i64) -> i64 {
   assert 1234567890123456789L + 1234567890123456789L ==> 2469135780246913578L;
 }
 
-def i64 - (X: i64) -> i64 {
+pure def i64 - (X: i64) -> i64 {
   primitive i64.sub(self, X);
 } test {
   assert 0L - 0L ==> 0L;
@@ -106,7 +117,7 @@ def i64 - (X: i64) -> i64 {
   assert 1234567890123456789L - 1L ==> 1234567890123456788L;
 }
 
-def i64 * (X: i64) -> i64 {
+pure def i64 * (X: i64) -> i64 {
   primitive i64.mul(self, X);
 } test {
   assert 0L * 0L ==> 0L;
@@ -117,7 +128,7 @@ def i64 * (X: i64) -> i64 {
   assert 123456789L * 123456789L ==> 15241578750190521L;
 }
 
-def i64 \ (X: i64) -> i64 {
+pure def i64 \ (X: i64) -> i64 {
   assert X =/= 0L :: non-zero-divisor;
   primitive i64.div(self, X);
 } test {
@@ -130,7 +141,7 @@ def i64 \ (X: i64) -> i64 {
   assert panic catch({ 3L \ 0L }) is result..error;
 }
 
-def i64 ** (X: i64) -> i64 {
+pure def i64 ** (X: i64) -> i64 {
   assert X >= 0L :: positive-exponent;
   primitive i64.pow(self, X);
 } test {
@@ -143,7 +154,7 @@ def i64 ** (X: i64) -> i64 {
   assert 2L ** 64L ==> 18446744073709551616L;
 }
 
-def i64 % (X: i64) -> i64 {
+pure def i64 % (X: i64) -> i64 {
   assert X =/= 0L :: non-zero-divisor;
   primitive i64.mod(self, X);
 } test {
@@ -156,12 +167,19 @@ def i64 % (X: i64) -> i64 {
   assert panic catch({ 3L % 0L }) is result..error;
 }
 
-def -i64 -> i64 {
+pure def -i64 -> i64 {
   primitive i64.negate(self);
 } test {
   assert -(0L) ==> 0L;
   assert -(1L) ==> -1L;
   assert -(-1L) ==> 1L;
 }
+
+
+implement addition for i64;
+implement multiplication for i64;
+
+pure def #i64 zero() = 0L;
+pure def #i64 one() = 1L;
 //#endregion
 

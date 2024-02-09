@@ -1,0 +1,20 @@
+% meow/1
+
+pure def text ++ (Part: text) -> text {
+  primitive text.concat(self, Part);
+} test {
+  assert "" ++ "" ==> "";
+  assert "a" ++ "" ==> "a";
+  assert "" ++ "a" ==> "a";
+  assert "a" ++ "b" ==> "ab";
+}
+
+pure def text replicate(Times: int) -> text {
+  primitive text.repeat(self, Times);
+} test {
+  assert ("" replicate(1)) ==> "";
+  assert ("a" replicate(1)) ==> "a";
+  assert ("a" replicate(5)) ==> "aaaaa";
+}
+
+

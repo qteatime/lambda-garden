@@ -1,0 +1,31 @@
+% meow/1
+
+implement iterable<#(key: K, value: V)> for map-entry-iterator<K, V>;
+implement iterator<#(key: K, value: V)> for map-entry-iterator<K, V>;
+
+def map-entry-iterator<K, V> size-hint() =
+  #maybe some(self.length);
+
+def map-entry-iterator<K, V> take-next() -> maybe<#(key: K, value: V)> {
+  self.iter take-next();
+}
+
+
+implement iterable<K> for map-key-iterator<K>;
+implement iterator<K> for map-key-iterator<K>;
+
+def map-key-iterator<K> size-hint() = #maybe some(self.length);
+
+def map-key-iterator<K> take-next() -> maybe<K> {
+  self.iter take-next();
+}
+
+
+implement iterable<V> for map-value-iterator<V>;
+implement iterator<V> for map-value-iterator<V>;
+
+def map-value-iterator<V> size-hint() = #maybe some(self.length);
+
+def map-value-iterator<V> take-next() -> maybe<V> {
+  self.iter take-next();
+}

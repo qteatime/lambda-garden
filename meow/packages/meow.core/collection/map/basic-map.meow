@@ -1,0 +1,97 @@
+% meow/1
+
+implement map<K, V> for map<K, V>;
+
+pure def map<K, V> count() {
+  primitive map.count(self);
+} test {
+  assert [:] count() ==> 0;
+  assert ["a": 1, "b": 2, "c": 3] count() ==> 3;
+}
+
+pure def map<K, V> at(Key: K) -> maybe<V> {
+  #maybe from(primitive map.maybe-at(self, Key));
+} test {
+  assert [:] at("a") ==> maybe..none;
+  assert ["b": 1, "a": 2] at("a") ==> #maybe some(2);
+}
+
+pure def map<K, V> at!(Key: K) -> V {
+  primitive map.at(self, Key);
+} test {
+  assert ["b": 1, "a": 2] at!("a") ==> 2;
+  assert panic catch({ [:] at!("a") }) is result..error;
+}
+
+pure def map<K, V> has-key(Key: K) -> bool {
+  primitive map.has-key(self, Key);
+} test {
+  assert ["a": 1, "b": 2] has-key("a");
+  assert not (["a": 1, "b": 2] has-key("c"));
+}
+
+def map<K, V> entries() -> map-entry-iterator<K, V> {
+  new map-entry-iterator(
+    iter: #js-generator from(primitive map.entries(self)),
+    length: self count()
+  );
+} test {
+  assert [:] entries() into(#array) ==> [];
+  assert ["a": 1, "b": 2] entries()
+                          into(#array)
+                          sort(by: {A, B in A.value compare-to(B.value)})
+  ==> [
+    #(key: "a", value: 1),
+    #(key: "b", value: 2),
+  ];
+}
+
+def map<K, V> keys() -> map-key-iterator<K, V> {
+  new map-key-iterator(
+    iter: #js-generator from(primitive map.keys(self)),
+    length: self count()
+  );
+} test {
+  assert [:] keys() into(#array) ==> [];
+  assert [1: "a", 2: "b"] keys()
+                          into(#array)
+                          sort()
+    ==> [1, 2];
+}
+
+def map<K, V> values() -> map-value-iterator<K, V> {
+  new map-value-iterator(
+    iter: #js-generator from(primitive map.values(self)),
+    length: self count()
+  );
+} test {
+  assert [:] entries() into(#array) ==> [];
+  assert ["a": 1, "b": 2] values()
+                          into(#array)
+                          sort()
+  ==> [1, 2];
+}
+
+
+implement map<K, V> for mutable-map<K, V>;
+
+def mutable-map<K, V> count() =
+  self.map count();
+
+def mutable-map<K, V> at(Key: K) =
+  self.map at(Key);
+
+def mutable-map<K, V> at!(Key: K) =
+  self.map at!(Key);
+
+def mutable-map<K, V> has-key(Key: K) =
+  self.map has-key(Key);
+
+def mutable-map<K, V> entries() =
+  self.map entries();
+
+def mutable-map<K, V> keys() =
+  self.map keys();
+
+def mutable-map<K, V> values() =
+  self.map values();

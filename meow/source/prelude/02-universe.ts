@@ -9,16 +9,34 @@ class $I32 {
   constructor(readonly value: number) {}
 }
 class $Fn {
-  constructor(readonly name: string, readonly types: $Type[], readonly code: MeowFn) {}
+  constructor(
+    readonly name: string,
+    readonly types: $Type[],
+    readonly code: MeowFn,
+    readonly pure: boolean
+  ) {}
 }
 class $Record {
-  get type() {
+  get $type() {
     return $type("record", (x) => x instanceof $Record, 1);
   }
   constructor(readonly $dict: { [key: string]: $Value }) {
     for (const [k, v] of Object.entries($dict)) {
       (this as any)[k] = v;
     }
+  }
+}
+
+class $Asset {
+  get $type() {
+    return $type("package-asset", (x) => x instanceof $Asset, 0);
+  }
+  constructor(readonly name: string, readonly data: Uint8Array) {}
+  as_text() {
+    return new TextDecoder().decode(this.data);
+  }
+  as_bytes() {
+    return this.data;
   }
 }
 type $Prim = null | string | number | bigint | boolean;
@@ -35,18 +53,8 @@ type $Ref =
   | $F64
   | $I32
   | $Record
-  | $Graphemes;
+  | $Foreign<unknown>;
 type $Value = $Prim | $Ref | WeakRef<$Ref>;
-
-class $Graphemes {
-  get $type() {
-    return $meow.type("grapheme-cluster");
-  }
-  constructor(readonly cluster: string) {}
-  toString() {
-    return `grapheme-cluster(${$pprint(this.cluster)})`;
-  }
-}
 
 class $Static {
   get $type() {
@@ -91,6 +99,22 @@ class $Thunk {
   }
 }
 
+class $Foreign<T> {
+  constructor(readonly $type: $ForeignType<T>, private value: T) {
+    $type.check(value);
+  }
+
+  deref(): T {
+    this.$type.check(this.value);
+    return this.value;
+  }
+
+  replace(value: T) {
+    this.$type.check(value);
+    this.value = value;
+  }
+}
+
 class $Cell {
   get $type() {
     return $meow.type("cell");
@@ -115,7 +139,7 @@ class $Cell {
 }
 
 class $Trait {
-  private _implementations = new Map<string, { [key: string]: MeowFn }>();
+  private _implementations = new Set<string>();
   get type() {
     return $type(
       this.tname,
@@ -126,36 +150,29 @@ class $Trait {
       2
     );
   }
-  constructor(readonly tname: string, readonly defaults: { [key: string]: null | MeowFn }) {}
-  implement(t: $Type, implementation: any) {
+  constructor(readonly tname: string, private _placeholder: boolean) {}
+  has(v: $Value) {
+    return this._implementations.has($meow.typeof(v).name);
+  }
+  implement(t: $Type) {
     if (this._implementations.has(t.name)) {
       throw new $Panic(
         "duplicate-trait",
         `Duplicate trait ${this.tname} implementation for ${t.name}`
       );
     }
-    const dict = { ...this.defaults, ...implementation };
-    for (const k of Object.keys(this.defaults)) {
-      if (typeof dict[k] !== "function") {
-        throw new $Panic(
-          "no-method",
-          `No method ${k} in ${t.name} implementation of trait ${this.tname}`
-        );
-      }
+    this._implementations.add(t.name);
+    for (const child of t.subtypes) {
+      this.implement(child);
     }
-    this._implementations.set(t.name, dict);
   }
-  *call(name: string, args: $Value[]) {
-    const t = $meow.typeof(args[0]);
-    const dict = this._implementations.get(t.name);
-    if (dict == null) {
-      throw new $Panic("no-trait", `No trait ${this.tname} implementation for ${t.name}`);
-    }
-    const m = dict[name];
-    if (m == null) {
-      throw new $Panic("no-method", `No method ${name} in trait ${this.tname}`);
-    }
-    return yield* m(...args);
+
+  get is_placeholder() {
+    return this._placeholder;
+  }
+
+  materialise() {
+    this._placeholder = false;
   }
 }
 
@@ -164,12 +181,21 @@ abstract class $Type {
   abstract distance: number;
   abstract is(value: $Value): boolean;
   abstract placeholder: boolean;
+  abstract $static: $StaticType;
+  subtypes: $Type[] = [];
 }
-function $type(name: string, check: (_: $Value) => boolean, distance: number) {
+function $type(
+  name: string,
+  check: (_: $Value) => boolean,
+  distance: number,
+  subtypes: $Type[] = []
+) {
   return new (class extends $Type {
     readonly placeholder = false;
     readonly name = name;
     readonly distance = distance;
+    readonly subtypes = subtypes;
+    readonly $static = new $StaticType(name);
     is(value: $Value) {
       return check(value);
     }
@@ -180,10 +206,48 @@ function $placeholder_type(name: string) {
     readonly placeholder = true;
     readonly name = name;
     readonly distance = 0;
+    readonly subtypes = [];
+    readonly $static = new $StaticType(name);
     is(value: $Value) {
       return false;
     }
   })();
+}
+class $ForeignType<T> extends $Type {
+  placeholder = false;
+  distance = 0;
+  subtypes = [];
+  $static = new $StaticType(`<foreign ${this._name}>`);
+  get name() {
+    return `<foreign ${this._name}>`;
+  }
+
+  constructor(readonly _name: string, readonly test: (_: unknown) => boolean) {
+    super();
+  }
+
+  is(value: any) {
+    return value instanceof $Foreign && this.test(value.deref());
+  }
+
+  check(value: any): T {
+    if (!this.test(value)) {
+      throw new $Panic("invalid-type", `Expected ${this.name}`);
+    }
+    return value;
+  }
+
+  box(value: any): $Foreign<T> {
+    return new $Foreign<T>(this, this.check(value));
+  }
+
+  unbox(value: $Foreign<T>): T {
+    if (value instanceof $Foreign && value.$type === this) {
+      return value.deref();
+    } else {
+      throw new Error(`Expected ${this.name} (${$pprint(value)})`);
+    }
+  }
 }
 
 class $StaticType extends $Type {
@@ -192,6 +256,9 @@ class $StaticType extends $Type {
   }
   placeholder = false;
   distance = 0;
+  get $static() {
+    return this;
+  }
   constructor(readonly sname: string) {
     super();
   }
@@ -248,10 +315,24 @@ function $meow_error_arising(x: any) {
 function $meow_format_error(x: any) {
   if (x == null) {
     return "";
-  } else if ("$meow_message" in x) {
+  } else if (Object(x) === x && "$meow_message" in x) {
     return String(x.$meow_message) + $native_trace(x);
   } else {
     return String(x.stack ?? x);
+  }
+}
+
+function $meow_wrap_error(x: any) {
+  if (x == null) {
+    throw new $Panic("panic", `Unknown error`, { error: x });
+  } else if (Object(x) === x && "$meow_message" in x) {
+    return x;
+  } else {
+    return new $Panic(
+      "native-error",
+      `Meow panicked with an error from host.\n\n${x?.stack ?? x}`,
+      { error: x }
+    );
   }
 }
 
@@ -308,7 +389,7 @@ class $Panic extends Error {
   readonly $meow_stack: string;
   constructor(readonly tag: string, readonly msg: string, readonly data: unknown = null) {
     const stack = $stack.format();
-    super(`Panic(${tag}): ${msg}`);
+    super(`Panic(${tag}) (${$file}:${$line}): ${msg}`);
     this.loc = $stack.current();
     this.$meow_stack = stack;
   }
@@ -331,5 +412,6 @@ const $traits = new Map<string, $Trait>();
 const $foreign = new Map<string, MeowFn>();
 const $effects = new Map<string, $Effect>();
 const $handlers = new Map<string, $Handler>();
+const $assets = new Map<string, $Asset>();
 const $default_handlers: $Handler[] = [];
 const $tests: $Test[] = [];

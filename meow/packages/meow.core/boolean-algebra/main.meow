@@ -1,0 +1,36 @@
+% meow/1
+
+trait boolean-algebra {
+  requires trait equality for self;
+
+  /// Logical conjunction
+  def self and self -> self;
+
+  /// Logical disjunction
+  def self or self -> self;
+
+  /// Logical negation
+  def not self -> self;
+
+  /// Exclusive OR
+  def self ^ (That: self) -> self;
+
+  /// Logical implication
+  def self imply(That: self) -> self;
+}
+
+trait lazy-boolean-algebra {
+  def self and-also(That: () -> self) -> self;
+  def self or-else(That: () -> self) -> self;
+}
+
+import "bool.meow";
+
+
+def (A: Bool) ^ (B: Bool) -> Bool where Bool has boolean-algebra {
+  not (self === B);
+}
+
+def (A: Bool) imply(B: Bool) -> Bool where Bool has boolean-algebra {
+  (not self) or B;
+}

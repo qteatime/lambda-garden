@@ -1,0 +1,11 @@
+% meow/1
+
+def regex from(Text: text) -> pattern {
+  assert foreign re.valid-regex(Text) :: valid-regex;
+  new pattern..raw(Text);
+}
+
+def #regex-id from(Text: text) -> regex-id {
+  assert foreign re.valid-regex-id(Text) :: valid-regex-id;
+  new regex-id(Text);
+}

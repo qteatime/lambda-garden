@@ -6,3 +6,5 @@ import "equality/main.meow";
 import "ordering/main.meow";
 import "rounding/main.meow";
 import "signedness/main.meow";
+import "float/main.meow";
+import "enumeration.meow";

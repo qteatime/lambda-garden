@@ -1,0 +1,16 @@
+% meow/1
+
+implement equality for set<V> where V has equality;
+
+def set<V> === (That: set<V>) -> bool where V has equality {
+  self.map === That.map;
+} test {
+  assert #set from([1, 2, 3]) === #set from(3, 2, 1);
+  assert #set empty() === #set from([]);
+  assert not (#set from([1, 2]) === #set from([1, 2, 3]));
+}
+
+
+implement equality for mutable-set<V> where V has equality;
+def mutable-set<V> === (That: mutable-set<V>) -> bool where V has equality =
+  self.map === That.map;

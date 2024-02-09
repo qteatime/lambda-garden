@@ -1,5 +1,7 @@
 class $Scope {
   readonly pkg_aliases = new Map<string, string>();
+  readonly ns_aliases = new Map<string, string>();
+  readonly ns_prefixes: string[] = [];
   constructor(
     readonly parent: $Scope | null,
     readonly pkg: string | null,
@@ -19,21 +21,44 @@ class $Scope {
   wrap_pkg(name: string) {
     return this.pkg == null ? name : `${this.pkg}/${name}`;
   }
-  resolve<A>(name: string, box: Map<string, A>): string {
-    if (name.includes("/")) {
-      if (this.pkg_aliases.size === 0) {
-        return name;
+
+  resolve_ns(ns: string): [string, boolean] {
+    const names = ns.split(".");
+    if (names.length === 1) {
+      return [ns, false];
+    } else {
+      const [alias, ...rest] = names;
+      const expanded = this.ns_aliases.get(alias);
+      if (expanded == null) {
+        return [ns, false];
       } else {
-        const [pkg0, ns] = name.split("/");
+        return [[expanded, ...rest].join("."), true];
+      }
+    }
+  }
+
+  resolve<A>(name0: string, box: Map<string, A>): string {
+    if (name0.includes("/")) {
+      if (this.pkg_aliases.size === 0) {
+        return name0;
+      } else {
+        const [pkg0, ns] = name0.split("/");
         const pkg = this.pkg_aliases.get(pkg0) ?? pkg0;
         return `${pkg}/${ns}`;
       }
     }
+    const [name, aliased] = this.resolve_ns(name0);
     for (const p of this.pkg_prefixes) {
       const n = `${p}/${name}`;
+      if (!aliased && this.ns != null && box.has(`${p}/${this.ns}.${name}`)) {
+        return `${p}/${this.ns}.${name}`;
+      }
       if (box.has(n)) {
         return n;
       }
+    }
+    if (!aliased && this.ns != null && box.has(`${this.ns}.${name}`)) {
+      return `${this.ns}.${name}`;
     }
     if (this.parent != null) {
       return this.parent.resolve(name, box);
@@ -41,6 +66,22 @@ class $Scope {
       return name;
     }
   }
+
+  in_namespace(ns: string, fn: (_: $Scope) => void) {
+    const scope = new $Scope(this, this.pkg, this.ns == null ? ns : `${this.ns}.${ns}`, []);
+    fn(scope);
+  }
+
+  open_namespace(ns: string, alias: string) {
+    if (this.ns_aliases.has(alias)) {
+      throw new $Panic(
+        "duplicate-ref",
+        `Duplicate alias ${alias} already refers to ${this.ns_aliases.get(ns)}`
+      );
+    }
+    this.ns_aliases.set(alias, ns);
+  }
+
   open_pkg(name: string, alias: string | null) {
     if (alias == null) {
       if (this.pkg_prefixes.includes(name) && name !== "meow.core") {
@@ -66,6 +107,9 @@ class $Scope {
   }
   trait(name: string) {
     return $meow.trait(this.resolve(name, $traits));
+  }
+  rtrait(name: string) {
+    return this.resolve(name, $traits);
   }
   type(name: string) {
     return $meow.type(this.resolve(name, $types));
@@ -94,11 +138,14 @@ class $Scope {
   get_variant(name: string, variant: string) {
     return $meow.get_variant(this.resolve(name, $structs), variant);
   }
-  is(value: any, type: string) {
+  is(value: $Value, type: string) {
     return $meow.is(value, this.resolve(type, $types));
   }
-  is_variant(value: any, type: string, variant: string) {
+  is_variant(value: $Value, type: string, variant: string) {
     return $meow.is_variant(value, this.resolve(type, $types), variant);
+  }
+  has_trait(value: $Value, trait: string) {
+    return $meow.has_trait(value, this.resolve(trait, $traits));
   }
   effect(name: string) {
     return this.resolve(name, $effects);

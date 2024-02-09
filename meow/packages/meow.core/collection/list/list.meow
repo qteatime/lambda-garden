@@ -1,0 +1,258 @@
+% meow/1
+
+/// A sequence of values with knonwn and finite length.
+trait list<A> {
+  /// The number of elements in the list.
+  def self count() -> int;
+  optional def self is-empty() -> bool;
+
+  /// The element at the 0-based offset given.
+  def self at(Index: int) -> maybe<A>;
+  optional def self at!(Index: int) -> A;
+  optional def self first() -> maybe<A>;
+  optional def self first!() -> A;
+  optional def self last() -> maybe<A>;
+  optional def self last!() -> A;
+
+  /// Returns a view to a portion of the list.
+  optional def self slice(from Start: int, to End: int) -> list-slice<A>;
+  optional def self slice(from Start: int, length Len: int) -> list-slice<A>;
+  optional def self slice(from Start: int) -> list-slice<A>;
+  optional def self slice(length Len: int) -> list-slice<A>;
+  optional def self slice(to End: int) -> list-slice<A>;
+  optional def self rest() -> list-slice<A>;
+  optional def self without-last() -> list-slice<A>;
+}
+
+trait modifiable-list<A> {
+  requires trait list<A> for self;
+
+  def self put(at Index: int, value Value: A) -> self;
+  optional def self put(at Index: int, all-of Values: Iter) -> self where Iter has iterable<A>;
+
+  optional def self update(at Index: int, with Fn: (A) -> A) -> self;
+
+  /// Fills the list with the given value.
+  optional def self fill(Value: A) -> self;
+  optional def self fill(Value: A, from Start: int, to End: int) -> self;
+
+}
+
+trait growable-list<A> {
+  requires trait list<A> for self;
+
+  /// Removes the element at the given offset.
+  def self remove(at Index: int) -> self;
+
+  /// Inserts value before the item at Index, pushing items from there further back
+  def self insert(at Index: int, Value: A) -> self;
+  optional def self prepend(Value: A) -> self;
+  optional def self append(Value: A) -> self;
+}
+
+trait joinable-list<A> {
+  requires trait list<iterable<A>> for self;
+
+  def self ++ self -> self;
+}
+
+trait sortable-list<A> {
+  requires trait list<A> for self;
+
+  /// Sorts the elements of the list with the given comparator.
+  def self sort(by Comparator: (A, A) -> ordering) -> self;
+  optional def self sort() -> self where A has total-order;
+
+  /// Reverses the elements in the list.
+  def self reverse() -> self;
+}
+
+trait comparable-list<A> {
+  requires trait list<A> for self;
+  requires trait equality for self;
+  requires trait equality for A;
+
+  optional def self === self -> bool;
+  optional def self =/= self -> bool;
+}
+
+//#region Indexed sequence (basic list) ----------------------------------------
+def (_: L) is-empty() -> bool where L has list<A> {
+  self count() === 0;
+} test {
+  assert [] is-empty();
+  assert not ([1, 2, 3] is-empty());
+}
+
+def (_: L) at!(Index: int) -> A where L has list<A>{
+  self at(Index) unwrap();
+} test {
+  assert [1, 2, 3] at!(1) ==> 2;
+}
+
+def (_: L) first() -> maybe<A> where L has list<A> {
+  self at(0);
+} test {
+  assert [1, 2, 3] first() ==> #maybe some(1);
+  assert [] first() ==> maybe..none;
+}
+
+def (_: L) first!() -> A where L has list<A> {
+  self at!(0);
+} test {
+  assert [1, 2, 3] first!() ==> 1;
+  assert panic catch({ [] first!() }) is result..error;
+}
+
+def (_: L) last() -> maybe<A> where L has list<A> {
+  self at(self count() - 1);
+} test {
+  assert [1, 2, 3] last() ==> #maybe some(3);
+  assert [] last() ==> maybe..none;
+}
+
+def (_: L) last!() -> maybe<A> where L has list<A> {
+  self at!(self count() - 1);
+} test {
+  assert [1, 2, 3] last!() ==> 3;
+  assert panic catch({ [] last!() }) is result..error;
+}
+
+
+def (_: L) slice(from Start: int, to End: int) -> list-slice<A> where L has list<A> {
+  #list-slice from(self, start: Start, end: End);
+} test {
+  assert [1, 2, 3, 4] slice(from: 0, to: 4) as array ==> [1, 2, 3, 4];
+  assert [1, 2, 3, 4] slice(from: 1, to: 3) as array ==> [2, 3];
+}
+
+def (_: L) slice(from Start: int, length Length: int) -> list-slice<A> where L has list<A> {
+  self slice(from: Start, to: Start + Length);
+} test {
+  assert [1, 2, 3, 4] slice(from: 0, length: 2) as array ==> [1, 2];
+}
+
+def (_: L) slice(from Start: int) -> list-slice<A> where L has list<A> {
+  self slice(from: Start, to: self count());
+} test {
+  assert [1, 2, 3, 4] slice(from: 2) as array ==> [3, 4];
+}
+
+def (_: L) slice(length Length: int) -> list-slice<A> where L has list<A> {
+  self slice(from: 0, length: Length);
+} test {
+  assert [1, 2, 3, 4] slice(length: 2) as array ==> [1, 2];
+}
+
+def (_: L) slice(to End: int) -> list-slice<A> where L has list<A> {
+  self slice(from: 0, to: End);
+} test {
+  assert [1, 2, 3, 4] slice(to: 2) as array ==> [1, 2];
+}
+
+pure def (_: L) slice() -> list-slice<A> where L has list<A> {
+  new list-slice(list: self, start: 0, stop: self count());
+} test {
+  assert [1, 2, 3, 4] slice() as array ==> [1, 2, 3, 4];
+}
+
+def (_: L) rest() -> list-slice<A> where L has list<A> {
+  self slice(from: min(self count(), 1));
+} test {
+  assert [] rest() as array ==> [];
+  assert [1, 2, 3, 4] rest() as array ==> [2, 3, 4];
+}
+
+def (_: L) without-last() -> list-slice<A> where L has list<A> {
+  self slice(length: max(0, self count() - 1));
+} test {
+  assert [] without-last() as array ==> [];
+  assert [1, 2, 3, 4] without-last() as array ==> [1, 2, 3];
+}
+//#endregion
+
+//#region Modifiable list ------------------------------------------------------
+def (_: L) update(at Index: int, with Fn: (A) -> A) -> L where L has modifiable-list<A> {
+  self put(at: Index, value: Fn(self at!(Index)));
+} test {
+  let A = [1, 2, 3];
+  assert A update(at: 0, with: _ + 1) ==> [2, 2, 3];
+}
+
+def (_: L) put(at Index: int, all-of Values: Source) -> L
+  where L has modifiable-list<A>,
+        Source has iterable<A>
+{
+  Values
+    iterator()
+    take(self count() - Index)
+    fold(from: #(list: self, index: Index), with: { State, Value in
+      #(list: State.list put(at: State.index, value: Value), index: State.index + 1)
+    })
+    |> _.list
+} test {
+  let A = [0, 0, 0, 0, 0];
+  assert A put(at: 0, all-of: [1, 2, 3] iterator()) ==> [1, 2, 3, 0, 0];
+  assert A put(at: 2, all-of: [4, 5, 6, 7, 8] iterator()) ==> [0, 0, 4, 5, 6];
+}
+
+def (_: L) fill(Value: A) -> L where L has list<A> {
+  self put(at: 0, all-of: iterator constant(Value));
+} test {
+  let A = [0, 0, 0, 0, 0];
+  assert A fill(1) ==> [1, 1, 1, 1, 1];
+}
+
+def (_: L) fill(Value: A, from Start: int, to End: int) -> L where L has list<A> {
+  self put(at: Start, all-of: iterator constant(Value) take(End - Start));
+} test {
+  let A = [0, 0, 0, 0, 0];
+  assert A fill(1, from: 1, to: 3) ==> [0, 1, 1, 0, 0];
+}
+//#endregion
+
+//#region Growable list --------------------------------------------------------
+def (_: L) prepend(Value: A) -> L where L has growable-list<A> {
+  self insert(at: 0, value: Value);
+} test {
+  assert [1, 2, 3] prepend(0) ==> [0, 1, 2, 3];
+  assert [] prepend(0) ==> [0];
+}
+
+def (_: L) append(Value: A) -> L where L has growable-list<A> {
+  self insert(at: self count(), value: Value);
+} test {
+  assert [1, 2, 3] append(0) ==> [1, 2, 3, 0];
+  assert [] append(0) ==> [0];
+}
+//#endregion
+
+//#region Sorting --------------------------------------------------------------
+def (_: List) sort() -> List where List has sortable-list<A>, A has total-order {
+  self sort(by: _ compare-to(_));
+} test {
+  assert [4, 2, 6] sort() ==> [2, 4, 6];
+  assert [] sort() ==> [];
+}
+//#endregion
+
+//#region Equality -------------------------------------------------------------
+def (_: List) === (That: List) -> bool where List has comparable-list<A>, A has equality {
+  when {
+    self count() =/= That count() -> false;
+    otherwise -> self iterator() zip(That, with: {A, B in A === B}) all-true();
+  }
+} test {
+  assert [1, 2, 3] === [1, 2, 3];
+  assert not ([3, 2, 1] === [1, 2, 3]);
+  assert not ([1, 2] === [1, 2, 3]);
+}
+
+def (_: List) =/= (That: List) -> bool where List has comparable-list<A>, A has equality {
+  not (self === That);
+} test {
+  assert not ([1, 2, 3] =/= [1, 2, 3]);
+  assert ([3, 2, 1] =/= [1, 2, 3]);
+  assert ([1, 2] =/= [1, 2, 3]);
+}
+//#endregion

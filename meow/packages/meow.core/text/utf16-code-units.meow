@@ -1,0 +1,121 @@
+% meow/1
+
+//#region Iteration ------------------------------------------------------------
+pure def text utf16-code-units() {
+  new utf16-code-units-iterator(text: self, index: #cell of(0), end: self count-code-units());
+}
+
+pure def text-slice utf16-code-units() {
+  new utf16-code-units-iterator(text: self, index: #cell of(self.offset), end: self.offset + self.length);
+}
+
+implement iterable<utf16-code-unit> for utf16-code-units-iterator;
+implement iterator<utf16-code-unit> for utf16-code-units-iterator;
+pure def utf16-code-units-iterator size-hint() =
+  #maybe some(self.end - self.index read());
+
+pure def utf16-code-units-iterator take-next() -> maybe<utf16-code-unit> {
+  let Index = self.index read();
+  when {
+    Index >= self.end -> maybe..none;
+    otherwise {
+      let Code = primitive text.code-unit-at(self.text, Index);
+      self.index <- Index + 1;
+      #maybe some(new utf16-code-unit(Code));
+    }
+  }
+} test {
+  let A = "hi 😺!" utf16-code-units();
+  assert A take-next() ==> #maybe some(new utf16-code-unit(104));
+  assert A take-next() ==> #maybe some(new utf16-code-unit(105));
+  assert A take-next() ==> #maybe some(new utf16-code-unit(32));
+  assert A take-next() ==> #maybe some(new utf16-code-unit(0xD83D));
+  assert A take-next() ==> #maybe some(new utf16-code-unit(0xDE3A));
+  assert A take-next() ==> #maybe some(new utf16-code-unit(33));
+  assert A take-next() ==> maybe..none;
+}
+//#endregion
+
+//#region Code unit properties -------------------------------------------------
+pure def text code-unit-at!(Index: int) {
+  assert (Index >= 0) and (Index < self count-code-units()) :: in-bounds;
+  new utf16-code-unit(primitive text.code-unit-at(self, Index));
+} test {
+  assert "hi" code-unit-at!(0) ==> new utf16-code-unit(104);
+  assert "hi" code-unit-at!(1) ==> new utf16-code-unit(105);
+}
+
+pure def text code-unit-at(Index: int) {
+  when {
+    (Index < 0) or (Index >= self count-code-units()) -> maybe..none;
+    otherwise -> #maybe some(self code-unit-at!(Index));
+  }
+} test {
+  assert "hi" code-unit-at(0) ==> #maybe some(new utf16-code-unit(104));
+  assert "hi" code-unit-at(1) ==> #maybe some(new utf16-code-unit(105));
+  assert "hi" code-unit-at(2) ==> maybe..none;
+}
+
+pure def text surrogate-at!(Index: int) {
+  assert (Index >= 0) and (Index < self count-code-units()) :: in-bounds;
+  let Char = self code-unit-at!(Index);
+  when {
+    Char is-trailing-surrogate() -> new utf16-surrogate..lone(Char.code);
+    Char is-leading-surrogate() {
+      let Next = self code-unit-at(Index + 1);
+      when {
+        Next is maybe..none -> new utf16-surrogate..lone(Char.code);
+        otherwise -> Char pair-with(Next unwrap());
+      }
+    }
+    otherwise -> new utf16-surrogate..scalar(Char.code);
+  }
+} test {
+  assert "hi" surrogate-at!(0) ==> new utf16-surrogate..scalar(104);
+  assert "😺" surrogate-at!(0) ==> new utf16-surrogate..pair(0xD83D, 0xDE3A);
+  assert "\uD83D" surrogate-at!(0) ==> new utf16-surrogate..lone(0xD83D);
+  assert "\uD83D!" surrogate-at!(0) ==> new utf16-surrogate..lone(0xD83D);
+  assert "\uDE3A\uD83D" surrogate-at!(0) ==> new utf16-surrogate..lone(0xDE3A);
+}
+
+pure def utf16-code-unit is-leading-surrogate() =
+  (self.code >= 0xD800) and (self.code <= 0xDBFF);
+
+pure def utf16-code-unit is-trailing-surrogate() =
+  (self.code >= 0xDC00) and (self.code <= 0xDFFF);
+
+pure def utf16-code-unit is-ascii() =
+  (self.code >= 0) and (self.code <= 255);
+
+pure def utf16-code-unit pair-with(Surrogate: utf16-code-unit) {
+  when {
+    self is-leading-surrogate() and Surrogate is-trailing-surrogate() ->
+      new utf16-surrogate..pair(leading: self.code, trailing: Surrogate.code);
+
+    self is-leading-surrogate() or self is-trailing-surrogate() ->
+      new utf16-surrogate..lone(self.code);
+
+    otherwise ->
+      new utf16-surrogate..scalar(self.code);
+  }
+} test {
+  let Lead = new utf16-code-unit(0xD83D);
+  let Trail = new utf16-code-unit(0xDE3A);
+  let Simple = new utf16-code-unit(0x21); // i.e.: !
+
+  assert Lead pair-with(Trail) ==> new utf16-surrogate..pair(Lead.code, Trail.code);
+  assert Lead pair-with(Simple) ==> new utf16-surrogate..lone(Lead.code);
+  assert Trail pair-with(Trail) ==> new utf16-surrogate..lone(Trail.code);
+  assert Simple pair-with(Trail) ==> new utf16-surrogate..scalar(Simple.code);
+}
+
+pure def utf16-surrogate..pair to-unicode-scalar() {
+  ((self.leading - 0xD800) * 0x400) + ((self.trailing - 0xDC00) + 0x10_000);
+} test {
+  assert new utf16-surrogate..pair(0xD83D, 0xDE3A) to-unicode-scalar() ==> 0x1F63A; // i.e.: 😺
+}
+
+pure def utf16-surrogate..lone to-unicode-scalar() = 0xFFFD; // i.e.: �
+
+pure def utf16-surrogate..scalar to-unicode-scalar() = self.code;
+//#endregion

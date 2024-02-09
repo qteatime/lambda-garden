@@ -1,0 +1,57 @@
+% meow/1
+
+def #text from(utf8 Bytes: byte-array, strict Strict: bool) -> maybe<text> {
+  #maybe from(nullable: primitive text.decode-utf8(Bytes, Strict));
+} test {
+  assert #text from(utf8: <<104, 105, 32, 240, 159, 152, 186, 33>>, strict: true) unwrap()
+    ==> "hi 😺!";
+
+  assert #text from(utf8: <<255>>, strict: true) is maybe..none;
+  assert #text from(utf8: <<255>>, strict: false) unwrap() ==> "�";
+}
+
+def #text from(utf8 Bytes: Iter, strict Strict: bool) -> maybe<text> where Iter has iterable<int> {
+  #text from(Bytes into(#byte-array), strict: Strict);
+}
+
+def #text from(code-units Units: array<int>) -> text {
+  primitive text.from-code-units(Units);
+} test {
+  assert #text from(code-units: [104, 105, 32, 55357, 56890, 33]) ==> "hi 😺!";
+}
+
+def #text from(code-units Units: Iter) -> text where Iter has iterable<int> {
+  #text from(code-units: Units into(#array));
+}
+
+def #text from(unicode-scalars Points: array<int>) -> text {
+  primitive text.from-unicode(Points);
+} test {
+  assert #text from(unicode-scalars: [104, 105, 32, 128570, 33]) ==> "hi 😺!";
+}
+
+def #text from(unicode-scalars Points: Iter) -> text where Iter has iterable<int> {
+  #text from(unicode-scalars: Points into(#array));
+}
+
+def #text join(Parts: array<text>, with Separator: text) -> text {
+  primitive text.join(Parts, Separator);
+} test {
+  assert #text join([], with: ", ") ==> "";
+  assert #text join(["a"], with: ", ") ==> "a";
+  assert #text join(["a", "b", "c"], with: ", ") ==> "a, b, c";
+}
+
+def #text join(Parts: Iter, with Separator: text) -> text where Iter has iterable<text> {
+  #text join(Parts into(#array), with: Separator);
+}
+
+def #text join(Parts: array<text>) -> text {
+  #text join(Parts, with: "");
+} test {
+  assert #text join(["a", "b", "c"]) ==> "abc";
+}
+
+def #text join(Parts: Iter) -> text where Iter has iterable<text> {
+  #text join(Parts into(#array));
+}

@@ -1,0 +1,26 @@
+% meow/1
+
+pure def byte-array as array {
+  primitive binary.to-array(self);
+} test {
+  assert <<>> as array ==> [];
+  assert <<1, 2, 3>> as array ==> [1, 2, 3];
+}
+
+
+pure def mutable-byte-array as byte-array {
+  self.array shallow-copy();
+} test {
+  let A = <<1, 2, 3>> mutable-copy();
+  let B = A as byte-array;
+  assert B ==> <<1, 2, 3>>;
+  A put(at: 1, value: 0);
+  assert A as byte-array ==> <<1, 0, 3>>;
+  assert B ==> <<1, 2, 3>>;
+}
+
+pure def mutable-byte-array as array {
+  self.array as array;
+} test {
+  assert <<1, 2, 3>> mutable-copy() as array ==> [1, 2, 3];
+}

@@ -1,0 +1,16 @@
+% meow/1
+
+//! The Kate cartridge
+//! ==================
+//! 
+//! This module provides features for accessing and manipulating data
+//! included directly in the cartridge, such as the cartridge file system.
+
+import foreign "_native/cartridge.js";
+
+namespace cartridge {
+  singleton file-system;
+  struct 'file(mime: text, data: byte-array);
+}
+
+import "filesystem.meow";

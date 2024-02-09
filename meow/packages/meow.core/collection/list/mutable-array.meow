@@ -1,0 +1,180 @@
+% meow/1
+
+//#region Constructors ---------------------------------------------------------
+pure def #mutable-array empty() =
+  new mutable-array([]);
+
+pure def #mutable-array allocate(size Size: int, default Default: T) -> mutable-array<T> {
+  new mutable-array(primitive array.allocate(Size, Default));
+} test {
+  assert #mutable-array allocate(size: 5, default: 1) as array ==> [1, 1, 1, 1, 1];
+}
+//#endregion
+
+
+//#region List operations ------------------------------------------------------
+implement list<A> for mutable-array<A>;
+
+pure def mutable-array<A> count() -> int {
+  self.array count();
+} test {
+  assert [1, 2, 3] mutable-copy() count() ==> 3;
+}
+
+pure def mutable-array<A> at(Index: int) -> A {
+  self.array at(Index);
+} test {
+  assert [1, 2, 3] mutable-copy() at(1) ==> #maybe some(2);
+}
+
+
+implement modifiable-list<A> for mutable-array<A>;
+
+pure def mutable-array<A> put(at Index: int, value Value: A) -> mutable-array<A> {
+  assert (Index >= 0) and (Index < self count());
+  primitive array.mut-put(self.array, Index, Value);
+  self;
+} test {
+  let A = [1, 2, 3] mutable-copy();
+  assert A put(at: 1, value: 9) as array ==> [1, 9, 3];
+  assert A as array ==> [1, 9, 3];
+}
+
+pure def mutable-array<A> put(at Index: int, all-of Values: array<A>) -> mutable-array<A> {
+  assert (Index >= 0) and ((Index + Values count()) <= self count()) :: in-bounds;
+  primitive array.mut-put-all-at(self.array, Values, Index);
+  self;
+} test {
+  let A = #mutable-array allocate(size: 5, default: 0);
+  assert A put(at: 0, all-of: [1, 2, 3]) as array ==> [1, 2, 3, 0, 0];
+}
+
+pure def mutable-array<A> fill(Value: A) -> mutable-array<A> {
+  primitive array.mut-fill(self.array, Value);
+  self;
+} test {
+  let A = #mutable-array allocate(size: 5, default: 0);
+  assert A fill(1) as array ==> [1, 1, 1, 1, 1];
+}
+
+pure def mutable-array<A> fill(Value: A, from Start: int, to End: int) -> mutable-array<A> {
+  primitive array.mut-fill-slice(self.array, Value, Start, End);
+  self;
+} test {
+  let A = #mutable-array allocate(size: 5, default: 0);
+  assert A fill(1, from: 1, to: 3) as array ==> [0, 1, 1, 0, 0];
+}
+
+
+implement growable-list<A> for mutable-array<A>;
+
+pure def mutable-array<A> remove(at Index: int) -> mutable-array<A> {
+  assert (Index >= 0) and (Index < self count());
+  primitive array.mut-remove(self.array, Index);
+  self;
+} test {
+  let A = [1, 2, 3] mutable-copy();
+  assert A remove(at: 1) as array ==> [1, 3];
+  assert A as array ==> [1, 3];
+}
+
+pure def mutable-array<A> insert(at Index: int, value Value: A) -> mutable-array<A> {
+  assert (Index >= 0) and (Index <= self count());
+  primitive array.mut-insert-at(self.array, Index, Value);
+  self;
+} test {
+  let A = [] mutable-copy();
+  assert A insert(at: 0, value: 1) as array ==> [1];
+  assert A insert(at: 0, value: 2) as array ==> [2, 1];
+  assert A insert(at: 2, value: 3) as array ==> [2, 1, 3];
+}
+
+pure def mutable-array<A> append(Value: A) -> mutable-array<A> {
+  primitive array.mut-append(self.array, Value);
+  self;
+} test {
+  let A = [] mutable-copy();
+  assert A append(1) as array ==> [1];
+  assert A append(2) as array ==> [1, 2];
+  assert A append(3) as array ==> [1, 2, 3];
+}
+
+
+implement joinable-list<A> for mutable-array<A>;
+
+pure def (A: mutable-array<A>) ++ (B: mutable-array<A>) -> mutable-array<A> {
+  new mutable-array(A freeze() ++ B freeze());
+} test {
+  let A = [1, 2, 3] mutable-copy();
+  let B = [4, 5] mutable-copy();
+  let C = A ++ B; // from this point on A and B are unreferenceable! (memory has moved)
+  assert C as array ==> [1, 2, 3, 4, 5];
+}
+
+
+implement sortable-list<A> for mutable-array<A>;
+
+pure def mutable-array<A> sort(by Compare: (A, A) -> ordering) -> mutable-array<A> {
+  primitive array.mut-sort-by(self.array, {A, B in Compare(A, B) as int});
+  self;
+} test {
+  let A = [4, 1, 2] mutable-copy();
+  assert A sort(by: _ compare-to(_)) as array ==> [1, 2, 4];
+  assert A as array ==> [1, 2, 4];
+}
+
+pure def mutable-array<A> reverse() -> mutable-array<A> {
+  primitive array.mut-reverse(self.array);
+  self;
+} test {
+  let A = [4, 1, 2] mutable-copy();
+  assert A reverse() as array ==> [2, 1, 4];
+  assert A reverse() as array ==> [4, 1, 2];
+}
+//#endregion
+
+//#region Iteration ------------------------------------------------------------
+implement iterable<A> for mutable-array<A>;
+
+def mutable-array<A> iterator() -> mutable-list-iterator<A> {
+  #mutable-list-iterator from(self.array, start: 0, stop: self count());
+}
+//#endregion
+
+//#region Conversions ----------------------------------------------------------
+implement mutable<array<A>> for mutable-array<A>;
+
+pure def mutable-array<A> freeze() -> array<A> {
+  self.array;
+} test {
+  let A = [1, 2, 3] mutable-copy();
+  let B = A freeze();
+  assert B ==> [1, 2, 3];
+  assert B is array;
+}
+
+pure def mutable-array<A> mutable-copy() -> mutable-array<A> {
+  self.array mutable-copy();
+} test {
+  let A = [1, 2, 3] mutable-copy();
+  let B = A mutable-copy();
+  A put(at: 1, value: 0);
+  assert A as array ==> [1, 0, 3];
+  assert B as array ==> [1, 2, 3];
+}
+
+pure def mutable-array<A> as array<A> {
+  primitive array.shallow-copy(self.array);
+} test {
+  let A = [1, 2, 3] mutable-copy();
+  let B = A as array;
+  assert B ==> [1, 2, 3];
+  A put(at: 1, value: 0);
+  assert A as array ==> [1, 0, 3];
+  assert B ==> [1, 2, 3];
+}
+//#endregion
+
+
+implement comparable-list<A> for mutable-array<A>;
+implement equality for mutable-array<A>;

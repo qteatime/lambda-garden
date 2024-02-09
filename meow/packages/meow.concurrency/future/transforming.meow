@@ -1,0 +1,63 @@
+% meow/1
+
+def future<T, E> and-then(Fn: (T) -> future<T2, E>) -> future<T2, E> {
+  current-zone
+    spawn({
+      let Result = self wait-settled();
+      when {
+        Result is future-result..ok -> Fn(Result unwrap()) wait-settled();
+        otherwise -> Result;
+      }
+    })
+    future-result();
+} test {
+  assert #future ok(1) and-then({ X in #future ok(X + 1) }) wait!() ==> 2;
+  assert #future error(2) and-then({ X in #future ok(1) }) wait-settled() ==> new future-result..error(2);
+  assert #future cancelled() and-then({ X in #future ok(1) }) wait-settled() ==> future-result..cancelled;
+}
+
+def future<T, E> or-else(Fn: (T) -> future<T, E>) -> future<T, E> {
+  current-zone
+    spawn({
+      let Result = self wait-settled();
+      when {
+        Result is future-result..error -> Fn(Result reason()) wait-settled();
+        otherwise -> Result;
+      }
+    })
+    future-result();
+} test {
+  assert #future ok(1) or-else({ X in #future ok(X + 1) }) wait!() ==> 1;
+  assert #future error(2) or-else({ X in #future ok(1) }) wait!() ==> 1;
+  assert #future cancelled() or-else({ X in #future ok(1) }) wait-settled() ==> future-result..cancelled;
+}
+
+def future<T, E> swap() -> future<E, T> {
+  current-zone
+    spawn({ self wait-settled() swap() })
+    future-result();
+} test {
+  assert #future ok(1) swap() wait-settled() ==> new future-result..error(1);
+  assert #future error(2) swap() wait-settled() ==> new future-result..ok(2);
+  assert #future cancelled() swap() wait-settled() ==> future-result..cancelled;
+}
+
+def future<T, E> map(Fn: (T) -> T2) -> future<T2, E> {
+  self and-then({ X in #future ok(Fn(X)) });
+} test {
+  assert #future ok(1) map(_ + 1) wait-settled() ==> #future-result ok(2);
+}
+
+def future<T, E> map-error(Fn: (E) -> E2) -> future<T, E2> {
+  self or-else({ X in #future error(Fn(X)) });
+} test {
+  assert #future error(1) map-error(_ + 1) wait-settled() ==> #future-result error(2);
+}
+
+def future<T, E> bimap(ok F: (T) -> T2, error G: (E) -> E2) -> future<T2, E2> {
+  self map(F) map-error(G);
+} test {
+  assert #future ok(1) bimap(ok: _ + 1, error: _ - 1) wait-settled() ==> #future-result ok(2);
+  assert #future error(1) bimap(ok: _ + 1, error: _ - 1) wait-settled() ==> #future-result error(0);
+}
+

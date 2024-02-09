@@ -1,10 +1,13 @@
 % meow/1
 
 //#region - Native-sized integers (int) ----------------------------------------
-def #int upper-bound() = primitive int.max();
-def #int lower-bound() = primitive int.min();
+implement bounds for int;
+implement discrete-order for int;
 
-def int successor() -> int {
+pure def #int upper-bound() = primitive int.max();
+pure def #int lower-bound() = primitive int.min();
+
+pure def int successor() -> int {
   self + 1;
 } test {
   assert -2 successor() ==> -1;
@@ -13,7 +16,7 @@ def int successor() -> int {
   assert 1 successor() ==> 2;
 }
 
-def int predecessor() -> int {
+pure def int predecessor() -> int {
   self - 1;
 } test {
   assert 2 predecessor() ==> 1;
@@ -22,11 +25,11 @@ def int predecessor() -> int {
   assert -1 predecessor() ==> -2;
 }
 
-def int clamp(min Min: int, max Max: int) -> int {
+pure def int clamp(min Min: int, max Max: int) -> int {
   when {
-    self < Min => Min;
-    self > Max => Max;
-    otherwise => self;
+    self < Min -> Min;
+    self > Max -> Max;
+    otherwise -> self;
   }
 } test {
   assert 2 clamp(min: 0, max: 5) ==> 2;
@@ -34,7 +37,7 @@ def int clamp(min Min: int, max Max: int) -> int {
   assert 9 clamp(min: 0, max: 5) ==> 5;
 }
 
-def int is-between(min Min: int, max Max: int) -> int {
+pure def int is-between(min Min: int, max Max: int) -> int {
   (self >= Min) and (self <= Max);
 } test {
   assert 2 is-between(min: 0, max: 5) ==> true;
@@ -46,10 +49,13 @@ def int is-between(min Min: int, max Max: int) -> int {
 //#endregion
 
 //#region - 64-bit sized integers (i64) ----------------------------------------
-def #i64 upper-bound() = (2L ** 63L) - 1L;
-def #i64 lower-bound() = -2L ** 63L;
+implement bounds for i64;
+implement discrete-order for i64;
 
-def i64 successor() -> i64 {
+pure def #i64 upper-bound() = (2L ** 63L) - 1L;
+pure def #i64 lower-bound() = -2L ** 63L;
+
+pure def i64 successor() -> i64 {
   self + 1L;
 } test {
   assert -2L successor() ==> -1L;
@@ -58,7 +64,7 @@ def i64 successor() -> i64 {
   assert 1L successor() ==> 2L;
 }
 
-def i64 predecessor() -> i64 {
+pure def i64 predecessor() -> i64 {
   self - 1L;
 } test {
   assert 2L predecessor() ==> 1L;
@@ -67,11 +73,11 @@ def i64 predecessor() -> i64 {
   assert -1L predecessor() ==> -2L;
 }
 
-def i64 clamp(min Min: i64, max Max: i64) -> i64 {
+pure def i64 clamp(min Min: i64, max Max: i64) -> i64 {
   when {
-    self < Min => Min;
-    self > Max => Max;
-    otherwise => self;
+    self < Min -> Min;
+    self > Max -> Max;
+    otherwise -> self;
   }
 } test {
   assert 2L clamp(min: 0L, max: 5L) ==> 2L;
@@ -79,7 +85,7 @@ def i64 clamp(min Min: i64, max Max: i64) -> i64 {
   assert 9L clamp(min: 0L, max: 5L) ==> 5L;
 }
 
-def i64 is-between(min Min: i64, max Max: i64) -> i64 {
+pure def i64 is-between(min Min: i64, max Max: i64) -> i64 {
   (self >= Min) and (self <= Max);
 } test {
   assert 2L is-between(min: 0L, max: 5L) ==> true;

@@ -101,7 +101,7 @@ def lingua load-grammar(Source: text) -> result<grammar, load-error> {
   ]);
 
   when {
-    Result0 at!(0) => #result ok(Result0 at!(1));
-    otherwise => #result error(new load-error..syntax-error(Result0 at!(1)));
+    Result0 at!(0) -> #result ok(Result0 at!(1));
+    otherwise -> #result error(new load-error..syntax-error(Result0 at!(1)));
   }
 }

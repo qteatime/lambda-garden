@@ -17,10 +17,15 @@ union parse-error {
   syntax-error(reason: text, input: text, offset: int);
 }
 
-struct bindings(mapping: unknown, on-not-found: (array<text>) -> text);
+struct bindings(mapping: map<text, unknown>, on-not-found: (array<text>) -> text);
+
+trait bindings-provider<A> {
+  def (_: A) as bindings;
+}
 
 import "./equality.meow";
 import "./bindings.meow";
 import "./parsing.meow";
 import "./rendering.meow";
 import "./env.meow";
+import "./error.meow";

@@ -300,3 +300,101 @@ For transforming error values:
 ----
 boolean algebra (and, or, not) vs. lazy boolean algebra (and-then, or-else, ...)
 
+
+=== Text, unicode, and internationalisation
+
+The built-in text type in Meow is a mostly-opaque sequence of UTF16 code units,
+it might be at any state in normalisation, and has no associated language or
+cultural mark to it. This has the following implications:
+
+  - It may use twice the amount of memory needed for ASCII-only text;
+  - Unicode scalars may span multiple items in the sequence (e.g.: "🐈", the
+    cat emoji, requires two 16-bit numbers);
+  - Language-aware comparisons are not possible without providing external
+    data.
+  - Equality is confusing because unicode defines combining characters and
+    non-displayable characters.
+
+So Meow makes operating on *specific representations/semantics* of a text
+explicit, like Rust and Swift. For example, you must first acquire a
+unicode-scalars view if you want to look at the count of unicode characters.
+
+Otherwise, we want to make sure that string operations can be cheap and
+predictable. This means making all strings immutable and having additional
+types for slices and stuff.
+
+Strings can have multiple views:
+
+  - text (sequence of UTF16 code units)
+  - ascii-text (sequence of ASCII bytes)
+  - utf8-text (sequence of UTF8 bytes)
+  - text-pattern (simpler alternative to regexes)
+  - iterator<
+
+And the following operations:
+
+  - constructing: from other views
+  - well-formedness: whether the string is a valid utf-16 unicode string
+  - content testing: starts-with, contains, ends-with, is-empty
+  - content transformation: trim, split, replace, pad
+  - slicing: slice
+  - combining: ++, replicate, join
+  - searching: find, find-last, find-all
+  - indexing: at, find-index, find-last-index
+  - unicode normalisation/testing
+  - bitwise equality
+
+TODO: should we allow non-well formed unicode strings at all?
+      choosing to do so would require scanning all strings coming from JS,
+      which would be expensive. and if we go that route it would make sense
+      to just encode all strings as utf8 anyway?
+
+
+== Collections
+
+Meow divides collections into the following groups:
+
+  - containers: things you can put elements into, but have no guaranteed ordering or indexing;
+  - sequences: things with guaranteed ordering among its elements;
+
+Additionally, collections may exhibit certain properties:
+
+  - finite: the number of elements is known to be bounded and can be computed;
+  - countable: the number of elements is known in advance and can be efficiently retrieved.
+  - indexed: support for efficient random-access to elements through an index;
+  - modifiable: elements can be updated in the sequence efficiently;
+  - growable: elements can be added to the sequence efficiently;
+  - shrinkable: elements can be removed from the sequence efficiently;
+  - sortable: ordering of elements can be changed;
+  - sliceable: slices of the collection can be taken;
+  - iterable: sequences that can have their elements yielded one at a time;
+
+These are realised in the following concrete types:
+
+  - Arrays: generic sequences with random access and known sizes;
+    :: sequence, finite, countable, indexed, modifiable, growable(append), shrinkable(append), sortable, sliceable
+    >> array, mutable-array, array-slice, mutable-array-slice
+
+  - Byte-arrays: byte sequences with random access and known sizes;
+    :: sequence, finite, countable, indexed, modifiable, sliceable;
+    >> byte-array, mutable-byte-array, byte-array-slice, mutable-byte-array-slice;
+
+  - Linked lists: generic sequences with efficient append/delete/slice but poor random acccess;
+    :: sequence, finite, modifiable, growable, shrinkable, sortable, sliceable
+    >> linked-list, linked-list-slice
+
+  - Lazy-seqs: sequences of possibly infinite elements;
+    :: sequence
+    >> lazy-sequence
+
+  - Sets: finite container of elements with efficient membership testing
+    :: finite, countable, growable, shrinkable
+    >> hash-set
+
+  - Maps: finite container of elements with efficient indexed access/modifications
+    :: finite, countable, indexed, modifiable, growable, shrinkable
+    >> map
+
+  - 
+
+    

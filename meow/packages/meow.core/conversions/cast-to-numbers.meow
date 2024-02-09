@@ -1,7 +1,12 @@
 % meow/1
 
 //#region - Ordering -----------------------------------------------------------
-def ordering..less-than as int = -1;
-def ordering..equal as int = 0;
-def ordering..greater-than as int = 1;
+implement cast-to-number for ordering;
+
+pure def ordering..less-than as int = -1;
+pure def ordering..equal as int = 0;
+pure def ordering..greater-than as int = 1;
+
+pure def ordering as i64 = (self as int) as i64;
+pure def ordering as f64 = (self as int) as f64;
 //#endregion

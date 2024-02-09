@@ -1,0 +1,25 @@
+% meow/1
+
+implement shallow-copy for array<A>;
+def array<A> shallow-copy() {
+  primitive array.shallow-copy(self);
+} test {
+  let A = [1, 2, 3];
+  let B = A shallow-copy();
+  assert B ==> [1, 2, 3];
+  new mutable-array(A) put(at: 0, value: 0);
+  assert A ==> [0, 2, 3];
+  assert B ==> [1, 2, 3];
+}
+
+
+implement shallow-copy for mutable-array<A>;
+def mutable-array<A> shallow-copy() {
+  new mutable-array(self.array shallow-copy());
+} test {
+  let A = new mutable-array([1, 2, 3]);
+  let B = A shallow-copy();
+  A put(at: 0, value: 0);
+  assert A ==> new mutable-array([0, 2, 3]);
+  assert B ==> new mutable-array([1, 2, 3]);
+}

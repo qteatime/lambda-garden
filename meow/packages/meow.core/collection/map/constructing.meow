@@ -1,0 +1,31 @@
+% meow/1
+
+pure def #map from(Entries: array<#(key: K, value: V)>) -> map<K, V> {
+  primitive map.from-entries(Entries);
+} test {
+  assert #map from([
+    #(key: "a", value: 1),
+    #(key: "b", value: 2),
+  ]) ==> ["a": 1, "b": 2];
+
+  assert #map from([
+    #(key: "a", value: 1),
+    #(key: "a", value: -1),
+  ]) ==> ["a": -1];
+}
+
+def #map from(Entries: EntryIter) -> map<K, V> where EntryIter has iterator<#(key: K, value: V)> {
+  Entries iterator() into(#map);
+}
+
+def map<K, V> mutable-copy() -> mutable-map<K, V> {
+  new mutable-map(self shallow-copy());
+} test {
+  assert ["a": 1] mutable-copy() ==> new mutable-map(["a": 1]);
+}
+
+def #mutable-map empty() -> mutable-map<K, V> {
+  [:] mutable-copy();
+} test {
+  assert #mutable-map empty() ==> new mutable-map([:]);
+}

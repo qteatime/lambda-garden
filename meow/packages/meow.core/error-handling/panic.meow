@@ -3,15 +3,18 @@
 /// Halts the program with the given panic message.
 ///
 /// Arbitrary data might be associated with the panic event.
+implement panic-message<text> for text;
+
 def panic raise(Message: text, tag Tag: text, data Data: unknown) {
   primitive panic.raise(Tag, Message, Data);
+  nothing;
 }
 
-def panic raise(Message: text) {
+def panic raise(Message: T) where T has panic-message {
   self raise(Message, tag: "panic", data: nothing);
 }
 
-def panic raise(Message: text, tag Tag: text) {
+def panic raise(Message: T, tag Tag: text) where T has panic-message{
   self raise(Message, tag: Tag, data: nothing);
 }
 

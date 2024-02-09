@@ -1,0 +1,23 @@
+% meow/1
+
+implement comparable-list<int> for byte-array;
+implement equality for byte-array;
+
+pure def byte-array === (That: byte-array) -> bool {
+  primitive binary.eq(self, That);
+} test {
+  assert <<>> === <<>>;
+  assert <<1, 2, 3>> === <<1, 2, 3>>;
+  assert not (<<1, 2, 3>> === <<3, 2, 1>>);
+  assert not (<<1, 2, 3>> === <<1, 2, 3, 4>>);
+}
+
+
+implement comparable-list<int> for mutable-byte-array;
+implement equality for mutable-byte-array;
+
+pure def mutable-byte-array === (That: mutable-byte-array) -> bool {
+  self.array === That.array;
+} test {
+  assert new mutable-byte-array(<<1, 2, 3>>) === new mutable-byte-array(<<1, 2, 3>>);
+}

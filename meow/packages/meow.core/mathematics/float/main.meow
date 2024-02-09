@@ -1,0 +1,11 @@
+% meow/1
+
+trait ieee-float {
+  def self is-nan() -> bool;
+  def self is-finite() -> bool;
+  def #self nan() -> self;
+  def #self positive-infinity() -> self;
+  def #self negative-infinity() -> self;
+}
+
+import "sized-float.meow";

@@ -1,3 +1,14 @@
 % meow/1
 
-import "text.meow";
+import "memory.meow";
+import "constructing-text.meow";
+import "combining-text.meow";
+import "content-testing.meow";
+import "content-transformation.meow";
+import "equality.meow";
+import "text-representation.meow";
+import "slicing.meow";
+import "views.meow";
+import "utf16-code-units.meow";
+import "unicode-scalars.meow";
+import "unicode-segmentation.meow";

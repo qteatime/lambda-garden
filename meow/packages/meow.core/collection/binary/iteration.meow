@@ -1,0 +1,11 @@
+% meow/1
+
+implement iterable<int> for byte-array;
+pure def byte-array iterator() -> list-iterator<int> {
+  #list-iterator from(self, start: 0, stop: self count());
+}
+
+implement iterable<int> for mutable-byte-array;
+pure def mutable-byte-array iterator() -> mutable-list-iterator<int> {
+  #mutable-list-iterator from(self.array, start: 0, stop: self count());
+}

@@ -1,0 +1,15 @@
+% meow/1
+
+def (_: Iter)iterator() where Iter has iterator<A> =
+  self;
+
+def (_: Iter)size-hint() where Iter has iterator<A> =
+  maybe..none;
+
+import "generation.meow";
+import "iteration.meow";
+import "collection.meow";
+import "mapping.meow";
+import "filtering.meow";
+import "zipping.meow";
+import "folding.meow";

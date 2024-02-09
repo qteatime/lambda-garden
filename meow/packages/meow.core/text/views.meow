@@ -1,0 +1,17 @@
+% meow/1
+
+// TODO: move to codec
+pure def text to-utf8-bytes() -> maybe<byte-array> {
+  #maybe from(nullable: primitive text.to-utf8-bytes(self));
+} test {
+  assert "hi 😺!" to-utf8-bytes() unwrap() ==> <<104, 105, 32, 240, 159, 152, 186, 33>>;
+  assert "hi \ud800" to-utf8-bytes() is maybe..none;
+}
+
+pure def text to-unicode-scalars() -> array<int> {
+  #maybe from(nullable: primitive text.to-unicode-scalars(self));
+} test {
+  assert "hi 😺!" to-unicode-scalars() unwrap() ==>  [104, 105, 32, 128570, 33];
+  assert "hi \ud800" to-unicode-scalars() ==> maybe..none;
+}
+

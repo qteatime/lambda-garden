@@ -1,0 +1,83 @@
+% meow/1
+
+trait even-odd {
+  def self is-odd() -> bool;
+  optional def self is-even() -> bool;
+}
+
+def &even-odd is-even() -> bool {
+  not (self is-odd());
+}
+
+implement even-odd for int;
+
+def int is-odd() -> bool {
+  (self % 2) =/= 0;
+}
+
+test "trait dispatching" {
+  assert 1 is-odd();    // from implementation
+  assert 2 is-even();   // from trait
+}
+
+
+union nat {
+  zero;
+  succ(x: nat);
+}
+
+implement even-odd for nat;
+
+def nat..zero is-odd() = false;
+def nat..zero is-even() = true;
+
+def nat..succ is-odd() = not (self.x is-odd());
+def nat..succ is-even() = not (self.x is-even());
+
+test "trait dispatch overrides" {
+  assert not (nat..zero is-odd());
+  assert (new nat..succ(nat..zero)) is-odd();
+
+  assert nat..zero is-even();
+  assert not ((new nat..succ(nat..zero)) is-even());
+}
+
+
+union partial {
+  impl;
+  no-impl;
+}
+
+implement even-odd for partial..impl;
+
+def partial..impl is-odd() = true;
+def partial..no-impl is-odd() = false;
+
+test "trait membership testing" {
+  assert not (1L has even-odd);
+  assert 1 has even-odd;
+  assert nat..zero has even-odd;
+  assert new nat..succ(nat..zero) has even-odd;
+  assert partial..impl has even-odd;
+  assert not (partial..no-impl has even-odd);
+}
+
+
+trait thing<A> {
+  def #self spawn() -> self;
+  def self consume() -> A;
+}
+
+struct thingie(value: int);
+
+implement thing<int> for thingie;
+
+def #thingie spawn() = new thingie(42);
+def thingie consume() = self.value;
+
+test "Trait implementations span instance and static types" {
+  assert #thingie has thing;
+  assert (#thingie spawn()) has thing;
+
+  assert #thingie spawn() consume() ==> 42;
+}

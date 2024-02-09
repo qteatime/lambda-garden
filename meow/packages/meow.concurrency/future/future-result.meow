@@ -1,0 +1,57 @@
+% meow/1
+
+def #future-result ok(Value: T) -> future-result<T, E> =
+  new future-result..ok(Value);
+
+def #future-result error(Reason: E) -> future-result<T, E> =
+  new future-result..error(Reason);
+
+def #future-result cancelled() -> future-result<T, E> =
+  future-result..cancelled;
+
+
+def #future-result from(Result: result..ok<T, E>) -> future-result<T, E> =
+  #future-result ok(Result value());
+
+def #future-result from(Result: result..error<T, E>) -> future-result<T, E> =
+  #future-result error(Result reason());
+
+
+def future-result<T, E> map(Fn: (T) -> T2) -> future-result<T2, E> = self;
+def future-result..ok<T, E> map(Fn: (T) -> T2) -> future-result<T2, E> {
+  new future-result..ok(Fn(self.value));
+}
+
+def future-result<T, E> map-error(Fn: (E) -> E2) -> future-result<T, E2> = self;
+def future-result..error<T, E> map-error(Fn: (E) -> E2) -> future-result<T, E2> =
+  new future-result..error(Fn(self.reason));
+
+
+def future-result<T, E> flat-map(Fn: (T) -> T2) = self;
+def future-result<T, E> flat-map(Fn: (T) -> future-result<T2, E>) -> future-result<T2, E> {
+  Fn(self.value);
+}
+
+def future-result<T, E> or-else(Fn: (E) -> future-result<T, E>) -> future-result<T, E> =
+  self;
+
+def future-result..error<T, E> or-else(Fn: (E) -> future-result<T, E>) -> future-result<T, E> =
+  Fn(self.reason);
+
+def future-result..ok<T, E> swap() -> future-result<E, T> = new future-result..error(self.value);
+def future-result..error<T, E> swap() -> future-result<E, T> = new future-result..ok(self.reason);
+def future-result..cancelled<T, E> swap() -> future-result<E, T> = self;
+
+
+def future-result<T, E> unwrap() -> T = panic raise("cannot unwrap a non-successful future", data: #(result: self));
+def future-result..ok<T, E> unwrap() -> T = self.value;
+
+def future-result<T, E> unwrap(default Value: T) -> T = Value;
+def future-result..ok<T, E> unwrap(default _: T) -> T = self.value;
+
+def future-result<T, E> unwrap(or-panic Message: &panic-message) -> T = panic raise(Message);
+def future-result<T, E> unwrap(or-panic Message: &panic-message) -> T = self.value;
+
+
+def future-result..ok<T, E> value() = self.value;
+def future-result..error<T, E> reason() = self.reason;

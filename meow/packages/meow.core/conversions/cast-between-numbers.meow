@@ -1,7 +1,11 @@
 % meow/1
 
 //#region - Native-sized integers (int) ----------------------------------------
-def int as i64 {
+implement cast-to-number for int;
+
+pure def int as int = self;
+
+pure def int as i64 {
   primitive int.to-i64(self);
 } test {
   assert 0 as i64 ==> 0L;
@@ -9,7 +13,7 @@ def int as i64 {
   assert -4 as i64 ==> -4L;
 }
 
-def int as f64 {
+pure def int as f64 {
   primitive int.to-f64(self);
 } test {
   assert 0 as f64 ==> 0.0f;
@@ -19,7 +23,11 @@ def int as f64 {
 //#endregion
 
 //#region - 64-bit sized integers (i64) ----------------------------------------
-def i64 as int {
+implement cast-to-number for i64;
+
+pure def i64 as i64 = self;
+
+pure def i64 as int {
   primitive i64.to-int(self);
 } test {
   assert 0L as int ==> 0;
@@ -27,7 +35,7 @@ def i64 as int {
   assert -4L as int ==> -4;
 }
 
-def i64 as f64 {
+pure def i64 as f64 {
   primitive i64.to-f64(self);
 } test {
   assert 0L as f64 ==> 0.0f;
@@ -37,7 +45,11 @@ def i64 as f64 {
 //#endregion
 
 //#region - 64-bit floating points (f64) ---------------------------------------
-def f64 as int {
+implement cast-to-number for f64;
+
+pure def f64 as f64 = self;
+
+pure def f64 as int {
   primitive f64.to-int(self);
 } test {
   assert 4.0f as int ==> 4;
@@ -45,7 +57,7 @@ def f64 as int {
   assert 2.7f as int ==> 2; // TODO: maybe these should throw?
 }
 
-def f64 as i64 {
+pure def f64 as i64 {
   primitive f64.to-i64(self);
 } test {
   assert 4.0f as i64 ==> 4L;

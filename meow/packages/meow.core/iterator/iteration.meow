@@ -1,0 +1,17 @@
+% meow/1
+
+def (_: Iter)each(Fn: (A) -> nothing) -> nothing where Iter has iterator<A> {
+  repeat with Value = self take-next() {
+    when {
+      Value is maybe..none -> break with nothing;
+      otherwise {
+        Fn(Value unwrap());
+        continue with Value = self take-next();
+      }
+    }
+  }
+} test {
+  let X = #mutable-array empty();
+  [1, 2, 3] iterator() each({A in X append(A + 1)});
+  assert X as array ==> [2, 3, 4];
+}

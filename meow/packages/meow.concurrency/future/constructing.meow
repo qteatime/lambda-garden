@@ -1,0 +1,29 @@
+% meow/1
+
+def #future from(Result: result<T, E>) -> future<T, E> {
+  when {
+    Result is result..ok -> #future ok(Result value());
+    Result is result..error -> #future error(Result reason());
+  }
+} test {
+  assert #future from(#result ok(1)) wait-settled() ==> new future-result..ok(1);
+  assert #future from(#result error(1)) wait-settled() ==> new future-result..error(1);
+}
+
+def #future ok(Value: T) -> future<T, E> {
+  #deferred defer() resolve(Value) future();
+} test {
+  assert #future ok(1) wait-settled() ==> new future-result..ok(1);
+}
+
+def #future error(Reason: E) -> future<T, E> {
+  #deferred defer() reject(Reason) future();
+} test {
+  assert #future error(1) wait-settled() ==> new future-result..error(1);
+}
+
+def #future cancelled() -> future<T, E> {
+  #deferred defer() cancel() future();
+} test {
+  assert #future cancelled() wait-settled() ==> future-result..cancelled;
+}

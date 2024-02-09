@@ -3,11 +3,17 @@ import * as Path from "path";
 import * as syntax from "./syntax/parser";
 import * as compile from "./compile/lower";
 import { parse } from "./argparse";
+import { from_json, to_json } from "./syntax/serialise";
 
-const { file, options } = parse(`meowc`, `Compile Meow files to JS`, process.argv.slice(2), {
-  compiling: true,
-  allow_null_file: true,
-});
+const { file, cache_root, options } = parse(
+  `meowc`,
+  `Compile Meow files to JS`,
+  process.argv.slice(2),
+  {
+    compiling: true,
+    allow_null_file: true,
+  }
+);
 
 function build_package(name: string, entry: string) {
   console.log(`--> ${name} (from ${entry})`);
@@ -23,7 +29,7 @@ function build_package(name: string, entry: string) {
       no_test: true,
       no_cache: true,
     },
-    { pkgs: pkgs, files: new Set() }
+    { pkgs: pkgs, files: new Set(), cache_root: Path.dirname(entry) }
   );
 
   const cache: compile.PkgCache = {
@@ -52,11 +58,11 @@ if (options.build) {
     build_package(options.pkg, entry);
   }
 } else if (options.file != null) {
-  const source = FS.readFileSync(file!, "utf-8");
-  const ast = syntax.parse(source);
+  const ast = syntax.parse_file(file!, cache_root);
   const js = compile.lower(ast, options, {
     pkgs: new Set(),
     files: new Set(file == null ? [] : [Path.resolve(file)]),
+    cache_root: cache_root,
   });
   console.log(js);
 } else {

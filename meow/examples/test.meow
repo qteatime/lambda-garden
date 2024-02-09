@@ -108,8 +108,8 @@ test "repeat loops" {
   // Functional repeat blocks
   let B = (repeat with A = 1 {
     when {
-      A < 10 => continue with A = A + 1;
-      otherwise => break with A + 1;
+      A < 10 -> continue with A = A + 1;
+      otherwise -> break with A + 1;
     }
   });
 
@@ -119,11 +119,11 @@ test "repeat loops" {
   let X = #cell of(1);
   repeat {
     when {
-      X read() < 10 => {
+      X read() < 10 {
         X <- X read() + 1;
         continue;
       }
-      otherwise => break;
+      otherwise -> break;
     }
   }
   assert X read() ==> 10;

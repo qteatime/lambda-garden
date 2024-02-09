@@ -10,9 +10,9 @@ def #hex decode(Text: text) -> hex {
   new hex(foreign hex.decode(Text));
 } test {
   assert #hex decode("") bytes() ==> <<>>;
-  assert #hex decode("61") bytes() ==> "a" utf8-bytes();
+  assert #hex decode("61") bytes() ==> "a" to-utf8-bytes() unwrap();
   assert #hex decode("4974207761732061206461726b2c2073746f726d79206e69676874") bytes()
-    ==> "It was a dark, stormy night" utf8-bytes();
+    ==> "It was a dark, stormy night" to-utf8-bytes() unwrap();
 }
 
 def hex bytes() {
@@ -22,9 +22,9 @@ def hex bytes() {
 def hex encode() -> text {
   foreign hex.encode(self.bytes);
 } test {
-  assert #hex from("It was a dark, stormy night" utf8-bytes()) encode()
+  assert #hex from("It was a dark, stormy night" to-utf8-bytes() unwrap()) encode()
     ==> "4974207761732061206461726b2c2073746f726d79206e69676874";
-  assert #hex from("a" utf8-bytes()) encode() ==> "61";
+  assert #hex from("a" to-utf8-bytes() unwrap()) encode() ==> "61";
   assert #hex from(<<>>) encode() ==> "";
 }
 

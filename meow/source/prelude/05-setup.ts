@@ -4,7 +4,7 @@ $meow.deftype(
 );
 $meow.deftype(
   "i64",
-  $type("integer", (x) => typeof x === "bigint", 0)
+  $type("i64", (x) => typeof x === "bigint", 0)
 );
 $meow.deftype(
   "int",
@@ -61,10 +61,6 @@ for (let i = 0; i < 32; ++i) {
   );
 }
 $meow.deftype(
-  "grapheme-cluster",
-  $type("grapheme-cluster", (x) => x instanceof $Graphemes, 0)
-);
-$meow.deftype(
   "record",
   $type("record", (x) => x instanceof $Record, 1)
 );
@@ -72,3 +68,18 @@ $meow.deftype(
   "static",
   $type("static", (x) => x instanceof $Static, 1)
 );
+$meow.deftype(
+  "foreign",
+  $type("foreign", (x) => x instanceof $Foreign, 1)
+);
+$meow.deftype(
+  "package-asset",
+  $type("package-asset", (x) => x instanceof $Asset, 0)
+);
+$meow.deftype(
+  "process",
+  $type("process", (x) => x instanceof $Process, 0)
+);
+
+// -- Root package (for files ran outside of proper packages)
+$meow.start_package(null);

@@ -14,6 +14,10 @@ class State {
     this.rule = state.rule;
   }
 
+  eof() {
+    return this.offset === this.input.length;
+  }
+
   match(re) {
     re.lastIndex = this.offset;
     const match = re.exec(this.input);
@@ -32,6 +36,13 @@ class State {
     } else {
       return null;
     }
+  }
+}
+
+class ParseError {
+  constructor(msg, offset) {
+    this.msg = msg;
+    this.offset = offset;
   }
 }
 
@@ -61,12 +72,16 @@ const many = (s0, p) => {
 
 const pvar = (s0) => {
   s0.rule = "var";
-  const name = s0.match(/\$([a-z][a-z0-9\-]*(?:\.[a-z][a-z0-9\-]*)*)/y);
+  const name = s0.match(/\$\{([a-z][a-z0-9\-]*(?:\.[a-z][a-z0-9\-]*)*)/y);
   if (name == null) {
     return null;
   }
   const names = name[1].split(".");
   const filters = many(s0, pfilter);
+  const end_bracket = s0.match(/\}/y);
+  if (end_bracket == null) {
+    throw new ParseError(`Expected '}'`, s0.offset);
+  }
   return ["var", names, filters];
 };
 
@@ -103,25 +118,50 @@ const pterm = (s0) => {
   return null;
 };
 
-const parser = (s0) => many(s0, pterm);
+const parser = (s0) => {
+  const tokens = many(s0, pterm);
+  if (!s0.eof()) {
+    throw new ParseError("Expected eof", s0.offset);
+  }
+  return tokens;
+};
 
 module.exports = {
   *template__parse(template) {
-    debugger;
     const state = new State(template, 0);
-    const tokens = parser(state);
-    if (tokens == null) {
-      return $meow.record({
-        ok: false,
-        reason: $meow.record({
-          offset: state.offset,
-          message: `Parser failed at ${state.rule} offset ${state.offset} (${template.slice(
-            state.offset,
-            state.offset + 10
-          )})`,
-        }),
-      });
+    try {
+      const tokens = parser(state);
+      if (tokens == null) {
+        return $meow.record({
+          ok: false,
+          reason: $meow.record({
+            offset: state.offset,
+            msg: `Parser failed at ${state.rule} offset ${state.offset} (${template.slice(
+              state.offset,
+              state.offset + 10
+            )})`,
+          }),
+        });
+      }
+      return $meow.record({ ok: true, value: $meow.record({ tokens }) });
+    } catch (e) {
+      if (e instanceof ParseError) {
+        return $meow.record({
+          ok: false,
+          reason: $meow.record({
+            offset: e.offset,
+            msg: e.msg,
+          }),
+        });
+      } else {
+        return $meow.record({
+          ok: false,
+          reason: $meow.record({
+            offset: state.offset,
+            msg: String(e),
+          }),
+        });
+      }
     }
-    return $meow.record({ ok: true, value: $meow.record({ tokens }) });
   },
 };

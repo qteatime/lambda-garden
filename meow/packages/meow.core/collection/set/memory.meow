@@ -1,0 +1,19 @@
+% meow/1
+
+implement shallow-copy for set<V>;
+pure def set<V> shallow-copy() -> set<V> {
+  new set(self.map shallow-copy());
+}
+
+implement shallow-copy for mutable-set<V>;
+pure def mutable-set<V> shallow-copy() -> mutable-set<V> {
+  new mutab-elset(self.map shallow-copy());
+}
+
+implement mutable<set<V>> for mutable-set<V>;
+pure def mutable-set<V> freeze() -> set<V> {
+  new set(self.map freeze());
+} test {
+  let A = #mutable-set from([1, 2, 3]);
+  assert A freeze() ==> new set([1: nothing, 2: nothing, 3: nothing]);
+}

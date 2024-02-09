@@ -6,11 +6,17 @@ import * as Read from "readline/promises";
 import * as VM from "vm";
 import { parse } from "./argparse";
 import { prelude_code } from "./compile/lower";
+import { desugar } from "./compile/desugar";
 const pkg = require("../package.json");
 
-const { file, options } = parse(`imeow`, `Interactive meow shell`, process.argv.slice(2), {
-  allow_null_file: true,
-});
+const { file, cache_root, options } = parse(
+  `imeow`,
+  `Interactive meow shell`,
+  process.argv.slice(2),
+  {
+    allow_null_file: true,
+  }
+);
 
 async function get_line(rl: Read.Interface) {
   let source = "";
@@ -31,13 +37,12 @@ async function get_line(rl: Read.Interface) {
   }
 }
 
-function load_file(file: string, vm: VmCtx) {
-  const source = FS.readFileSync(file, "utf-8");
-  const ast = syntax.parse(source);
+function load_file(file: string, vm: VmCtx, cache_root: string) {
+  const ast = syntax.parse_file(file, cache_root);
   const js = compile.lower(
     ast,
     { ...options, no_prelude: true, cwd: Path.dirname(file) },
-    { pkgs: new Set(), files: new Set(Path.resolve(file)) }
+    { pkgs: new Set(), files: new Set(Path.resolve(file)), cache_root }
   );
   VM.runInContext(js, vm.vm_ctx, { filename: file });
 }
@@ -53,16 +58,26 @@ async function evaluate(x: syntax.MRepl, vm: VmCtx) {
       return null;
     },
     async Expr(x) {
-      const ctx = new compile.Ctx([], options);
+      const ctx = new compile.Ctx([], options, false);
       const v = ctx.fresh();
-      const js0 = compile.lower_expr(x, ctx, v);
-      const js = `$meow.wait($meow.with_default_handlers(function* () {
+      const js0 = compile.lower_expr(desugar(x), ctx, v);
+      const js = `$run_throw($with_default_handlers((function* () {
         let ${v};
         ${js0.render(0)};
         return ${v}
-      }))`;
-      console.log("==>", js);
-      const result = await VM.runInContext(js, vm.vm_ctx, { filename: "(repl)" });
+      })()), "repl-expr")`;
+      const result_promise = (await VM.runInContext(js, vm.vm_ctx, { filename: "(repl)" })).result;
+      VM.runInContext(
+        `
+        if (!$main_loop_running) {
+          $loop_run().catch(e => {
+            console.error("PANIC: " + String(e?.$meow_message ?? e?.stack ?? e))
+          })
+        }
+      `,
+        vm.vm_ctx
+      );
+      const result = await result_promise;
       if (result != null) {
         return VM.runInContext(`((v) => $meow.pprint(v))`, vm.vm_ctx)(result);
       } else {
@@ -100,8 +115,8 @@ type VmCtx = {
 async function main() {
   const rl = Read.createInterface({ input: process.stdin, output: process.stdout });
   const vm: VmCtx = {
-    ctx: new compile.Ctx([], options),
-    import_context: { pkgs: new Set(), files: new Set() },
+    ctx: new compile.Ctx([], options, false),
+    import_context: { pkgs: new Set(), files: new Set(), cache_root },
     options,
     vm_ctx: VM.createContext(
       {
@@ -112,6 +127,8 @@ async function main() {
         process: {
           env: process.env,
         },
+        setTimeout: setTimeout,
+        setImmediate: setImmediate,
         console: {
           log(...args: any[]) {
             console.log(...args);
@@ -129,6 +146,7 @@ async function main() {
   const core_code = compile.get_package_code("meow.core", options, {
     pkgs: new Set(),
     files: new Set(),
+    cache_root,
   });
   VM.runInContext(core_code, vm.vm_ctx, {
     filename: "package meow.core",
@@ -140,7 +158,7 @@ async function main() {
 
   // Run initial package
   if (file != null) {
-    load_file(file, vm);
+    load_file(file, vm, cache_root);
   }
 
   console.log(`Meow v${pkg.version} | interactive shell`);

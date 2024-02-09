@@ -1,28 +1,28 @@
 % meow/1
 
-// trait bounds {
-//   // -- Static methods
-//   /// The highest value in the Type space.
-//   def T upper-bound() -> A;
+trait bounds {
+  // -- Static methods
+  /// The highest value in the Type space.
+  def #self upper-bound() -> self;
 
-//   /// The lowest value in the Type space.
-//   def T lower-bound() -> A;
+  /// The lowest value in the Type space.
+  def #self lower-bound() -> self;
 
-//   // -- Convenience methods
-//   /// Return A constrained within the specified bounds.
-//   def A clamp(min: A, max: A) -> A;
+  // -- Convenience methods
+  /// Return A constrained within the specified bounds.
+  def self clamp(min Min: self, max Max: self) -> self;
 
-//   /// True if A >= min and A <= max.
-//   def A is-between(min: A, max: A) -> bool;
-// }
+  /// True if A >= min and A <= max.
+  def self is-between(min Min: self, max Max: self) -> bool;
+}
 
-// trait discrete-order {
-//   /// The next value in this Type space.
-//   def A successor() -> A;
+trait discrete-order {
+  /// The next value in this Type space.
+  def self successor() -> self;
 
-//   /// The previous value in this Type space.
-//   def A predecessor() -> A;
-// }
+  /// The previous value in this Type space.
+  def self predecessor() -> self;
+}
 
 import "sized-integers.meow";
 import "sized-floats.meow";

@@ -1,0 +1,32 @@
+% meow/1
+
+singleton current-zone;
+singleton current-process;
+
+union process-error {
+  native-error(x: unknown);
+  timeout(process: process<A>, time-ms: int);
+}
+implement panic-message for process-error;
+def panic raise(Msg: process-error..native-error, tag Tag: text, data Data: unknown) {
+  panic raise(foreign process.show-native-error(Msg.x), tag: Tag, data: Data);
+}
+
+def panic raise(Msg: process-error..timeout, tag Tag: text, data Data: unknown) {
+  panic raise("Timed-out waiting for process",
+              tag: Tag,
+              data: #(process: Msg.process, time-ms: Msg.time-ms, other: Data));
+}
+
+effect local-zone {
+  spawn(fn: () -> A, name: maybe<text>) -> process<A>;
+  yield() -> nothing;
+  sleep(time-ms: int) -> nothing;
+  wait(process: process<A>) -> result<A, process-error>;
+  wait-timeout(process: process<A>, timeout-ms: int) -> result<A, process-error>;
+  fate(process: process<A>) -> future<A, process-error>;
+  kill(process: process<A>) -> nothing;
+}
+
+import "process-lifecycle.meow";
+import "zone.meow";

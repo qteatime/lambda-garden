@@ -2,25 +2,59 @@
 
 /// A value exhibits a total-order when for any pair of values in its
 /// space, if `A <= B` and `B <= C`, then `A <= C`.
-// trait total-order {
-//   requires trait equality;
+trait total-order {
+  requires trait equality for self;
 
-//   /// The relative position of the pair of elements when considered in the
-//   /// type's value space.
-//   def A compare-to(A) -> ordering;
+  /// The relative position of the pair of elements when considered in the
+  /// type's value space.
+  def self compare-to(_: self) -> ordering;
 
-//   /// left 'less than' right.
-//   def A < A -> bool;
+  /// left 'less than' right.
+  optional def self < self -> bool;
 
-//   /// left 'less or equal to' right.
-//   def A <= A -> bool;
+  /// left 'less or equal to' right.
+  optional def self <= self -> bool;
 
-//   /// left 'greater than' right.
-//   def A > A -> bool;
+  /// left 'greater than' right.
+  optional def self > self -> bool;
 
-//   /// left 'greater or equal to' right.
-//   def A >= A -> bool;
-// }
+  /// left 'greater or equal to' right.
+  optional def self >= self -> bool;
+}
 
 import "sized-integers.meow";
 import "floating-points.meow";
+
+def (A: Ord) < (B: Ord) -> bool where Ord has total-order {
+  let Order = A compare-to(B);
+  Order =:= ordering..less-than;
+}
+
+def (A: Ord) <= (B: Ord) -> bool where Ord has total-order {
+  let Order = A compare-to(B);
+  (Order =:= ordering..less-than) or (Order =:= ordering..equal);
+}
+
+def (A: Ord) > (B: Ord) -> bool where Ord has total-order {
+  let Order = A compare-to(B);
+  Order =:= ordering..greater-than;
+}
+
+def (A: Ord) >= (B: Ord) -> bool where Ord has total-order {
+  let Order = A compare-to(B);
+  (Order =:= ordering..greater-than) or (Order =:= ordering..equal);
+}
+
+def max(A: Ord, B: Ord) -> Ord where Ord has total-order {
+  when {
+    A > B -> A;
+    otherwise -> B;
+  }
+}
+
+def min(A: Ord, B: Ord) -> Ord where Ord has total-order {
+  when {
+    A < B -> A;
+    otherwise -> B;
+  }
+}

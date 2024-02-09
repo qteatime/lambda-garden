@@ -332,9 +332,9 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
 
       type $p_MDecl<$T> = {
         
-  Fun(info: (Meta | null), name: string, params: MParam[], ret: MType, body: MExpr, test: (MExpr | null)): $T;
+  Fun(info: (Meta | null), name: string, params: MParam[], ret: MType, constraints: MTypeConstraint[], body: MExpr, test: (MExpr | null), pure: (string | null)): $T;
   
-  SFun(info: (Meta | null), name: string, self: MParam, params: MParam[], ret: MType, body: MExpr, test: (MExpr | null)): $T;
+  SFun(info: (Meta | null), name: string, self: MParam, params: MParam[], ret: MType, constraints: MTypeConstraint[], body: MExpr, test: (MExpr | null), pure: (string | null)): $T;
   
   Struct(info: (Meta | null), name: string, fields: Field[]): $T;
   
@@ -352,20 +352,30 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
   
   Trait(info: (Meta | null), name: string, reqs: (TraitReq | null)[]): $T;
   
-  Implement(info: (Meta | null), name: string, typ: MType, decls: MDecl[]): $T;
+  Implement(info: (Meta | null), name: MRef, typ: MType): $T;
   
   OpenPkg(info: (Meta | null), name: string, alias: (string | null)): $T;
   
-  DeclareType(info: (Meta | null), name: string): $T;
+  DeclareTrait(info: (Meta | null), name: MRef): $T;
+  
+  DeclareType(info: (Meta | null), name: MRef): $T;
   
   Effect(info: (Meta | null), name: string, cases: EffectCase[]): $T;
   
   Handler(info: (Meta | null), name: string, params: MParam[], init: (MExpr | null), cases: HandlerCase[], auto_install: boolean): $T;
   
+  Decorator(info: (Meta | null), name: string, args: ConstExpr[], decl: MDecl): $T;
+  
+  Asset(info: (Meta | null), name: string, kind: AssetDef): $T;
+  
+  Namespace(info: (Meta | null), name: string[], decls: MDecl[]): $T;
+  
+  OpenNamespace(info: (Meta | null), ref: MRef, alias: string): $T;
+  
       }
 
       export abstract class MDecl extends Node {
-        abstract tag: "Fun" | "SFun" | "Struct" | "Union" | "Singleton" | "Def" | "Test" | "Import" | "ImportForeign" | "Trait" | "Implement" | "OpenPkg" | "DeclareType" | "Effect" | "Handler";
+        abstract tag: "Fun" | "SFun" | "Struct" | "Union" | "Singleton" | "Def" | "Test" | "Import" | "ImportForeign" | "Trait" | "Implement" | "OpenPkg" | "DeclareTrait" | "DeclareType" | "Effect" | "Handler" | "Decorator" | "Asset" | "Namespace" | "OpenNamespace";
         abstract match<$T>(p: $p_MDecl<$T>): $T;
         
   static get Fun() {
@@ -428,6 +438,11 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
   }
   
 
+  static get DeclareTrait() {
+    return $$MDecl$_DeclareTrait
+  }
+  
+
   static get DeclareType() {
     return $$MDecl$_DeclareType
   }
@@ -443,6 +458,26 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
   }
   
 
+  static get Decorator() {
+    return $$MDecl$_Decorator
+  }
+  
+
+  static get Asset() {
+    return $$MDecl$_Asset
+  }
+  
+
+  static get Namespace() {
+    return $$MDecl$_Namespace
+  }
+  
+
+  static get OpenNamespace() {
+    return $$MDecl$_OpenNamespace
+  }
+  
+
         static has_instance(x: any) {
           return x instanceof MDecl;
         }
@@ -452,14 +487,14 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
   export class $$MDecl$_Fun extends MDecl {
     readonly tag!: "Fun";
 
-    constructor(readonly info: (Meta | null), readonly name: string, readonly params: MParam[], readonly ret: MType, readonly body: MExpr, readonly test: (MExpr | null)) {
+    constructor(readonly info: (Meta | null), readonly name: string, readonly params: MParam[], readonly ret: MType, readonly constraints: MTypeConstraint[], readonly body: MExpr, readonly test: (MExpr | null), readonly pure: (string | null)) {
       super();
       Object.defineProperty(this, "tag", { value: "Fun" });
-      ($assert_type<(Meta | null)>(info, "(Meta | null)", $is_maybe(Meta))); ($assert_type<string>(name, "string", $is_type("string"))); ($assert_type<MParam[]>(params, "MParam[]", $is_array(MParam))); ($assert_type<MType>(ret, "MType", MType)); ($assert_type<MExpr>(body, "MExpr", MExpr)); ($assert_type<(MExpr | null)>(test, "(MExpr | null)", $is_maybe(MExpr)))
+      ($assert_type<(Meta | null)>(info, "(Meta | null)", $is_maybe(Meta))); ($assert_type<string>(name, "string", $is_type("string"))); ($assert_type<MParam[]>(params, "MParam[]", $is_array(MParam))); ($assert_type<MType>(ret, "MType", MType)); ($assert_type<MTypeConstraint[]>(constraints, "MTypeConstraint[]", $is_array(MTypeConstraint))); ($assert_type<MExpr>(body, "MExpr", MExpr)); ($assert_type<(MExpr | null)>(test, "(MExpr | null)", $is_maybe(MExpr))); ($assert_type<(string | null)>(pure, "(string | null)", $is_maybe($is_type("string"))))
     }
 
     match<$T>(p: $p_MDecl<$T>): $T {
-      return p.Fun(this.info, this.name, this.params, this.ret, this.body, this.test);
+      return p.Fun(this.info, this.name, this.params, this.ret, this.constraints, this.body, this.test, this.pure);
     }
 
     static has_instance(x: any) {
@@ -472,14 +507,14 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
   export class $$MDecl$_SFun extends MDecl {
     readonly tag!: "SFun";
 
-    constructor(readonly info: (Meta | null), readonly name: string, readonly self: MParam, readonly params: MParam[], readonly ret: MType, readonly body: MExpr, readonly test: (MExpr | null)) {
+    constructor(readonly info: (Meta | null), readonly name: string, readonly self: MParam, readonly params: MParam[], readonly ret: MType, readonly constraints: MTypeConstraint[], readonly body: MExpr, readonly test: (MExpr | null), readonly pure: (string | null)) {
       super();
       Object.defineProperty(this, "tag", { value: "SFun" });
-      ($assert_type<(Meta | null)>(info, "(Meta | null)", $is_maybe(Meta))); ($assert_type<string>(name, "string", $is_type("string"))); ($assert_type<MParam>(self, "MParam", MParam)); ($assert_type<MParam[]>(params, "MParam[]", $is_array(MParam))); ($assert_type<MType>(ret, "MType", MType)); ($assert_type<MExpr>(body, "MExpr", MExpr)); ($assert_type<(MExpr | null)>(test, "(MExpr | null)", $is_maybe(MExpr)))
+      ($assert_type<(Meta | null)>(info, "(Meta | null)", $is_maybe(Meta))); ($assert_type<string>(name, "string", $is_type("string"))); ($assert_type<MParam>(self, "MParam", MParam)); ($assert_type<MParam[]>(params, "MParam[]", $is_array(MParam))); ($assert_type<MType>(ret, "MType", MType)); ($assert_type<MTypeConstraint[]>(constraints, "MTypeConstraint[]", $is_array(MTypeConstraint))); ($assert_type<MExpr>(body, "MExpr", MExpr)); ($assert_type<(MExpr | null)>(test, "(MExpr | null)", $is_maybe(MExpr))); ($assert_type<(string | null)>(pure, "(string | null)", $is_maybe($is_type("string"))))
     }
 
     match<$T>(p: $p_MDecl<$T>): $T {
-      return p.SFun(this.info, this.name, this.self, this.params, this.ret, this.body, this.test);
+      return p.SFun(this.info, this.name, this.self, this.params, this.ret, this.constraints, this.body, this.test, this.pure);
     }
 
     static has_instance(x: any) {
@@ -652,14 +687,14 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
   export class $$MDecl$_Implement extends MDecl {
     readonly tag!: "Implement";
 
-    constructor(readonly info: (Meta | null), readonly name: string, readonly typ: MType, readonly decls: MDecl[]) {
+    constructor(readonly info: (Meta | null), readonly name: MRef, readonly typ: MType) {
       super();
       Object.defineProperty(this, "tag", { value: "Implement" });
-      ($assert_type<(Meta | null)>(info, "(Meta | null)", $is_maybe(Meta))); ($assert_type<string>(name, "string", $is_type("string"))); ($assert_type<MType>(typ, "MType", MType)); ($assert_type<MDecl[]>(decls, "MDecl[]", $is_array(MDecl)))
+      ($assert_type<(Meta | null)>(info, "(Meta | null)", $is_maybe(Meta))); ($assert_type<MRef>(name, "MRef", MRef)); ($assert_type<MType>(typ, "MType", MType))
     }
 
     match<$T>(p: $p_MDecl<$T>): $T {
-      return p.Implement(this.info, this.name, this.typ, this.decls);
+      return p.Implement(this.info, this.name, this.typ);
     }
 
     static has_instance(x: any) {
@@ -689,13 +724,33 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
   
 
 
+  export class $$MDecl$_DeclareTrait extends MDecl {
+    readonly tag!: "DeclareTrait";
+
+    constructor(readonly info: (Meta | null), readonly name: MRef) {
+      super();
+      Object.defineProperty(this, "tag", { value: "DeclareTrait" });
+      ($assert_type<(Meta | null)>(info, "(Meta | null)", $is_maybe(Meta))); ($assert_type<MRef>(name, "MRef", MRef))
+    }
+
+    match<$T>(p: $p_MDecl<$T>): $T {
+      return p.DeclareTrait(this.info, this.name);
+    }
+
+    static has_instance(x: any) {
+      return x instanceof $$MDecl$_DeclareTrait;
+    }
+  }
+  
+
+
   export class $$MDecl$_DeclareType extends MDecl {
     readonly tag!: "DeclareType";
 
-    constructor(readonly info: (Meta | null), readonly name: string) {
+    constructor(readonly info: (Meta | null), readonly name: MRef) {
       super();
       Object.defineProperty(this, "tag", { value: "DeclareType" });
-      ($assert_type<(Meta | null)>(info, "(Meta | null)", $is_maybe(Meta))); ($assert_type<string>(name, "string", $is_type("string")))
+      ($assert_type<(Meta | null)>(info, "(Meta | null)", $is_maybe(Meta))); ($assert_type<MRef>(name, "MRef", MRef))
     }
 
     match<$T>(p: $p_MDecl<$T>): $T {
@@ -747,6 +802,266 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
     }
   }
   
+
+
+  export class $$MDecl$_Decorator extends MDecl {
+    readonly tag!: "Decorator";
+
+    constructor(readonly info: (Meta | null), readonly name: string, readonly args: ConstExpr[], readonly decl: MDecl) {
+      super();
+      Object.defineProperty(this, "tag", { value: "Decorator" });
+      ($assert_type<(Meta | null)>(info, "(Meta | null)", $is_maybe(Meta))); ($assert_type<string>(name, "string", $is_type("string"))); ($assert_type<ConstExpr[]>(args, "ConstExpr[]", $is_array(ConstExpr))); ($assert_type<MDecl>(decl, "MDecl", MDecl))
+    }
+
+    match<$T>(p: $p_MDecl<$T>): $T {
+      return p.Decorator(this.info, this.name, this.args, this.decl);
+    }
+
+    static has_instance(x: any) {
+      return x instanceof $$MDecl$_Decorator;
+    }
+  }
+  
+
+
+  export class $$MDecl$_Asset extends MDecl {
+    readonly tag!: "Asset";
+
+    constructor(readonly info: (Meta | null), readonly name: string, readonly kind: AssetDef) {
+      super();
+      Object.defineProperty(this, "tag", { value: "Asset" });
+      ($assert_type<(Meta | null)>(info, "(Meta | null)", $is_maybe(Meta))); ($assert_type<string>(name, "string", $is_type("string"))); ($assert_type<AssetDef>(kind, "AssetDef", AssetDef))
+    }
+
+    match<$T>(p: $p_MDecl<$T>): $T {
+      return p.Asset(this.info, this.name, this.kind);
+    }
+
+    static has_instance(x: any) {
+      return x instanceof $$MDecl$_Asset;
+    }
+  }
+  
+
+
+  export class $$MDecl$_Namespace extends MDecl {
+    readonly tag!: "Namespace";
+
+    constructor(readonly info: (Meta | null), readonly name: string[], readonly decls: MDecl[]) {
+      super();
+      Object.defineProperty(this, "tag", { value: "Namespace" });
+      ($assert_type<(Meta | null)>(info, "(Meta | null)", $is_maybe(Meta))); ($assert_type<string[]>(name, "string[]", $is_array($is_type("string")))); ($assert_type<MDecl[]>(decls, "MDecl[]", $is_array(MDecl)))
+    }
+
+    match<$T>(p: $p_MDecl<$T>): $T {
+      return p.Namespace(this.info, this.name, this.decls);
+    }
+
+    static has_instance(x: any) {
+      return x instanceof $$MDecl$_Namespace;
+    }
+  }
+  
+
+
+  export class $$MDecl$_OpenNamespace extends MDecl {
+    readonly tag!: "OpenNamespace";
+
+    constructor(readonly info: (Meta | null), readonly ref: MRef, readonly alias: string) {
+      super();
+      Object.defineProperty(this, "tag", { value: "OpenNamespace" });
+      ($assert_type<(Meta | null)>(info, "(Meta | null)", $is_maybe(Meta))); ($assert_type<MRef>(ref, "MRef", MRef)); ($assert_type<string>(alias, "string", $is_type("string")))
+    }
+
+    match<$T>(p: $p_MDecl<$T>): $T {
+      return p.OpenNamespace(this.info, this.ref, this.alias);
+    }
+
+    static has_instance(x: any) {
+      return x instanceof $$MDecl$_OpenNamespace;
+    }
+  }
+  
+      
+
+
+      type $p_AssetDef<$T> = {
+        
+  File(info: (Meta | null), path: string): $T;
+  
+      }
+
+      export abstract class AssetDef extends Node {
+        abstract tag: "File";
+        abstract match<$T>(p: $p_AssetDef<$T>): $T;
+        
+  static get File() {
+    return $$AssetDef$_File
+  }
+  
+
+        static has_instance(x: any) {
+          return x instanceof AssetDef;
+        }
+      }
+ 
+      
+  export class $$AssetDef$_File extends AssetDef {
+    readonly tag!: "File";
+
+    constructor(readonly info: (Meta | null), readonly path: string) {
+      super();
+      Object.defineProperty(this, "tag", { value: "File" });
+      ($assert_type<(Meta | null)>(info, "(Meta | null)", $is_maybe(Meta))); ($assert_type<string>(path, "string", $is_type("string")))
+    }
+
+    match<$T>(p: $p_AssetDef<$T>): $T {
+      return p.File(this.info, this.path);
+    }
+
+    static has_instance(x: any) {
+      return x instanceof $$AssetDef$_File;
+    }
+  }
+  
+      
+
+
+      type $p_ConstExpr<$T> = {
+        
+  Literal(info: (Meta | null), value: MConst): $T;
+  
+  List(info: (Meta | null), values: ConstExpr[]): $T;
+  
+  Symbol(info: (Meta | null), name: string): $T;
+  
+      }
+
+      export abstract class ConstExpr extends Node {
+        abstract tag: "Literal" | "List" | "Symbol";
+        abstract match<$T>(p: $p_ConstExpr<$T>): $T;
+        
+  static get Literal() {
+    return $$ConstExpr$_Literal
+  }
+  
+
+  static get List() {
+    return $$ConstExpr$_List
+  }
+  
+
+  static get Symbol() {
+    return $$ConstExpr$_Symbol
+  }
+  
+
+        static has_instance(x: any) {
+          return x instanceof ConstExpr;
+        }
+      }
+ 
+      
+  export class $$ConstExpr$_Literal extends ConstExpr {
+    readonly tag!: "Literal";
+
+    constructor(readonly info: (Meta | null), readonly value: MConst) {
+      super();
+      Object.defineProperty(this, "tag", { value: "Literal" });
+      ($assert_type<(Meta | null)>(info, "(Meta | null)", $is_maybe(Meta))); ($assert_type<MConst>(value, "MConst", MConst))
+    }
+
+    match<$T>(p: $p_ConstExpr<$T>): $T {
+      return p.Literal(this.info, this.value);
+    }
+
+    static has_instance(x: any) {
+      return x instanceof $$ConstExpr$_Literal;
+    }
+  }
+  
+
+
+  export class $$ConstExpr$_List extends ConstExpr {
+    readonly tag!: "List";
+
+    constructor(readonly info: (Meta | null), readonly values: ConstExpr[]) {
+      super();
+      Object.defineProperty(this, "tag", { value: "List" });
+      ($assert_type<(Meta | null)>(info, "(Meta | null)", $is_maybe(Meta))); ($assert_type<ConstExpr[]>(values, "ConstExpr[]", $is_array(ConstExpr)))
+    }
+
+    match<$T>(p: $p_ConstExpr<$T>): $T {
+      return p.List(this.info, this.values);
+    }
+
+    static has_instance(x: any) {
+      return x instanceof $$ConstExpr$_List;
+    }
+  }
+  
+
+
+  export class $$ConstExpr$_Symbol extends ConstExpr {
+    readonly tag!: "Symbol";
+
+    constructor(readonly info: (Meta | null), readonly name: string) {
+      super();
+      Object.defineProperty(this, "tag", { value: "Symbol" });
+      ($assert_type<(Meta | null)>(info, "(Meta | null)", $is_maybe(Meta))); ($assert_type<string>(name, "string", $is_type("string")))
+    }
+
+    match<$T>(p: $p_ConstExpr<$T>): $T {
+      return p.Symbol(this.info, this.name);
+    }
+
+    static has_instance(x: any) {
+      return x instanceof $$ConstExpr$_Symbol;
+    }
+  }
+  
+      
+
+
+      type $p_TraitReq<$T> = {
+        
+  Implies(info: (Meta | null), ref: MRef): $T;
+  
+      }
+
+      export abstract class TraitReq extends Node {
+        abstract tag: "Implies";
+        abstract match<$T>(p: $p_TraitReq<$T>): $T;
+        
+  static get Implies() {
+    return $$TraitReq$_Implies
+  }
+  
+
+        static has_instance(x: any) {
+          return x instanceof TraitReq;
+        }
+      }
+ 
+      
+  export class $$TraitReq$_Implies extends TraitReq {
+    readonly tag!: "Implies";
+
+    constructor(readonly info: (Meta | null), readonly ref: MRef) {
+      super();
+      Object.defineProperty(this, "tag", { value: "Implies" });
+      ($assert_type<(Meta | null)>(info, "(Meta | null)", $is_maybe(Meta))); ($assert_type<MRef>(ref, "MRef", MRef))
+    }
+
+    match<$T>(p: $p_TraitReq<$T>): $T {
+      return p.Implies(this.info, this.ref);
+    }
+
+    static has_instance(x: any) {
+      return x instanceof $$TraitReq$_Implies;
+    }
+  }
+  
       
 
 
@@ -764,75 +1079,6 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
     }
   }
   
-
-
-      type $p_TraitReq<$T> = {
-        
-  Required(name: string, params: MParam[]): $T;
-  
-  Provided(fn: MDecl): $T;
-  
-      }
-
-      export abstract class TraitReq extends Node {
-        abstract tag: "Required" | "Provided";
-        abstract match<$T>(p: $p_TraitReq<$T>): $T;
-        
-  static get Required() {
-    return $$TraitReq$_Required
-  }
-  
-
-  static get Provided() {
-    return $$TraitReq$_Provided
-  }
-  
-
-        static has_instance(x: any) {
-          return x instanceof TraitReq;
-        }
-      }
- 
-      
-  export class $$TraitReq$_Required extends TraitReq {
-    readonly tag!: "Required";
-
-    constructor(readonly name: string, readonly params: MParam[]) {
-      super();
-      Object.defineProperty(this, "tag", { value: "Required" });
-      ($assert_type<string>(name, "string", $is_type("string"))); ($assert_type<MParam[]>(params, "MParam[]", $is_array(MParam)))
-    }
-
-    match<$T>(p: $p_TraitReq<$T>): $T {
-      return p.Required(this.name, this.params);
-    }
-
-    static has_instance(x: any) {
-      return x instanceof $$TraitReq$_Required;
-    }
-  }
-  
-
-
-  export class $$TraitReq$_Provided extends TraitReq {
-    readonly tag!: "Provided";
-
-    constructor(readonly fn: MDecl) {
-      super();
-      Object.defineProperty(this, "tag", { value: "Provided" });
-      ($assert_type<MDecl>(fn, "MDecl", MDecl))
-    }
-
-    match<$T>(p: $p_TraitReq<$T>): $T {
-      return p.Provided(this.fn);
-    }
-
-    static has_instance(x: any) {
-      return x instanceof $$TraitReq$_Provided;
-    }
-  }
-  
-      
 
 
   export class Variant extends Node {
@@ -891,20 +1137,30 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
   
   Variant(info: (Meta | null), ref: MRef, variant: string): $T;
   
-  Trait(info: (Meta | null), ref: MRef): $T;
+  Trait(info: (Meta | null), name: MRef): $T;
   
   Var(info: (Meta | null), name: string): $T;
   
   Fun(info: (Meta | null), input: MType[], output: MType): $T;
   
+  Self(info: (Meta | null)): $T;
+  
+  StaticSelf(info: (Meta | null)): $T;
+  
+  StaticVar(info: (Meta | null), name: string): $T;
+  
   Record(info: (Meta | null), fields: TPair[]): $T;
+  
+  WithTraits(info: (Meta | null), bound: MType, traits: MRef[]): $T;
+  
+  Package(info: (Meta | null)): $T;
   
   Infer(info: (Meta | null)): $T;
   
       }
 
       export abstract class MType extends Node {
-        abstract tag: "Ref" | "Static" | "Variant" | "Trait" | "Var" | "Fun" | "Record" | "Infer";
+        abstract tag: "Ref" | "Static" | "Variant" | "Trait" | "Var" | "Fun" | "Self" | "StaticSelf" | "StaticVar" | "Record" | "WithTraits" | "Package" | "Infer";
         abstract match<$T>(p: $p_MType<$T>): $T;
         
   static get Ref() {
@@ -937,8 +1193,33 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
   }
   
 
+  static get Self() {
+    return $$MType$_Self
+  }
+  
+
+  static get StaticSelf() {
+    return $$MType$_StaticSelf
+  }
+  
+
+  static get StaticVar() {
+    return $$MType$_StaticVar
+  }
+  
+
   static get Record() {
     return $$MType$_Record
+  }
+  
+
+  static get WithTraits() {
+    return $$MType$_WithTraits
+  }
+  
+
+  static get Package() {
+    return $$MType$_Package
   }
   
 
@@ -1016,14 +1297,14 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
   export class $$MType$_Trait extends MType {
     readonly tag!: "Trait";
 
-    constructor(readonly info: (Meta | null), readonly ref: MRef) {
+    constructor(readonly info: (Meta | null), readonly name: MRef) {
       super();
       Object.defineProperty(this, "tag", { value: "Trait" });
-      ($assert_type<(Meta | null)>(info, "(Meta | null)", $is_maybe(Meta))); ($assert_type<MRef>(ref, "MRef", MRef))
+      ($assert_type<(Meta | null)>(info, "(Meta | null)", $is_maybe(Meta))); ($assert_type<MRef>(name, "MRef", MRef))
     }
 
     match<$T>(p: $p_MType<$T>): $T {
-      return p.Trait(this.info, this.ref);
+      return p.Trait(this.info, this.name);
     }
 
     static has_instance(x: any) {
@@ -1073,6 +1354,66 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
   
 
 
+  export class $$MType$_Self extends MType {
+    readonly tag!: "Self";
+
+    constructor(readonly info: (Meta | null)) {
+      super();
+      Object.defineProperty(this, "tag", { value: "Self" });
+      ($assert_type<(Meta | null)>(info, "(Meta | null)", $is_maybe(Meta)))
+    }
+
+    match<$T>(p: $p_MType<$T>): $T {
+      return p.Self(this.info);
+    }
+
+    static has_instance(x: any) {
+      return x instanceof $$MType$_Self;
+    }
+  }
+  
+
+
+  export class $$MType$_StaticSelf extends MType {
+    readonly tag!: "StaticSelf";
+
+    constructor(readonly info: (Meta | null)) {
+      super();
+      Object.defineProperty(this, "tag", { value: "StaticSelf" });
+      ($assert_type<(Meta | null)>(info, "(Meta | null)", $is_maybe(Meta)))
+    }
+
+    match<$T>(p: $p_MType<$T>): $T {
+      return p.StaticSelf(this.info);
+    }
+
+    static has_instance(x: any) {
+      return x instanceof $$MType$_StaticSelf;
+    }
+  }
+  
+
+
+  export class $$MType$_StaticVar extends MType {
+    readonly tag!: "StaticVar";
+
+    constructor(readonly info: (Meta | null), readonly name: string) {
+      super();
+      Object.defineProperty(this, "tag", { value: "StaticVar" });
+      ($assert_type<(Meta | null)>(info, "(Meta | null)", $is_maybe(Meta))); ($assert_type<string>(name, "string", $is_type("string")))
+    }
+
+    match<$T>(p: $p_MType<$T>): $T {
+      return p.StaticVar(this.info, this.name);
+    }
+
+    static has_instance(x: any) {
+      return x instanceof $$MType$_StaticVar;
+    }
+  }
+  
+
+
   export class $$MType$_Record extends MType {
     readonly tag!: "Record";
 
@@ -1093,6 +1434,46 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
   
 
 
+  export class $$MType$_WithTraits extends MType {
+    readonly tag!: "WithTraits";
+
+    constructor(readonly info: (Meta | null), readonly bound: MType, readonly traits: MRef[]) {
+      super();
+      Object.defineProperty(this, "tag", { value: "WithTraits" });
+      ($assert_type<(Meta | null)>(info, "(Meta | null)", $is_maybe(Meta))); ($assert_type<MType>(bound, "MType", MType)); ($assert_type<MRef[]>(traits, "MRef[]", $is_array(MRef)))
+    }
+
+    match<$T>(p: $p_MType<$T>): $T {
+      return p.WithTraits(this.info, this.bound, this.traits);
+    }
+
+    static has_instance(x: any) {
+      return x instanceof $$MType$_WithTraits;
+    }
+  }
+  
+
+
+  export class $$MType$_Package extends MType {
+    readonly tag!: "Package";
+
+    constructor(readonly info: (Meta | null)) {
+      super();
+      Object.defineProperty(this, "tag", { value: "Package" });
+      ($assert_type<(Meta | null)>(info, "(Meta | null)", $is_maybe(Meta)))
+    }
+
+    match<$T>(p: $p_MType<$T>): $T {
+      return p.Package(this.info);
+    }
+
+    static has_instance(x: any) {
+      return x instanceof $$MType$_Package;
+    }
+  }
+  
+
+
   export class $$MType$_Infer extends MType {
     readonly tag!: "Infer";
 
@@ -1108,6 +1489,48 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
 
     static has_instance(x: any) {
       return x instanceof $$MType$_Infer;
+    }
+  }
+  
+      
+
+
+      type $p_MTypeConstraint<$T> = {
+        
+  HasTrait(info: (Meta | null), name: string, ref: MRef): $T;
+  
+      }
+
+      export abstract class MTypeConstraint extends Node {
+        abstract tag: "HasTrait";
+        abstract match<$T>(p: $p_MTypeConstraint<$T>): $T;
+        
+  static get HasTrait() {
+    return $$MTypeConstraint$_HasTrait
+  }
+  
+
+        static has_instance(x: any) {
+          return x instanceof MTypeConstraint;
+        }
+      }
+ 
+      
+  export class $$MTypeConstraint$_HasTrait extends MTypeConstraint {
+    readonly tag!: "HasTrait";
+
+    constructor(readonly info: (Meta | null), readonly name: string, readonly ref: MRef) {
+      super();
+      Object.defineProperty(this, "tag", { value: "HasTrait" });
+      ($assert_type<(Meta | null)>(info, "(Meta | null)", $is_maybe(Meta))); ($assert_type<string>(name, "string", $is_type("string"))); ($assert_type<MRef>(ref, "MRef", MRef))
+    }
+
+    match<$T>(p: $p_MTypeConstraint<$T>): $T {
+      return p.HasTrait(this.info, this.name, this.ref);
+    }
+
+    static has_instance(x: any) {
+      return x instanceof $$MTypeConstraint$_HasTrait;
     }
   }
   
@@ -1281,10 +1704,16 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
   
   AbortWith(info: (Meta | null), value: MExpr): $T;
   
+  Unreachable(info: (Meta | null)): $T;
+  
+  HasTrait(info: (Meta | null), value: MExpr, ref: MRef): $T;
+  
+  Package(info: (Meta | null)): $T;
+  
       }
 
       export abstract class MExpr extends Node {
-        abstract tag: "Const" | "Var" | "Self" | "Hole" | "Let" | "Block" | "If" | "Invoke" | "InvokeSelf" | "Primitive" | "IntrinsicEq" | "Project" | "New" | "NewPos" | "NewVariant" | "NewVariantPos" | "GetVariant" | "Static" | "GetGlobal" | "List" | "Lazy" | "Force" | "Map" | "Assert" | "Is" | "IsVariant" | "Lambda" | "Apply" | "Record" | "Extend" | "Pipe" | "Foreign" | "Repeat" | "Continue" | "Break" | "Binary" | "Handle" | "Perform" | "ResumeWith" | "AbortWith";
+        abstract tag: "Const" | "Var" | "Self" | "Hole" | "Let" | "Block" | "If" | "Invoke" | "InvokeSelf" | "Primitive" | "IntrinsicEq" | "Project" | "New" | "NewPos" | "NewVariant" | "NewVariantPos" | "GetVariant" | "Static" | "GetGlobal" | "List" | "Lazy" | "Force" | "Map" | "Assert" | "Is" | "IsVariant" | "Lambda" | "Apply" | "Record" | "Extend" | "Pipe" | "Foreign" | "Repeat" | "Continue" | "Break" | "Binary" | "Handle" | "Perform" | "ResumeWith" | "AbortWith" | "Unreachable" | "HasTrait" | "Package";
         abstract match<$T>(p: $p_MExpr<$T>): $T;
         
   static get Const() {
@@ -1484,6 +1913,21 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
 
   static get AbortWith() {
     return $$MExpr$_AbortWith
+  }
+  
+
+  static get Unreachable() {
+    return $$MExpr$_Unreachable
+  }
+  
+
+  static get HasTrait() {
+    return $$MExpr$_HasTrait
+  }
+  
+
+  static get Package() {
+    return $$MExpr$_Package
   }
   
 
@@ -2291,12 +2735,72 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
     }
   }
   
+
+
+  export class $$MExpr$_Unreachable extends MExpr {
+    readonly tag!: "Unreachable";
+
+    constructor(readonly info: (Meta | null)) {
+      super();
+      Object.defineProperty(this, "tag", { value: "Unreachable" });
+      ($assert_type<(Meta | null)>(info, "(Meta | null)", $is_maybe(Meta)))
+    }
+
+    match<$T>(p: $p_MExpr<$T>): $T {
+      return p.Unreachable(this.info);
+    }
+
+    static has_instance(x: any) {
+      return x instanceof $$MExpr$_Unreachable;
+    }
+  }
+  
+
+
+  export class $$MExpr$_HasTrait extends MExpr {
+    readonly tag!: "HasTrait";
+
+    constructor(readonly info: (Meta | null), readonly value: MExpr, readonly ref: MRef) {
+      super();
+      Object.defineProperty(this, "tag", { value: "HasTrait" });
+      ($assert_type<(Meta | null)>(info, "(Meta | null)", $is_maybe(Meta))); ($assert_type<MExpr>(value, "MExpr", MExpr)); ($assert_type<MRef>(ref, "MRef", MRef))
+    }
+
+    match<$T>(p: $p_MExpr<$T>): $T {
+      return p.HasTrait(this.info, this.value, this.ref);
+    }
+
+    static has_instance(x: any) {
+      return x instanceof $$MExpr$_HasTrait;
+    }
+  }
+  
+
+
+  export class $$MExpr$_Package extends MExpr {
+    readonly tag!: "Package";
+
+    constructor(readonly info: (Meta | null)) {
+      super();
+      Object.defineProperty(this, "tag", { value: "Package" });
+      ($assert_type<(Meta | null)>(info, "(Meta | null)", $is_maybe(Meta)))
+    }
+
+    match<$T>(p: $p_MExpr<$T>): $T {
+      return p.Package(this.info);
+    }
+
+    static has_instance(x: any) {
+      return x instanceof $$MExpr$_Package;
+    }
+  }
+  
       
 
 
       type $p_HandlerCase<$T> = {
         
-  On(info: (Meta | null), name: MRef, params: string[], body: MExpr): $T;
+  On(info: (Meta | null), name: MRef, params: string[], cont: (string | null), body: MExpr): $T;
   
   Use(info: (Meta | null), name: MRef, args: MInvokeArg[]): $T;
   
@@ -2325,14 +2829,14 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
   export class $$HandlerCase$_On extends HandlerCase {
     readonly tag!: "On";
 
-    constructor(readonly info: (Meta | null), readonly name: MRef, readonly params: string[], readonly body: MExpr) {
+    constructor(readonly info: (Meta | null), readonly name: MRef, readonly params: string[], readonly cont: (string | null), readonly body: MExpr) {
       super();
       Object.defineProperty(this, "tag", { value: "On" });
-      ($assert_type<(Meta | null)>(info, "(Meta | null)", $is_maybe(Meta))); ($assert_type<MRef>(name, "MRef", MRef)); ($assert_type<string[]>(params, "string[]", $is_array($is_type("string")))); ($assert_type<MExpr>(body, "MExpr", MExpr))
+      ($assert_type<(Meta | null)>(info, "(Meta | null)", $is_maybe(Meta))); ($assert_type<MRef>(name, "MRef", MRef)); ($assert_type<string[]>(params, "string[]", $is_array($is_type("string")))); ($assert_type<(string | null)>(cont, "(string | null)", $is_maybe($is_type("string")))); ($assert_type<MExpr>(body, "MExpr", MExpr))
     }
 
     match<$T>(p: $p_HandlerCase<$T>): $T {
-      return p.On(this.info, this.name, this.params, this.body);
+      return p.On(this.info, this.name, this.params, this.cont, this.body);
     }
 
     static has_instance(x: any) {
@@ -3030,7 +3534,7 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
       
 
   // == Grammar definition ============================================
-  export const grammar = Ohm.grammar("\r\n  Meow_Grammar {\r\n    Module  = header Declaration* end  -- alt1\n\n\nDeclaration  = DHandler  -- alt1\n | DFun  -- alt2\n | DDeclare  -- alt3\n | DStruct  -- alt4\n | DUnion  -- alt5\n | DDefine  -- alt6\n | DTest  -- alt7\n | DImport  -- alt8\n | DOpen  -- alt9\n | DTrait  -- alt10\n | DImplement  -- alt11\n | DEffect  -- alt12\n\n\nDFun  = def_ DFPParam name \"(\" CommaList<DFParam> \")\" DFRet DFBody DFTest  -- alt1\n | def_ name \"(\" CommaList<DFParam> \")\" DFRet DFBody DFTest  -- alt2\n | def_ DFPParam any_binary_op DFPParam DFRet DFBody DFTest  -- alt3\n | def_ prefix_op DFPParam DFRet DFBody DFTest  -- alt4\n | def_ DFPParam as_ Ref DFBody DFTest  -- alt5\n\n\nDFBody  = \"=\" ESimple \";\"  -- alt1\n | EBlock  -- alt2\n\n\nDFTest  = test_ EBlock  -- alt1\n |   -- alt2\n\n\nDFParam  = atom variable \":\" Type  -- alt1\n | variable \":\" Type  -- alt2\n | variable  -- alt3\n | Type  -- alt4\n\n\nDFPParam  = variable  -- alt1\n | Type  -- alt2\n | \"(\" variable \":\" Type \")\"  -- alt3\n\n\nDFRet  = \"->\" Type  -- alt1\n |   -- alt2\n\n\nDDefine  = def_ name \":\" Type \"=\" ESimple \";\"  -- alt1\n | def_ name \"=\" ESimple \";\"  -- alt2\n\n\nDTest  = test_ text EBlock  -- alt1\n\n\nDDeclare  = declare_ name \";\"  -- alt1\n\n\nDStruct  = struct_ name \"(\" CommaList<DSField> \")\" \";\"  -- alt1\n | singleton_ name \";\"  -- alt2\n\n\nDUnion  = union_ name \"{\" DUVariant* \"}\"  -- alt1\n\n\nDUVariant  = name \"(\" CommaList<DSField> \")\" \";\"  -- alt1\n | name \";\"  -- alt2\n\n\nDSField  = name \":\" Type  -- alt1\n | name  -- alt2\n\n\nDEffect  = effect_ name \"{\" DECase* \"}\"  -- alt1\n\n\nDECase  = name \"(\" CommaList<DSField> \")\" DFRet DENLRet \";\"  -- alt1\n\n\nDENLRet  = \",\" nonlocal_ Type  -- alt1\n |   -- alt2\n\n\nDHandler  = default_ DHandlerDef  -- alt1\n | DHandlerDef  -- alt2\n\n\nDHandlerDef  = handler_ name \"(\" CommaList<DFParam> \")\" EBlock? with_ \"{\" EHCase* \"}\"  -- alt1\n\n\nTTop  = Type  -- alt1\n\n\nType  = \"(\" CommaList<Type> \")\" \"->\" Type  -- alt1\n | TApply  -- alt2\n\n\nTApply  = TApply \"<\" CommaList1<TTop> \">\"  -- alt1\n | TPrim  -- alt2\n\n\nTPrim  = \"#\" \"(\" CommaList<TPair> \")\"  -- alt1\n | \"#\" Ref  -- alt2\n | \"&\" Ref  -- alt3\n | Ref \"..\" atom  -- alt4\n | Ref  -- alt5\n | variable  -- alt6\n | \"(\" TTop \")\"  -- alt7\n\n\nTPair  = name \":\" TTop  -- alt1\n\n\nRef  = foreign_name \"/\" Ns  -- alt1\n | Ns  -- alt2\n | nothing_  -- alt3\n\n\nNs  = NonemptyListOf<name, \".\">  -- alt1\n\n\nDTrait  = trait_ name \"{\" DTReq* \"}\"  -- alt1\n\n\nDImplement  = implement_ name for_ Type \"{\" DTFun+ \"}\"  -- alt1\n\n\nDTReq  = requires_ trait_ Ref \";\"  -- alt1\n | def_ Type name \"(\" CommaList<DTParam> \")\" DFRet \";\"  -- alt2\n | DTFun  -- alt3\n\n\nDTFun  = def_ Type name \"(\" CommaList<DFParam> \")\" DFRet DFBody DFTest  -- alt1\n\n\nDTParam  = name \":\" Type  -- alt1\n | Type  -- alt2\n\n\nDImport  = import_ foreign_ text \";\"  -- alt1\n | import_ text \";\"  -- alt2\n\n\nDOpen  = open_ package_ foreign_name as_ name \";\"  -- alt1\n | open_ package_ foreign_name \";\"  -- alt2\n\n\nExpr  = EBasic  -- alt1\n\n\nEBasicBlock  = EIf  -- alt1\n | ERepeat  -- alt2\n | EHandle  -- alt3\n | EDoBlock  -- alt4\n\n\nEBasic  = EBasicBlock  -- alt1\n | ESimple  -- alt2\n\n\nEBlock  = \"{\" Exprs \"}\"  -- alt1\n\n\nEDoBlock  = do_ EBlock  -- alt1\n\n\nETrail  = ESimple \";\"  -- alt1\n | EBasic  -- alt2\n\n\nExprs  = ETrail*  -- alt1\n\n\nExprs1  = ETrail+  -- alt1\n\n\nEIf  = when_ \"{\" EIClause+ \"}\"  -- alt1\n\n\nERepeat  = repeat_ with_ CommaList1<EBind> EBlock  -- alt1\n | repeat_ EBlock  -- alt2\n\n\nEBind  = variable \":\" Type \"=\" ETop  -- alt1\n | variable \"=\" ETop  -- alt2\n\n\nEIClause  = otherwise_ \"=>\" ETrail  -- alt1\n | ESimple \"=>\" ETrail  -- alt2\n\n\nEHandle  = handle_ EBlock with_ \"{\" EHCase* \"}\"  -- alt1\n\n\nEHCase  = on_ Ref \"(\" CommaList<variable> \")\" EBlock  -- alt1\n | use_ Ref \"(\" CommaList<EInvokeArg> \")\" \";\"  -- alt2\n\n\nESimple  = ELet  -- alt1\n | EAssert  -- alt2\n | EStructControl  -- alt3\n | EHandleControl  -- alt4\n | ETop  -- alt5\n\n\nELet  = let_ variable \":\" Type \"=\" ETop  -- alt1\n | let_ variable \"=\" ETop  -- alt2\n\n\nEAssert  = assert_ ETop \"::\" name  -- alt1\n | assert_ ETop  -- alt2\n\n\nEStructControl  = continue_ with_ CommaList1<EVPair>  -- alt1\n | continue_  -- alt2\n | break_ with_ ETop  -- alt3\n | break_  -- alt4\n\n\nEHandleControl  = resume_ with_ ETop  -- alt1\n | abort_ with_ ETop  -- alt2\n\n\nETop  = ELazy  -- alt1\n\n\nELazy  = lazy_ EInvokeInfix  -- alt1\n | EInvokeInfix  -- alt2\n\n\nEInvokeInfix  = EInvokeInfix1 assign_op EInvokeInfix1  -- alt1\n | EInvokeInfix1  -- alt2\n\n\nEInvokeInfix1  = EInvokeInfix1 imply_op EPipe  -- alt1\n | EPipe  -- alt2\n\n\nEPipe  = EPipe \"|>\" EInvokeInfix2  -- alt1\n | EInvokeInfix2  -- alt2\n\n\nEInvokeInfix2  = EInvokePre binary_op EInvokeInfix2  -- alt1\n | EInvokePre \"=:=\" EInvokeInfix2  -- alt2\n | EInvokePre as_ Ref  -- alt3\n | EInvokePre is_ Ref \"..\" atom  -- alt4\n | EInvokePre is_ Ref  -- alt5\n | EInvokePre  -- alt6\n\n\nEInvokePre  = prefix_op EInvokePost  -- alt1\n | EInvokePost  -- alt2\n\n\nEInvokePost  = EInvokePost name \"(\" CommaList<EInvokeArg> \")\"  -- alt1\n | name \"(\" CommaList<EInvokeArg> \")\"  -- alt2\n | primitive_ foreign_name \"(\" CommaList<ETop> \")\"  -- alt3\n | foreign_ foreign_name \"(\" CommaList<ETop> \")\"  -- alt4\n | perform_ Ref \"(\" CommaList<ETop> \")\"  -- alt5\n | EForce  -- alt6\n\n\nEVPair  = variable \"=\" ETop  -- alt1\n\n\nEForce  = force_ EApply  -- alt1\n | EApply  -- alt2\n\n\nEApply  = EApply \"(\" CommaList<ETop> \")\"  -- alt1\n | ENew  -- alt2\n\n\nEInvokeArg  = atom \":\" Expr  -- alt1\n | Expr  -- alt2\n\n\nENew  = new_ Ref \"..\" atom \"(\" CommaList<EPair> \")\"  -- alt1\n | new_ Ref \"..\" atom \"(\" CommaList<ETop> \")\"  -- alt2\n | new_ Ref \"(\" CommaList<EPair> \")\"  -- alt3\n | new_ Ref \"(\" CommaList<ETop> \")\"  -- alt4\n | Ref \"..\" atom  -- alt5\n | EExtend  -- alt6\n\n\nEExtend  = EMember ERecord  -- alt1\n | EMember  -- alt2\n\n\nEPair  = name \":\" Expr  -- alt1\n\n\nEMember  = EMember \".\" name  -- alt1\n | EPrim  -- alt2\n\n\nEPrim  = \"_\"  -- alt1\n | ERecord  -- alt2\n | \"#\" Ref  -- alt3\n | variable  -- alt4\n | Const  -- alt5\n | self_  -- alt6\n | Ref  -- alt7\n | EList  -- alt8\n | EBinary  -- alt9\n | EMap  -- alt10\n | ELambda  -- alt11\n | EBasicBlock  -- alt12\n | \"(\" Expr \")\"  -- alt13\n\n\nEList  = \"\\x5b\" CommaList<ELItem> \"\\x5d\"  -- alt1\n\n\nELItem  = \"...\" ETop  -- alt1\n | ETop  -- alt2\n\n\nEMap  = \"\\x5b\" \":\" \"\\x5d\"  -- alt1\n | \"\\x5b\" CommaList1<EMItem> \"\\x5d\"  -- alt2\n\n\nEMItem  = \"...\" ETop  -- alt1\n | ETop \":\" ETop  -- alt2\n\n\nELambda  = \"{\" CommaList1<variable> in_ LExprs \"}\"  -- alt1\n | \"{\" LExprs \"}\"  -- alt2\n\n\nLExprs  = Exprs1  -- alt1\n\n\nERecord  = \"#\" \"(\" CommaList<EPair> \")\"  -- alt1\n\n\nEBinary  = \"<<\" CommaList<EBinElement> \">>\"  -- alt1\n\n\nEBinElement  = integer \":\" Signed integer Endianess  -- alt1\n | integer  -- alt2\n\n\nEndianess  = \"le\"  -- alt1\n | \"be\"  -- alt2\n |   -- alt3\n\n\nSigned  = \"s\"  -- alt1\n | \"u\"  -- alt2\n |   -- alt3\n\n\nConst  = float #\"f\"  -- alt1\n | integer #\"s\"  -- alt2\n | integer #\"L\"  -- alt3\n | integer  -- alt4\n | true_  -- alt5\n | false_  -- alt6\n | template_text  -- alt7\n | text  -- alt8\n | nothing_  -- alt9\n\n\nCommaList<T>  = ListOf<T, \",\"> \",\"?  -- alt1\n\n\nCommaList1<T>  = NonemptyListOf<T, \",\"> \",\"?  -- alt1\n\n\nheader (a file header) = \"%\" hs* \"meow/1\"  -- alt1\n\n\nline  = (~newline any)*  -- alt1\n\n\nhs  = \" \"  -- alt1\n | \"\\t\"  -- alt2\n\n\nnewline  = \"\\r\\n\"  -- alt1\n | \"\\r\"  -- alt2\n | \"\\n\"  -- alt3\n\n\ncomment (a comment) = \"//\" line  -- alt1\n\n\nspace += comment  -- alt1\n\n\natom_start  = \"a\"..\"z\"  -- alt1\n\n\natom_rest  = \"a\"..\"z\"  -- alt1\n | \"-\"  -- alt2\n | \"0\"..\"9\"  -- alt3\n\n\natom (an atom) = atom_start atom_rest* \"!\"?  -- alt1\n\n\nvariable_start  = \"A\"..\"Z\"  -- alt1\n\n\nvariable_rest  = \"A\"..\"Z\"  -- alt1\n | \"a\"..\"z\"  -- alt2\n | \"-\"  -- alt3\n | \"0\"..\"9\"  -- alt4\n\n\nvariable (a variable) = variable_start variable_rest*  -- alt1\n | \"_\"  -- alt2\n\n\nname (a name) = ~reserved atom  -- alt1\n | \"'\" atom  -- alt2\n\n\nforeign_name_char  = \"a\"..\"z\"  -- alt1\n | \"0\"..\"9\"  -- alt2\n | \"_\"  -- alt3\n | \"-\"  -- alt4\n\n\nforeign_name_part  = foreign_name_char+  -- alt1\n\n\nforeign_name (a foreign name) = nonemptyListOf<foreign_name_part, \".\">  -- alt1\n\n\nboolean  = t_boolean  -- alt1\n\n\nt_boolean  = true_  -- alt1\n | false_  -- alt2\n\n\ndec_digit  = \"0\"..\"9\"  -- alt1\n | \"_\"  -- alt2\n\n\nhex_digit  = \"0\"..\"9\"  -- alt1\n | \"a\"..\"f\"  -- alt2\n | \"A\"..\"F\"  -- alt3\n\n\nehex_digit  = hex_digit  -- alt1\n | \"_\"  -- alt2\n\n\nt_integer (an integer) = ~\"_\" \"0x\" ehex_digit+  -- alt1\n | ~\"_\" \"-\"? dec_digit+  -- alt2\n\n\ninteger  = t_integer  -- alt1\n\n\nt_float (a floating point number) = ~\"_\" \"-\"? dec_digit+ \".\" dec_digit+  -- alt1\n\n\nfloat  = t_float  -- alt1\n\n\ntext_character  = \"\\\\\" escape_sequence  -- alt1\n | ~(\"\\\"\") any  -- alt2\n\n\nescape_sequence  = \"u\" hex_digit hex_digit hex_digit hex_digit  -- alt1\n | \"x\" hex_digit hex_digit  -- alt2\n | any  -- alt3\n\n\nt_text (a text) = \"\\\"\" text_character* \"\\\"\"  -- alt1\n\n\nttext_char  = \"\\\\\" escape_sequence  -- alt1\n | ~(\"\\\"\\\"\\\"\") any  -- alt2\n\n\nt_template_text (a template text) = \"\\\"\" ttext_char* \"\\\"\"  -- alt1\n\n\ntext  = t_text  -- alt1\n\n\ntemplate_text  = \"\\\"\\\"\" t_text \"\\\"\\\"\"  -- alt1\n\n\nany_binary_op (any binary operator) = assign_op  -- alt1\n | imply_op  -- alt2\n | binary_op  -- alt3\n\n\nbinary_op (a binary operator) = t_binary_op ~(symbol | atom_rest)  -- alt1\n | and_  -- alt2\n | or_  -- alt3\n\n\nassign_op (an assign operator) = \"<-\" ~(symbol | atom_rest)  -- alt1\n\n\nimply_op (an implication operator) = \"==>\" ~(symbol | atom_rest)  -- alt1\n\n\nsymbol  = \"+\"  -- alt1\n | \"-\"  -- alt2\n | \">\"  -- alt3\n | \"<\"  -- alt4\n | \"*\"  -- alt5\n | \"=\"  -- alt6\n | \"|\"  -- alt7\n | \"^\"  -- alt8\n | \"~\"  -- alt9\n | \"!\"  -- alt10\n | \"@\"  -- alt11\n | \"#\"  -- alt12\n | \"%\"  -- alt13\n | \"&\"  -- alt14\n | \"\\\\\"  -- alt15\n\n\nt_binary_op  = \"++\"  -- alt1\n | \"+\"  -- alt2\n | \"-\"  -- alt3\n | \"<<\"  -- alt4\n | \"<=\"  -- alt5\n | \"<\"  -- alt6\n | \">>>\"  -- alt7\n | \">>\"  -- alt8\n | \">=\"  -- alt9\n | \">\"  -- alt10\n | \"===\"  -- alt11\n | \"=/=\"  -- alt12\n | \"&\"  -- alt13\n | \"|\"  -- alt14\n | \"^\"  -- alt15\n | \"**\"  -- alt16\n | \"*\"  -- alt17\n | \"%\"  -- alt18\n | \"/\"  -- alt19\n | \"\\\\\"  -- alt20\n\n\nprefix_op  = not_  -- alt1\n | \"-\" ~(symbol | t_integer)  -- alt2\n | \"~\" ~(symbol | t_integer)  -- alt3\n\n\nkw<w>  = w ~(atom_rest | \":\")  -- alt1\n\n\ndef_  = kw<\"def\">  -- alt1\n\n\nwhen_  = kw<\"when\">  -- alt1\n\n\notherwise_  = kw<\"otherwise\">  -- alt1\n\n\nnothing_  = kw<\"nothing\">  -- alt1\n\n\nself_  = kw<\"self\">  -- alt1\n\n\nnot_  = kw<\"not\">  -- alt1\n\n\nand_  = kw<\"and\">  -- alt1\n\n\nor_  = kw<\"or\">  -- alt1\n\n\ntrue_  = kw<\"true\">  -- alt1\n\n\nfalse_  = kw<\"false\">  -- alt1\n\n\nnew_  = kw<\"new\">  -- alt1\n\n\nstruct_  = kw<\"struct\">  -- alt1\n\n\nlet_  = kw<\"let\">  -- alt1\n\n\nunion_  = kw<\"union\">  -- alt1\n\n\nlazy_  = kw<\"lazy\">  -- alt1\n\n\nforce_  = kw<\"force\">  -- alt1\n\n\nassert_  = kw<\"assert\">  -- alt1\n\n\ntest_  = kw<\"test\">  -- alt1\n\n\nas_  = kw<\"as\">  -- alt1\n\n\nis_  = kw<\"is\">  -- alt1\n\n\nprimitive_  = kw<\"primitive\">  -- alt1\n\n\nsingleton_  = kw<\"singleton\">  -- alt1\n\n\nimport_  = kw<\"import\">  -- alt1\n\n\nrequires_  = kw<\"requires\">  -- alt1\n\n\ntrait_  = kw<\"trait\">  -- alt1\n\n\nin_  = kw<\"in\">  -- alt1\n\n\nimplement_  = kw<\"implement\">  -- alt1\n\n\nfor_  = kw<\"for\">  -- alt1\n\n\nforeign_  = kw<\"foreign\">  -- alt1\n\n\nrepeat_  = kw<\"repeat\">  -- alt1\n\n\ncontinue_  = kw<\"continue\">  -- alt1\n\n\nbreak_  = kw<\"break\">  -- alt1\n\n\nwith_  = kw<\"with\">  -- alt1\n\n\nopen_  = kw<\"open\">  -- alt1\n\n\npackage_  = kw<\"package\">  -- alt1\n\n\ndeclare_  = kw<\"declare\">  -- alt1\n\n\neffect_  = kw<\"effect\">  -- alt1\n\n\nnonlocal_  = kw<\"nonlocal\">  -- alt1\n\n\nhandle_  = kw<\"handle\">  -- alt1\n\n\nperform_  = kw<\"perform\">  -- alt1\n\n\nresume_  = kw<\"resume\">  -- alt1\n\n\nabort_  = kw<\"abort\">  -- alt1\n\n\non_  = kw<\"on\">  -- alt1\n\n\ndo_  = kw<\"do\">  -- alt1\n\n\nhandler_  = kw<\"handler\">  -- alt1\n\n\ndefault_  = kw<\"default\">  -- alt1\n\n\nuse_  = kw<\"use\">  -- alt1\n\n\nreserved  = and_  -- alt1\n | assert_  -- alt2\n | as_  -- alt3\n | abort_  -- alt4\n | break_  -- alt5\n | continue_  -- alt6\n | default_  -- alt7\n | def_  -- alt8\n | declare_  -- alt9\n | do_  -- alt10\n | effect_  -- alt11\n | handler_  -- alt12\n | handle_  -- alt13\n | false_  -- alt14\n | force_  -- alt15\n | for_  -- alt16\n | foreign_  -- alt17\n | is_  -- alt18\n | import_  -- alt19\n | in_  -- alt20\n | implement_  -- alt21\n | let_  -- alt22\n | lazy_  -- alt23\n | nothing_  -- alt24\n | not_  -- alt25\n | new_  -- alt26\n | nonlocal_  -- alt27\n | otherwise_  -- alt28\n | or_  -- alt29\n | open_  -- alt30\n | on_  -- alt31\n | primitive_  -- alt32\n | package_  -- alt33\n | perform_  -- alt34\n | requires_  -- alt35\n | repeat_  -- alt36\n | resume_  -- alt37\n | self_  -- alt38\n | struct_  -- alt39\n | singleton_  -- alt40\n | true_  -- alt41\n | test_  -- alt42\n | trait_  -- alt43\n | union_  -- alt44\n | use_  -- alt45\n | when_  -- alt46\n | with_  -- alt47\n\n\nRepl  = Declaration  -- alt1\n | Expr \";\"?  -- alt2\n | \":\" ReplCommand  -- alt3\n\n\nReplCommand  = kw<\"exit\">  -- alt1\n | kw<\"code\"> Declaration  -- alt2\n | kw<\"code\"> Expr \";\"?  -- alt3\n\r\n  }\r\n  ")
+  export const grammar = Ohm.grammar("\r\n  Meow_Grammar {\r\n    Module  = header Declaration* end  -- alt1\n\n\nDeclaration  = DDecorator  -- alt1\n | DHandler  -- alt2\n | DFun  -- alt3\n | DDeclare  -- alt4\n | DStruct  -- alt5\n | DUnion  -- alt6\n | DDefine  -- alt7\n | DTest  -- alt8\n | DImport  -- alt9\n | DOpen  -- alt10\n | DTrait  -- alt11\n | DImplement  -- alt12\n | DEffect  -- alt13\n | DAsset  -- alt14\n | DNamespace  -- alt15\n\n\nDAsset  = asset_ name \"=\" DAssetDef \";\"  -- alt1\n\n\nDAssetDef  = file_ text  -- alt1\n\n\nDDecorator  = \"@\" name \"(\" CommaList<ConstExpr> \")\" Declaration  -- alt1\n\n\nConstExpr  = \"\\x5b\" CommaList<ConstExpr> \"\\x5d\"  -- alt1\n | Const  -- alt2\n | name  -- alt3\n\n\nDFun  = DFPure def_ DFPParam name \"(\" CommaList<DFParam> \")\" DFRet DFWhere DFBody DFTest  -- alt1\n | DFPure def_ name \"(\" CommaList<DFParam> \")\" DFRet DFWhere DFBody DFTest  -- alt2\n | DFPure def_ DFPParam any_binary_op DFPParam DFRet DFWhere DFBody DFTest  -- alt3\n | DFPure def_ prefix_op DFPParam DFRet DFWhere DFBody DFTest  -- alt4\n | DFPure def_ DFPParam as_ Ref TParams? DFWhere DFBody DFTest  -- alt5\n\n\nDFPure  = pure_  -- alt1\n |   -- alt2\n\n\nDFBody  = \"=\" ESimple \";\"  -- alt1\n | EBlock  -- alt2\n\n\nDFTest  = test_ EBlock  -- alt1\n |   -- alt2\n\n\nDFParam  = atom variable \":\" Type  -- alt1\n | variable \":\" Type  -- alt2\n | variable  -- alt3\n | Type  -- alt4\n\n\nDFPParam  = variable  -- alt1\n | Type  -- alt2\n | \"(\" variable \":\" Type \")\"  -- alt3\n\n\nDFRet  = \"->\" Type  -- alt1\n |   -- alt2\n\n\nDFWhere  = where_ CommaList1<TypeConstraint>  -- alt1\n |   -- alt2\n\n\nDDefine  = def_ name \":\" Type \"=\" ESimple \";\"  -- alt1\n | def_ name \"=\" ESimple \";\"  -- alt2\n\n\nDTest  = test_ text EBlock  -- alt1\n\n\nDDeclare  = declare_ trait_ Ref \";\"  -- alt1\n | declare_ Ref \";\"  -- alt2\n\n\nDStruct  = struct_ name TParams? \"(\" CommaList<DSField> \")\" \";\"  -- alt1\n | singleton_ name \";\"  -- alt2\n\n\nDUnion  = union_ name TParams? \"{\" DUVariant* \"}\"  -- alt1\n\n\nDUVariant  = name \"(\" CommaList<DSField> \")\" \";\"  -- alt1\n | name \";\"  -- alt2\n\n\nDSField  = name \":\" Type  -- alt1\n | name  -- alt2\n\n\nDEffect  = effect_ name TParams? \"{\" DECase* \"}\"  -- alt1\n\n\nDECase  = name \"(\" CommaList<DSField> \")\" DFRet DENLRet \";\"  -- alt1\n\n\nDENLRet  = \",\" nonlocal_ Type  -- alt1\n |   -- alt2\n\n\nDHandler  = default_ DHandlerDef  -- alt1\n | DHandlerDef  -- alt2\n\n\nDHandlerDef  = handler_ name \"(\" CommaList<DFParam> \")\" EBlock? with_ \"{\" EHCase* \"}\"  -- alt1\n\n\nTTop  = Type  -- alt1\n\n\nTypeConstraint  = variable has_ Ref TParams?  -- alt1\n\n\nType  = \"(\" CommaList<Type> \")\" \"->\" Type  -- alt1\n | TApply  -- alt2\n\n\nTApply  = TApply TParams  -- alt1\n | TPrim  -- alt2\n\n\nTPrim  = \"#\" \"(\" CommaList<TPair> \")\"  -- alt1\n | \"#\" Ref  -- alt2\n | \"&\" Ref  -- alt3\n | Ref \"..\" atom  -- alt4\n | Ref  -- alt5\n | self_  -- alt6\n | package_  -- alt7\n | \"#\" self_  -- alt8\n | \"#\" variable  -- alt9\n | variable  -- alt10\n | \"(\" TTop \")\"  -- alt11\n\n\nTPair  = name \":\" TTop  -- alt1\n\n\nRef  = foreign_name \"/\" Ns  -- alt1\n | Ns  -- alt2\n | nothing_  -- alt3\n\n\nTParams  = \"<\" CommaList1<TTop> \">\"  -- alt1\n\n\nNs  = NonemptyListOf<name, \".\">  -- alt1\n\n\nDTrait  = trait_ name TParams? \"{\" DTReq* \"}\"  -- alt1\n\n\nDImplement  = implement_ Ref TParams? for_ Type DFWhere \";\"  -- alt1\n\n\nDTReq  = requires_ trait_ Ref TParams? for_ Type DFWhere \";\"  -- alt1\n | implies_ trait_ Ref TParams? \";\"  -- alt2\n | optional_ DTFun  -- alt3\n | DTFun  -- alt4\n\n\nDTFun  = def_ DFPParam name \"(\" CommaList<DFParam> \")\" DFRet DFWhere \";\"  -- alt1\n | def_ name \"(\" CommaList<DFParam> \")\" DFRet DFWhere \";\"  -- alt2\n | def_ DFPParam any_binary_op DFPParam DFRet DFWhere \";\"  -- alt3\n | def_ prefix_op DFPParam DFRet DFWhere \";\"  -- alt4\n | def_ DFPParam as_ Ref TParams? DFWhere \";\"  -- alt5\n\n\nDImport  = import_ foreign_ text \";\"  -- alt1\n | import_ text \";\"  -- alt2\n\n\nDNamespace  = namespace_ Ns \"{\" Declaration* \"}\"  -- alt1\n\n\nDOpen  = open_ package_ foreign_name as_ name \";\"  -- alt1\n | open_ package_ foreign_name \";\"  -- alt2\n | open_ Ref as_ name \";\"  -- alt3\n\n\nExpr  = EBasic  -- alt1\n\n\nEBasicBlock  = EIf  -- alt1\n | ERepeat  -- alt2\n | EHandle  -- alt3\n | EDoBlock  -- alt4\n\n\nEBasic  = EBasicBlock  -- alt1\n | ESimple  -- alt2\n\n\nEBlock  = \"{\" Exprs1 \"}\"  -- alt1\n\n\nEDoBlock  = do_ EBlock  -- alt1\n\n\nETrail  = ESimple \";\"  -- alt1\n | EBasicBlock  -- alt2\n\n\nExprs  = ETrail*  -- alt1\n\n\nExprs1  = ETrail+  -- alt1\n | Expr  -- alt2\n\n\nEIf  = when_ \"{\" EIClause+ \"}\"  -- alt1\n\n\nERepeat  = repeat_ with_ CommaList1<EBind> EBlock  -- alt1\n | repeat_ EBlock  -- alt2\n\n\nEBind  = variable \":\" Type \"=\" ETop  -- alt1\n | variable \"=\" ETop  -- alt2\n\n\nEIClause  = otherwise_ EPointBlock  -- alt1\n | ESimple EPointBlock  -- alt2\n\n\nEPointBlock  = \"->\" ETrail  -- alt1\n | EBlock  -- alt2\n\n\nEHandle  = handle_ EBlock with_ \"{\" EHCase* \"}\"  -- alt1\n\n\nEHCase  = on_ Ref \"(\" CommaList<variable> \")\" EHCap EBlock  -- alt1\n | use_ Ref \"(\" CommaList<EInvokeArg> \")\" \";\"  -- alt2\n\n\nEHCap  = lift_ variable  -- alt1\n |   -- alt2\n\n\nESimple  = ELet  -- alt1\n | EAssert  -- alt2\n | EStructControl  -- alt3\n | EHandleControl  -- alt4\n | ETop  -- alt5\n\n\nELet  = let_ variable \":\" Type \"=\" ETop  -- alt1\n | let_ variable \"=\" ETop  -- alt2\n\n\nEAssert  = assert_ ETop \"::\" name  -- alt1\n | assert_ ETop  -- alt2\n\n\nEStructControl  = continue_ with_ CommaList1<EVPair>  -- alt1\n | continue_  -- alt2\n | break_ with_ ETop  -- alt3\n | break_  -- alt4\n\n\nEHandleControl  = resume_ with_ ETop  -- alt1\n | abort_ with_ ETop  -- alt2\n\n\nETop  = ELazy  -- alt1\n\n\nELazy  = lazy_ EInvokeInfix  -- alt1\n | EInvokeInfix  -- alt2\n\n\nEInvokeInfix  = EInvokeInfix1 assign_op EInvokeInfix1  -- alt1\n | EInvokeInfix1  -- alt2\n\n\nEInvokeInfix1  = EInvokeInfix1 imply_op EPipe  -- alt1\n | EPipe  -- alt2\n\n\nEPipe  = EPipe \"|>\" EInvokeInfix2  -- alt1\n | EInvokeInfix2  -- alt2\n\n\nEInvokeInfix2  = EInvokePre binary_op EInvokeInfix2  -- alt1\n | EInvokePre \"=:=\" EInvokeInfix2  -- alt2\n | EInvokePre as_ Ref TParams?  -- alt3\n | EInvokePre is_ Ref \"..\" atom  -- alt4\n | EInvokePre is_ Ref  -- alt5\n | EInvokePre has_ Ref  -- alt6\n | EInvokePre  -- alt7\n\n\nEInvokePre  = prefix_op EInvokePost  -- alt1\n | EInvokePost  -- alt2\n\n\nEInvokePost  = EInvokePost name \"(\" CommaList<EInvokeArg> \")\"  -- alt1\n | name \"(\" CommaList<EInvokeArg> \")\"  -- alt2\n | primitive_ foreign_name \"(\" CommaList<ETop> \")\"  -- alt3\n | foreign_ foreign_name \"(\" CommaList<ETop> \")\"  -- alt4\n | perform_ Ref \"(\" CommaList<ETop> \")\"  -- alt5\n | EForce  -- alt6\n\n\nEVPair  = variable \"=\" ETop  -- alt1\n\n\nEForce  = force_ EApply  -- alt1\n | EApply  -- alt2\n\n\nEApply  = EApply \"(\" CommaList<ETop> \")\"  -- alt1\n | ENew  -- alt2\n\n\nEInvokeArg  = atom \":\" Expr  -- alt1\n | Expr  -- alt2\n\n\nENew  = new_ Ref \"..\" atom \"(\" CommaList<EPair> \")\"  -- alt1\n | new_ Ref \"..\" atom \"(\" CommaList<ETop> \")\"  -- alt2\n | new_ Ref \"(\" CommaList<EPair> \")\"  -- alt3\n | new_ Ref \"(\" CommaList<ETop> \")\"  -- alt4\n | Ref \"..\" atom  -- alt5\n | EExtend  -- alt6\n\n\nEExtend  = EMember ERecord  -- alt1\n | EMember  -- alt2\n\n\nEPair  = name \":\" Expr  -- alt1\n\n\nEMember  = EMember \".\" name  -- alt1\n | EPrim  -- alt2\n\n\nEPrim  = \"_\"  -- alt1\n | ERecord  -- alt2\n | \"#\" Ref  -- alt3\n | variable  -- alt4\n | Const  -- alt5\n | self_  -- alt6\n | package_  -- alt7\n | Ref  -- alt8\n | unreachable_  -- alt9\n | EList  -- alt10\n | EBinary  -- alt11\n | EMap  -- alt12\n | ELambda  -- alt13\n | EBasicBlock  -- alt14\n | \"(\" Expr \")\"  -- alt15\n\n\nEList  = \"\\x5b\" CommaList<ELItem> \"\\x5d\"  -- alt1\n\n\nELItem  = \"...\" ETop  -- alt1\n | ETop  -- alt2\n\n\nEMap  = \"\\x5b\" \":\" \"\\x5d\"  -- alt1\n | \"\\x5b\" CommaList1<EMItem> \"\\x5d\"  -- alt2\n\n\nEMItem  = \"...\" ETop  -- alt1\n | ETop \":\" ETop  -- alt2\n\n\nELambda  = \"{\" CommaList1<variable> in_ LExprs \"}\"  -- alt1\n | \"{\" LExprs \"}\"  -- alt2\n\n\nLExprs  = Exprs1  -- alt1\n\n\nERecord  = \"#\" \"(\" CommaList<EPair> \")\"  -- alt1\n\n\nEBinary  = \"<<\" CommaList<EBinElement> \">>\"  -- alt1\n\n\nEBinElement  = integer \":\" Signed integer Endianess  -- alt1\n | integer  -- alt2\n\n\nEndianess  = \"le\"  -- alt1\n | \"be\"  -- alt2\n |   -- alt3\n\n\nSigned  = \"s\"  -- alt1\n | \"u\"  -- alt2\n |   -- alt3\n\n\nConst  = float #\"f\"  -- alt1\n | integer #\"s\"  -- alt2\n | integer #\"L\"  -- alt3\n | integer  -- alt4\n | true_  -- alt5\n | false_  -- alt6\n | raw_template_text  -- alt7\n | raw_text  -- alt8\n | nothing_  -- alt9\n\n\nCommaList<T>  = ListOf<T, \",\"> \",\"?  -- alt1\n\n\nCommaList1<T>  = NonemptyListOf<T, \",\"> \",\"?  -- alt1\n\n\nheader (a file header) = \"%\" hs* \"meow/1\"  -- alt1\n\n\nline  = (~newline any)*  -- alt1\n\n\nhs  = \" \"  -- alt1\n | \"\\t\"  -- alt2\n\n\nnewline  = \"\\r\\n\"  -- alt1\n | \"\\r\"  -- alt2\n | \"\\n\"  -- alt3\n\n\ncomment (a comment) = \"//\" line  -- alt1\n\n\nspace += comment  -- alt1\n\n\natom_start  = \"a\"..\"z\"  -- alt1\n\n\natom_rest  = \"a\"..\"z\"  -- alt1\n | \"-\"  -- alt2\n | \"0\"..\"9\"  -- alt3\n\n\natom (an atom) = atom_start atom_rest* \"!\"?  -- alt1\n\n\nvariable_start  = \"A\"..\"Z\"  -- alt1\n\n\nvariable_rest  = \"A\"..\"Z\"  -- alt1\n | \"a\"..\"z\"  -- alt2\n | \"-\"  -- alt3\n | \"0\"..\"9\"  -- alt4\n\n\nvariable (a variable) = variable_start variable_rest*  -- alt1\n | \"_\"  -- alt2\n\n\nname (a name) = ~reserved atom  -- alt1\n | \"'\" atom  -- alt2\n\n\nforeign_name_char  = \"a\"..\"z\"  -- alt1\n | \"0\"..\"9\"  -- alt2\n | \"_\"  -- alt3\n | \"-\"  -- alt4\n\n\nforeign_name_part  = foreign_name_char+  -- alt1\n\n\nforeign_name (a foreign name) = nonemptyListOf<foreign_name_part, \".\">  -- alt1\n\n\nboolean  = t_boolean  -- alt1\n\n\nt_boolean  = true_  -- alt1\n | false_  -- alt2\n\n\ndec_digit  = \"0\"..\"9\"  -- alt1\n | \"_\"  -- alt2\n\n\nhex_digit  = \"0\"..\"9\"  -- alt1\n | \"a\"..\"f\"  -- alt2\n | \"A\"..\"F\"  -- alt3\n\n\nehex_digit  = hex_digit  -- alt1\n | \"_\"  -- alt2\n\n\nt_integer (an integer) = ~\"_\" \"0x\" ehex_digit+  -- alt1\n | ~\"_\" \"-\"? dec_digit+  -- alt2\n\n\ninteger  = t_integer  -- alt1\n\n\nt_float (a floating point number) = ~\"_\" \"-\"? dec_digit+ \".\" dec_digit+  -- alt1\n\n\nfloat  = t_float  -- alt1\n\n\ntext_character  = \"\\\\\" escape_sequence  -- alt1\n | ~(\"\\\"\") any  -- alt2\n\n\nescape_sequence  = \"u\" hex_digit hex_digit hex_digit hex_digit  -- alt1\n | \"u\" \"{\" hex_digit+ \"}\"  -- alt2\n | any  -- alt3\n\n\nt_text (a text) = \"\\\"\" text_character* \"\\\"\"  -- alt1\n\n\nttext_char  = \"\\\\\" escape_sequence  -- alt1\n | ~(\"\\\"\\\"\\\"\") any  -- alt2\n\n\nraw_text  = t_text  -- alt1\n\n\nraw_template_text  = \"\\\"\\\"\" raw_text \"\\\"\\\"\"  -- alt1\n\n\ntext  = t_text  -- alt1\n\n\ntemplate_text  = \"\\\"\\\"\" t_text \"\\\"\\\"\"  -- alt1\n\n\nany_binary_op (any binary operator) = assign_op  -- alt1\n | imply_op  -- alt2\n | binary_op  -- alt3\n\n\nbinary_op (a binary operator) = t_binary_op ~(symbol | atom_rest)  -- alt1\n | and_  -- alt2\n | or_  -- alt3\n\n\nassign_op (an assign operator) = \"<-\" ~(symbol | atom_rest)  -- alt1\n\n\nimply_op (an implication operator) = \"==>\" ~(symbol | atom_rest)  -- alt1\n\n\nsymbol  = \"+\"  -- alt1\n | \"-\"  -- alt2\n | \">\"  -- alt3\n | \"<\"  -- alt4\n | \"*\"  -- alt5\n | \"=\"  -- alt6\n | \"|\"  -- alt7\n | \"^\"  -- alt8\n | \"~\"  -- alt9\n | \"!\"  -- alt10\n | \"@\"  -- alt11\n | \"#\"  -- alt12\n | \"%\"  -- alt13\n | \"&\"  -- alt14\n | \"\\\\\"  -- alt15\n\n\nt_binary_op  = \"++\"  -- alt1\n | \"+\"  -- alt2\n | \"-\"  -- alt3\n | \"<<\"  -- alt4\n | \"<=\"  -- alt5\n | \"<\"  -- alt6\n | \">>>\"  -- alt7\n | \">>\"  -- alt8\n | \">=\"  -- alt9\n | \">\"  -- alt10\n | \"===\"  -- alt11\n | \"=/=\"  -- alt12\n | \"&\"  -- alt13\n | \"|\"  -- alt14\n | \"^\"  -- alt15\n | \"**\"  -- alt16\n | \"*\"  -- alt17\n | \"%\"  -- alt18\n | \"/\"  -- alt19\n | \"\\\\\"  -- alt20\n\n\nprefix_op  = not_  -- alt1\n | \"-\" ~(symbol | t_integer)  -- alt2\n | \"~\" ~(symbol | t_integer)  -- alt3\n\n\nkw<w>  = w ~(atom_rest | \":\")  -- alt1\n\n\ndef_  = kw<\"def\">  -- alt1\n\n\nwhen_  = kw<\"when\">  -- alt1\n\n\notherwise_  = kw<\"otherwise\">  -- alt1\n\n\nnothing_  = kw<\"nothing\">  -- alt1\n\n\nself_  = kw<\"self\">  -- alt1\n\n\nnot_  = kw<\"not\">  -- alt1\n\n\nand_  = kw<\"and\">  -- alt1\n\n\nor_  = kw<\"or\">  -- alt1\n\n\ntrue_  = kw<\"true\">  -- alt1\n\n\nfalse_  = kw<\"false\">  -- alt1\n\n\nnew_  = kw<\"new\">  -- alt1\n\n\nstruct_  = kw<\"struct\">  -- alt1\n\n\nlet_  = kw<\"let\">  -- alt1\n\n\nunion_  = kw<\"union\">  -- alt1\n\n\nlazy_  = kw<\"lazy\">  -- alt1\n\n\nforce_  = kw<\"force\">  -- alt1\n\n\nassert_  = kw<\"assert\">  -- alt1\n\n\ntest_  = kw<\"test\">  -- alt1\n\n\nas_  = kw<\"as\">  -- alt1\n\n\nis_  = kw<\"is\">  -- alt1\n\n\nprimitive_  = kw<\"primitive\">  -- alt1\n\n\nsingleton_  = kw<\"singleton\">  -- alt1\n\n\nimport_  = kw<\"import\">  -- alt1\n\n\nrequires_  = kw<\"requires\">  -- alt1\n\n\ntrait_  = kw<\"trait\">  -- alt1\n\n\nin_  = kw<\"in\">  -- alt1\n\n\nimplement_  = kw<\"implement\">  -- alt1\n\n\nfor_  = kw<\"for\">  -- alt1\n\n\nforeign_  = kw<\"foreign\">  -- alt1\n\n\nrepeat_  = kw<\"repeat\">  -- alt1\n\n\ncontinue_  = kw<\"continue\">  -- alt1\n\n\nbreak_  = kw<\"break\">  -- alt1\n\n\nwith_  = kw<\"with\">  -- alt1\n\n\nopen_  = kw<\"open\">  -- alt1\n\n\npackage_  = kw<\"package\">  -- alt1\n\n\ndeclare_  = kw<\"declare\">  -- alt1\n\n\neffect_  = kw<\"effect\">  -- alt1\n\n\nnonlocal_  = kw<\"nonlocal\">  -- alt1\n\n\nhandle_  = kw<\"handle\">  -- alt1\n\n\nperform_  = kw<\"perform\">  -- alt1\n\n\nresume_  = kw<\"resume\">  -- alt1\n\n\nabort_  = kw<\"abort\">  -- alt1\n\n\non_  = kw<\"on\">  -- alt1\n\n\ndo_  = kw<\"do\">  -- alt1\n\n\nhandler_  = kw<\"handler\">  -- alt1\n\n\ndefault_  = kw<\"default\">  -- alt1\n\n\nuse_  = kw<\"use\">  -- alt1\n\n\nunreachable_  = kw<\"unreachable\">  -- alt1\n\n\noptional_  = kw<\"optional\">  -- alt1\n\n\nhas_  = kw<\"has\">  -- alt1\n\n\nimplies_  = kw<\"implies\">  -- alt1\n\n\nlift_  = kw<\"lift\">  -- alt1\n\n\npure_  = kw<\"pure\">  -- alt1\n\n\nwhere_  = kw<\"where\">  -- alt1\n\n\nasset_  = kw<\"asset\">  -- alt1\n\n\nfile_  = kw<\"file\">  -- alt1\n\n\nnamespace_  = kw<\"namespace\">  -- alt1\n\n\nreserved  = and_  -- alt1\n | assert_  -- alt2\n | as_  -- alt3\n | abort_  -- alt4\n | asset_  -- alt5\n | break_  -- alt6\n | continue_  -- alt7\n | default_  -- alt8\n | def_  -- alt9\n | declare_  -- alt10\n | do_  -- alt11\n | effect_  -- alt12\n | handler_  -- alt13\n | handle_  -- alt14\n | has_  -- alt15\n | false_  -- alt16\n | force_  -- alt17\n | for_  -- alt18\n | foreign_  -- alt19\n | is_  -- alt20\n | import_  -- alt21\n | in_  -- alt22\n | implement_  -- alt23\n | implies_  -- alt24\n | let_  -- alt25\n | lazy_  -- alt26\n | lift_  -- alt27\n | nothing_  -- alt28\n | not_  -- alt29\n | new_  -- alt30\n | nonlocal_  -- alt31\n | namespace_  -- alt32\n | otherwise_  -- alt33\n | or_  -- alt34\n | open_  -- alt35\n | on_  -- alt36\n | optional_  -- alt37\n | primitive_  -- alt38\n | package_  -- alt39\n | perform_  -- alt40\n | pure_  -- alt41\n | requires_  -- alt42\n | repeat_  -- alt43\n | resume_  -- alt44\n | self_  -- alt45\n | struct_  -- alt46\n | singleton_  -- alt47\n | true_  -- alt48\n | test_  -- alt49\n | trait_  -- alt50\n | union_  -- alt51\n | use_  -- alt52\n | unreachable_  -- alt53\n | when_  -- alt54\n | with_  -- alt55\n | where_  -- alt56\n\n\nRepl  = Declaration  -- alt1\n | Expr \";\"?  -- alt2\n | \":\" ReplCommand  -- alt3\n\n\nReplCommand  = kw<\"exit\">  -- alt1\n | kw<\"code\"> Declaration  -- alt2\n | kw<\"code\"> Expr \";\"?  -- alt3\n\r\n  }\r\n  ")
 
   // == Parsing =======================================================
   export function parse(source: string, rule: string): Result<MModule> {
@@ -3141,33 +3645,105 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
       return this.children[0].toAST();
     },
     
+    Declaration_alt13(this: Ohm.Node, _1: Ohm.Node): any {
+      return this.children[0].toAST();
+    },
+    
+    Declaration_alt14(this: Ohm.Node, _1: Ohm.Node): any {
+      return this.children[0].toAST();
+    },
+    
+    Declaration_alt15(this: Ohm.Node, _1: Ohm.Node): any {
+      return this.children[0].toAST();
+    },
+    
+  DAsset(x: Ohm.Node): any {
+    return x.toAST();
+  },
+  
+    DAsset_alt1(this: Ohm.Node, _1: Ohm.Node, n$0: Ohm.Node, _3: Ohm.Node, x$0: Ohm.Node, _5: Ohm.Node): any {
+      ; const n = n$0.toAST(); ; const x = x$0.toAST(); 
+      return (new (((MDecl).Asset))($meta(this), n, x))
+    },
+    
+  DAssetDef(x: Ohm.Node): any {
+    return x.toAST();
+  },
+  
+    DAssetDef_alt1(this: Ohm.Node, _1: Ohm.Node, x$0: Ohm.Node): any {
+      ; const x = x$0.toAST()
+      return (new (((AssetDef).File))($meta(this), x))
+    },
+    
+  DDecorator(x: Ohm.Node): any {
+    return x.toAST();
+  },
+  
+    DDecorator_alt1(this: Ohm.Node, _1: Ohm.Node, n$0: Ohm.Node, _3: Ohm.Node, xs$0: Ohm.Node, _5: Ohm.Node, d$0: Ohm.Node): any {
+      ; const n = n$0.toAST(); ; const xs = xs$0.toAST(); ; const d = d$0.toAST()
+      return (new (((MDecl).Decorator))($meta(this), n, xs, d))
+    },
+    
+  ConstExpr(x: Ohm.Node): any {
+    return x.toAST();
+  },
+  
+    ConstExpr_alt1(this: Ohm.Node, _1: Ohm.Node, xs$0: Ohm.Node, _3: Ohm.Node): any {
+      ; const xs = xs$0.toAST(); 
+      return (new (((ConstExpr).List))($meta(this), xs))
+    },
+    
+    ConstExpr_alt2(this: Ohm.Node, x$0: Ohm.Node): any {
+      const x = x$0.toAST()
+      return (new (((ConstExpr).Literal))($meta(this), x))
+    },
+    
+    ConstExpr_alt3(this: Ohm.Node, n$0: Ohm.Node): any {
+      const n = n$0.toAST()
+      return (new (((ConstExpr).Symbol))($meta(this), n))
+    },
+    
   DFun(x: Ohm.Node): any {
     return x.toAST();
   },
   
-    DFun_alt1(this: Ohm.Node, _1: Ohm.Node, p$0: Ohm.Node, n$0: Ohm.Node, _4: Ohm.Node, ps$0: Ohm.Node, _6: Ohm.Node, r$0: Ohm.Node, e$0: Ohm.Node, t$0: Ohm.Node): any {
-      ; const p = p$0.toAST(); const n = n$0.toAST(); ; const ps = ps$0.toAST(); ; const r = r$0.toAST(); const e = e$0.toAST(); const t = t$0.toAST()
-      return (new (((MDecl).SFun))($meta(this), n, p, ps, r, e, t))
+    DFun_alt1(this: Ohm.Node, pu$0: Ohm.Node, _2: Ohm.Node, p$0: Ohm.Node, n$0: Ohm.Node, _5: Ohm.Node, ps$0: Ohm.Node, _7: Ohm.Node, r$0: Ohm.Node, ct$0: Ohm.Node, e$0: Ohm.Node, t$0: Ohm.Node): any {
+      const pu = pu$0.toAST(); ; const p = p$0.toAST(); const n = n$0.toAST(); ; const ps = ps$0.toAST(); ; const r = r$0.toAST(); const ct = ct$0.toAST(); const e = e$0.toAST(); const t = t$0.toAST()
+      return (new (((MDecl).SFun))($meta(this), n, p, ps, r, ct, e, t, pu))
     },
     
-    DFun_alt2(this: Ohm.Node, _1: Ohm.Node, n$0: Ohm.Node, _3: Ohm.Node, ps$0: Ohm.Node, _5: Ohm.Node, r$0: Ohm.Node, e$0: Ohm.Node, t$0: Ohm.Node): any {
-      ; const n = n$0.toAST(); ; const ps = ps$0.toAST(); ; const r = r$0.toAST(); const e = e$0.toAST(); const t = t$0.toAST()
-      return (new (((MDecl).Fun))($meta(this), n, ps, r, e, t))
+    DFun_alt2(this: Ohm.Node, pu$0: Ohm.Node, _2: Ohm.Node, n$0: Ohm.Node, _4: Ohm.Node, ps$0: Ohm.Node, _6: Ohm.Node, r$0: Ohm.Node, ct$0: Ohm.Node, e$0: Ohm.Node, t$0: Ohm.Node): any {
+      const pu = pu$0.toAST(); ; const n = n$0.toAST(); ; const ps = ps$0.toAST(); ; const r = r$0.toAST(); const ct = ct$0.toAST(); const e = e$0.toAST(); const t = t$0.toAST()
+      return (new (((MDecl).Fun))($meta(this), n, ps, r, ct, e, t, pu))
     },
     
-    DFun_alt3(this: Ohm.Node, _1: Ohm.Node, l$0: Ohm.Node, op$0: Ohm.Node, r$0: Ohm.Node, rt$0: Ohm.Node, e$0: Ohm.Node, t$0: Ohm.Node): any {
-      ; const l = l$0.toAST(); const op = op$0.toAST(); const r = r$0.toAST(); const rt = rt$0.toAST(); const e = e$0.toAST(); const t = t$0.toAST()
-      return (new (((MDecl).Fun))($meta(this), op, [l, r], rt, e, t))
+    DFun_alt3(this: Ohm.Node, pu$0: Ohm.Node, _2: Ohm.Node, l$0: Ohm.Node, op$0: Ohm.Node, r$0: Ohm.Node, rt$0: Ohm.Node, ct$0: Ohm.Node, e$0: Ohm.Node, t$0: Ohm.Node): any {
+      const pu = pu$0.toAST(); ; const l = l$0.toAST(); const op = op$0.toAST(); const r = r$0.toAST(); const rt = rt$0.toAST(); const ct = ct$0.toAST(); const e = e$0.toAST(); const t = t$0.toAST()
+      return (new (((MDecl).Fun))($meta(this), op, [l, r], rt, ct, e, t, pu))
     },
     
-    DFun_alt4(this: Ohm.Node, _1: Ohm.Node, op$0: Ohm.Node, l$0: Ohm.Node, rt$0: Ohm.Node, e$0: Ohm.Node, t$0: Ohm.Node): any {
-      ; const op = op$0.toAST(); const l = l$0.toAST(); const rt = rt$0.toAST(); const e = e$0.toAST(); const t = t$0.toAST()
-      return (new (((MDecl).Fun))($meta(this), op, [l], rt, e, t))
+    DFun_alt4(this: Ohm.Node, pu$0: Ohm.Node, _2: Ohm.Node, op$0: Ohm.Node, l$0: Ohm.Node, rt$0: Ohm.Node, ct$0: Ohm.Node, e$0: Ohm.Node, t$0: Ohm.Node): any {
+      const pu = pu$0.toAST(); ; const op = op$0.toAST(); const l = l$0.toAST(); const rt = rt$0.toAST(); const ct = ct$0.toAST(); const e = e$0.toAST(); const t = t$0.toAST()
+      return (new (((MDecl).Fun))($meta(this), op, [l], rt, ct, e, t, pu))
     },
     
-    DFun_alt5(this: Ohm.Node, _1: Ohm.Node, p$0: Ohm.Node, op$0: Ohm.Node, r$0: Ohm.Node, e$0: Ohm.Node, t$0: Ohm.Node): any {
-      ; const p = p$0.toAST(); const op = op$0.toAST(); const r = r$0.toAST(); const e = e$0.toAST(); const t = t$0.toAST()
-      return (new (((MDecl).Fun))($meta(this), op, [p, (new (MParam)($meta(this), null, null, (new (((MType).Static))($meta(this), r))))], (new (((MType).Ref))($meta(this), r)), e, t))
+    DFun_alt5(this: Ohm.Node, pu$0: Ohm.Node, _2: Ohm.Node, p$0: Ohm.Node, op$0: Ohm.Node, r$0: Ohm.Node, _6: Ohm.Node, ct$0: Ohm.Node, e$0: Ohm.Node, t$0: Ohm.Node): any {
+      const pu = pu$0.toAST(); ; const p = p$0.toAST(); const op = op$0.toAST(); const r = r$0.toAST(); ; const ct = ct$0.toAST(); const e = e$0.toAST(); const t = t$0.toAST()
+      return (new (((MDecl).Fun))($meta(this), op, [p, (new (MParam)($meta(this), null, null, (new (((MType).Static))($meta(this), r))))], (new (((MType).Ref))($meta(this), r)), ct, e, t, pu))
+    },
+    
+  DFPure(x: Ohm.Node): any {
+    return x.toAST();
+  },
+  
+    DFPure_alt1(this: Ohm.Node, x$0: Ohm.Node): any {
+      const x = x$0.toAST()
+      return x
+    },
+    
+    DFPure_alt2(this: Ohm.Node, ): any {
+      
+      return null
     },
     
   DFBody(x: Ohm.Node): any {
@@ -3254,6 +3830,20 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
       return (new (((MType).Infer))($meta(this)))
     },
     
+  DFWhere(x: Ohm.Node): any {
+    return x.toAST();
+  },
+  
+    DFWhere_alt1(this: Ohm.Node, _1: Ohm.Node, cs$0: Ohm.Node): any {
+      ; const cs = cs$0.toAST()
+      return cs
+    },
+    
+    DFWhere_alt2(this: Ohm.Node, ): any {
+      
+      return []
+    },
+    
   DDefine(x: Ohm.Node): any {
     return x.toAST();
   },
@@ -3281,7 +3871,12 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
     return x.toAST();
   },
   
-    DDeclare_alt1(this: Ohm.Node, _1: Ohm.Node, n$0: Ohm.Node, _3: Ohm.Node): any {
+    DDeclare_alt1(this: Ohm.Node, _1: Ohm.Node, _2: Ohm.Node, n$0: Ohm.Node, _4: Ohm.Node): any {
+      ; ; const n = n$0.toAST(); 
+      return (new (((MDecl).DeclareTrait))($meta(this), n))
+    },
+    
+    DDeclare_alt2(this: Ohm.Node, _1: Ohm.Node, n$0: Ohm.Node, _3: Ohm.Node): any {
       ; const n = n$0.toAST(); 
       return (new (((MDecl).DeclareType))($meta(this), n))
     },
@@ -3290,8 +3885,8 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
     return x.toAST();
   },
   
-    DStruct_alt1(this: Ohm.Node, _1: Ohm.Node, n$0: Ohm.Node, _3: Ohm.Node, xs$0: Ohm.Node, _5: Ohm.Node, _6: Ohm.Node): any {
-      ; const n = n$0.toAST(); ; const xs = xs$0.toAST(); ; 
+    DStruct_alt1(this: Ohm.Node, _1: Ohm.Node, n$0: Ohm.Node, _3: Ohm.Node, _4: Ohm.Node, xs$0: Ohm.Node, _6: Ohm.Node, _7: Ohm.Node): any {
+      ; const n = n$0.toAST(); ; ; const xs = xs$0.toAST(); ; 
       return (new (((MDecl).Struct))($meta(this), n, xs))
     },
     
@@ -3304,8 +3899,8 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
     return x.toAST();
   },
   
-    DUnion_alt1(this: Ohm.Node, _1: Ohm.Node, n$0: Ohm.Node, _3: Ohm.Node, xs$0: Ohm.Node, _5: Ohm.Node): any {
-      ; const n = n$0.toAST(); ; const xs = xs$0.toAST(); 
+    DUnion_alt1(this: Ohm.Node, _1: Ohm.Node, n$0: Ohm.Node, _3: Ohm.Node, _4: Ohm.Node, xs$0: Ohm.Node, _6: Ohm.Node): any {
+      ; const n = n$0.toAST(); ; ; const xs = xs$0.toAST(); 
       return (new (((MDecl).Union))($meta(this), n, xs))
     },
     
@@ -3341,8 +3936,8 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
     return x.toAST();
   },
   
-    DEffect_alt1(this: Ohm.Node, _1: Ohm.Node, n$0: Ohm.Node, _3: Ohm.Node, xs$0: Ohm.Node, _5: Ohm.Node): any {
-      ; const n = n$0.toAST(); ; const xs = xs$0.toAST(); 
+    DEffect_alt1(this: Ohm.Node, _1: Ohm.Node, n$0: Ohm.Node, _3: Ohm.Node, _4: Ohm.Node, xs$0: Ohm.Node, _6: Ohm.Node): any {
+      ; const n = n$0.toAST(); ; ; const xs = xs$0.toAST(); 
       return (new (((MDecl).Effect))($meta(this), n, xs))
     },
     
@@ -3399,6 +3994,15 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
       return this.children[0].toAST();
     },
     
+  TypeConstraint(x: Ohm.Node): any {
+    return x.toAST();
+  },
+  
+    TypeConstraint_alt1(this: Ohm.Node, n$0: Ohm.Node, _2: Ohm.Node, t$0: Ohm.Node, _4: Ohm.Node): any {
+      const n = n$0.toAST(); ; const t = t$0.toAST(); 
+      return (new (((MTypeConstraint).HasTrait))($meta(this), n, t))
+    },
+    
   Type(x: Ohm.Node): any {
     return x.toAST();
   },
@@ -3416,8 +4020,8 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
     return x.toAST();
   },
   
-    TApply_alt1(this: Ohm.Node, t$0: Ohm.Node, _2: Ohm.Node, _3: Ohm.Node, _4: Ohm.Node): any {
-      const t = t$0.toAST(); ; ; 
+    TApply_alt1(this: Ohm.Node, t$0: Ohm.Node, _2: Ohm.Node): any {
+      const t = t$0.toAST(); 
       return t
     },
     
@@ -3454,12 +4058,32 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
       return (new (((MType).Ref))($meta(this), x))
     },
     
-    TPrim_alt6(this: Ohm.Node, n$0: Ohm.Node): any {
+    TPrim_alt6(this: Ohm.Node, _1: Ohm.Node): any {
+      
+      return (new (((MType).Self))($meta(this)))
+    },
+    
+    TPrim_alt7(this: Ohm.Node, _1: Ohm.Node): any {
+      
+      return (new (((MType).Package))($meta(this)))
+    },
+    
+    TPrim_alt8(this: Ohm.Node, _1: Ohm.Node, _2: Ohm.Node): any {
+      ; 
+      return (new (((MType).StaticSelf))($meta(this)))
+    },
+    
+    TPrim_alt9(this: Ohm.Node, _1: Ohm.Node, n$0: Ohm.Node): any {
+      ; const n = n$0.toAST()
+      return (new (((MType).StaticVar))($meta(this), n))
+    },
+    
+    TPrim_alt10(this: Ohm.Node, n$0: Ohm.Node): any {
       const n = n$0.toAST()
       return (new (((MType).Var))($meta(this), n))
     },
     
-    TPrim_alt7(this: Ohm.Node, _1: Ohm.Node, t$0: Ohm.Node, _3: Ohm.Node): any {
+    TPrim_alt11(this: Ohm.Node, _1: Ohm.Node, t$0: Ohm.Node, _3: Ohm.Node): any {
       ; const t = t$0.toAST(); 
       return t
     },
@@ -3492,6 +4116,15 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
       return (new (((MRef).Named))($meta(this), [n]))
     },
     
+  TParams(x: Ohm.Node): any {
+    return x.toAST();
+  },
+  
+    TParams_alt1(this: Ohm.Node, _1: Ohm.Node, xs$0: Ohm.Node, _3: Ohm.Node): any {
+      ; const xs = xs$0.toAST(); 
+      return xs
+    },
+    
   Ns(x: Ohm.Node): any {
     return x.toAST();
   },
@@ -3504,8 +4137,8 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
     return x.toAST();
   },
   
-    DTrait_alt1(this: Ohm.Node, _1: Ohm.Node, n$0: Ohm.Node, _3: Ohm.Node, xs$0: Ohm.Node, _5: Ohm.Node): any {
-      ; const n = n$0.toAST(); ; const xs = xs$0.toAST(); 
+    DTrait_alt1(this: Ohm.Node, _1: Ohm.Node, n$0: Ohm.Node, _3: Ohm.Node, _4: Ohm.Node, xs$0: Ohm.Node, _6: Ohm.Node): any {
+      ; const n = n$0.toAST(); ; ; const xs = xs$0.toAST(); 
       return (new (((MDecl).Trait))($meta(this), n, xs))
     },
     
@@ -3513,51 +4146,62 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
     return x.toAST();
   },
   
-    DImplement_alt1(this: Ohm.Node, _1: Ohm.Node, n$0: Ohm.Node, _3: Ohm.Node, t$0: Ohm.Node, _5: Ohm.Node, xs$0: Ohm.Node, _7: Ohm.Node): any {
-      ; const n = n$0.toAST(); ; const t = t$0.toAST(); ; const xs = xs$0.toAST(); 
-      return (new (((MDecl).Implement))($meta(this), n, t, xs))
+    DImplement_alt1(this: Ohm.Node, _1: Ohm.Node, n$0: Ohm.Node, _3: Ohm.Node, _4: Ohm.Node, t$0: Ohm.Node, _6: Ohm.Node, _7: Ohm.Node): any {
+      ; const n = n$0.toAST(); ; ; const t = t$0.toAST(); ; 
+      return (new (((MDecl).Implement))($meta(this), n, t))
     },
     
   DTReq(x: Ohm.Node): any {
     return x.toAST();
   },
   
-    DTReq_alt1(this: Ohm.Node, _1: Ohm.Node, _2: Ohm.Node, _3: Ohm.Node, _4: Ohm.Node): any {
-      ; ; ; 
+    DTReq_alt1(this: Ohm.Node, _1: Ohm.Node, _2: Ohm.Node, _3: Ohm.Node, _4: Ohm.Node, _5: Ohm.Node, t$0: Ohm.Node, _7: Ohm.Node, _8: Ohm.Node): any {
+      ; ; ; ; ; const t = t$0.toAST(); ; 
       return null
     },
     
-    DTReq_alt2(this: Ohm.Node, _1: Ohm.Node, _2: Ohm.Node, n$0: Ohm.Node, _4: Ohm.Node, xs$0: Ohm.Node, _6: Ohm.Node, _7: Ohm.Node, _8: Ohm.Node): any {
-      ; ; const n = n$0.toAST(); ; const xs = xs$0.toAST(); ; ; 
-      return (new (((TraitReq).Required))(n, xs))
+    DTReq_alt2(this: Ohm.Node, _1: Ohm.Node, _2: Ohm.Node, x$0: Ohm.Node, _4: Ohm.Node, _5: Ohm.Node): any {
+      ; ; const x = x$0.toAST(); ; 
+      return (new (((TraitReq).Implies))($meta(this), x))
     },
     
-    DTReq_alt3(this: Ohm.Node, x$0: Ohm.Node): any {
-      const x = x$0.toAST()
-      return (new (((TraitReq).Provided))(x))
+    DTReq_alt3(this: Ohm.Node, _1: Ohm.Node, _2: Ohm.Node): any {
+      ; 
+      return null
+    },
+    
+    DTReq_alt4(this: Ohm.Node, _1: Ohm.Node): any {
+      
+      return null
     },
     
   DTFun(x: Ohm.Node): any {
     return x.toAST();
   },
   
-    DTFun_alt1(this: Ohm.Node, _1: Ohm.Node, p$0: Ohm.Node, n$0: Ohm.Node, _4: Ohm.Node, ps$0: Ohm.Node, _6: Ohm.Node, r$0: Ohm.Node, e$0: Ohm.Node, t$0: Ohm.Node): any {
-      ; const p = p$0.toAST(); const n = n$0.toAST(); ; const ps = ps$0.toAST(); ; const r = r$0.toAST(); const e = e$0.toAST(); const t = t$0.toAST()
-      return (new (((MDecl).SFun))($meta(this), n, (new (MParam)($meta(this), null, null, p)), ps, r, e, t))
+    DTFun_alt1(this: Ohm.Node, _1: Ohm.Node, p$0: Ohm.Node, n$0: Ohm.Node, _4: Ohm.Node, ps$0: Ohm.Node, _6: Ohm.Node, r$0: Ohm.Node, _8: Ohm.Node, _9: Ohm.Node): any {
+      ; const p = p$0.toAST(); const n = n$0.toAST(); ; const ps = ps$0.toAST(); ; const r = r$0.toAST(); ; 
+      return (() => { throw new Error(`Undefined rule DTFun`) })()
     },
     
-  DTParam(x: Ohm.Node): any {
-    return x.toAST();
-  },
-  
-    DTParam_alt1(this: Ohm.Node, k$0: Ohm.Node, _2: Ohm.Node, t$0: Ohm.Node): any {
-      const k = k$0.toAST(); ; const t = t$0.toAST()
-      return (new (MParam)($meta(this), k, null, t))
+    DTFun_alt2(this: Ohm.Node, _1: Ohm.Node, n$0: Ohm.Node, _3: Ohm.Node, ps$0: Ohm.Node, _5: Ohm.Node, r$0: Ohm.Node, _7: Ohm.Node, _8: Ohm.Node): any {
+      ; const n = n$0.toAST(); ; const ps = ps$0.toAST(); ; const r = r$0.toAST(); ; 
+      return (() => { throw new Error(`Undefined rule DTFun`) })()
     },
     
-    DTParam_alt2(this: Ohm.Node, t$0: Ohm.Node): any {
-      const t = t$0.toAST()
-      return (new (MParam)($meta(this), null, null, t))
+    DTFun_alt3(this: Ohm.Node, _1: Ohm.Node, l$0: Ohm.Node, op$0: Ohm.Node, r$0: Ohm.Node, rt$0: Ohm.Node, _6: Ohm.Node, _7: Ohm.Node): any {
+      ; const l = l$0.toAST(); const op = op$0.toAST(); const r = r$0.toAST(); const rt = rt$0.toAST(); ; 
+      return (() => { throw new Error(`Undefined rule DTFun`) })()
+    },
+    
+    DTFun_alt4(this: Ohm.Node, _1: Ohm.Node, op$0: Ohm.Node, l$0: Ohm.Node, rt$0: Ohm.Node, _5: Ohm.Node, _6: Ohm.Node): any {
+      ; const op = op$0.toAST(); const l = l$0.toAST(); const rt = rt$0.toAST(); ; 
+      return (() => { throw new Error(`Undefined rule DTFun`) })()
+    },
+    
+    DTFun_alt5(this: Ohm.Node, _1: Ohm.Node, p$0: Ohm.Node, op$0: Ohm.Node, r$0: Ohm.Node, _5: Ohm.Node, _6: Ohm.Node, _7: Ohm.Node): any {
+      ; const p = p$0.toAST(); const op = op$0.toAST(); const r = r$0.toAST(); ; ; 
+      return (() => { throw new Error(`Undefined rule DTFun`) })()
     },
     
   DImport(x: Ohm.Node): any {
@@ -3574,6 +4218,15 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
       return (new (((MDecl).Import))($meta(this), t))
     },
     
+  DNamespace(x: Ohm.Node): any {
+    return x.toAST();
+  },
+  
+    DNamespace_alt1(this: Ohm.Node, _1: Ohm.Node, ns$0: Ohm.Node, _3: Ohm.Node, xs$0: Ohm.Node, _5: Ohm.Node): any {
+      ; const ns = ns$0.toAST(); ; const xs = xs$0.toAST(); 
+      return (new (((MDecl).Namespace))($meta(this), ns, xs))
+    },
+    
   DOpen(x: Ohm.Node): any {
     return x.toAST();
   },
@@ -3586,6 +4239,11 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
     DOpen_alt2(this: Ohm.Node, _1: Ohm.Node, _2: Ohm.Node, n$0: Ohm.Node, _4: Ohm.Node): any {
       ; ; const n = n$0.toAST(); 
       return (new (((MDecl).OpenPkg))($meta(this), n, null))
+    },
+    
+    DOpen_alt3(this: Ohm.Node, _1: Ohm.Node, ns$0: Ohm.Node, _3: Ohm.Node, n$0: Ohm.Node, _5: Ohm.Node): any {
+      ; const ns = ns$0.toAST(); ; const n = n$0.toAST(); 
+      return (new (((MDecl).OpenNamespace))($meta(this), ns, n))
     },
     
   Expr(x: Ohm.Node): any {
@@ -3675,6 +4333,11 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
       return this.children[0].toAST();
     },
     
+    Exprs1_alt2(this: Ohm.Node, x$0: Ohm.Node): any {
+      const x = x$0.toAST()
+      return [x]
+    },
+    
   EIf(x: Ohm.Node): any {
     return x.toAST();
   },
@@ -3716,14 +4379,27 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
     return x.toAST();
   },
   
-    EIClause_alt1(this: Ohm.Node, _1: Ohm.Node, _2: Ohm.Node, b$0: Ohm.Node): any {
-      ; ; const b = b$0.toAST()
+    EIClause_alt1(this: Ohm.Node, _1: Ohm.Node, b$0: Ohm.Node): any {
+      ; const b = b$0.toAST()
       return (new (MIfClause)($meta(this), (new (((MExpr).Const))($meta(this), (new (((MConst).True))($meta(this))))), b))
     },
     
-    EIClause_alt2(this: Ohm.Node, e$0: Ohm.Node, _2: Ohm.Node, b$0: Ohm.Node): any {
-      const e = e$0.toAST(); ; const b = b$0.toAST()
+    EIClause_alt2(this: Ohm.Node, e$0: Ohm.Node, b$0: Ohm.Node): any {
+      const e = e$0.toAST(); const b = b$0.toAST()
       return (new (MIfClause)($meta(this), e, b))
+    },
+    
+  EPointBlock(x: Ohm.Node): any {
+    return x.toAST();
+  },
+  
+    EPointBlock_alt1(this: Ohm.Node, _1: Ohm.Node, x$0: Ohm.Node): any {
+      ; const x = x$0.toAST()
+      return x
+    },
+    
+    EPointBlock_alt2(this: Ohm.Node, _1: Ohm.Node): any {
+      return this.children[0].toAST();
     },
     
   EHandle(x: Ohm.Node): any {
@@ -3739,14 +4415,28 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
     return x.toAST();
   },
   
-    EHCase_alt1(this: Ohm.Node, _1: Ohm.Node, n$0: Ohm.Node, _3: Ohm.Node, xs$0: Ohm.Node, _5: Ohm.Node, e$0: Ohm.Node): any {
-      ; const n = n$0.toAST(); ; const xs = xs$0.toAST(); ; const e = e$0.toAST()
-      return (new (((HandlerCase).On))($meta(this), n, xs, e))
+    EHCase_alt1(this: Ohm.Node, _1: Ohm.Node, n$0: Ohm.Node, _3: Ohm.Node, xs$0: Ohm.Node, _5: Ohm.Node, v$0: Ohm.Node, e$0: Ohm.Node): any {
+      ; const n = n$0.toAST(); ; const xs = xs$0.toAST(); ; const v = v$0.toAST(); const e = e$0.toAST()
+      return (new (((HandlerCase).On))($meta(this), n, xs, v, e))
     },
     
     EHCase_alt2(this: Ohm.Node, _1: Ohm.Node, n$0: Ohm.Node, _3: Ohm.Node, xs$0: Ohm.Node, _5: Ohm.Node, _6: Ohm.Node): any {
       ; const n = n$0.toAST(); ; const xs = xs$0.toAST(); ; 
       return (new (((HandlerCase).Use))($meta(this), n, xs))
+    },
+    
+  EHCap(x: Ohm.Node): any {
+    return x.toAST();
+  },
+  
+    EHCap_alt1(this: Ohm.Node, _1: Ohm.Node, v$0: Ohm.Node): any {
+      ; const v = v$0.toAST()
+      return v
+    },
+    
+    EHCap_alt2(this: Ohm.Node, ): any {
+      
+      return null
     },
     
   ESimple(x: Ohm.Node): any {
@@ -3913,8 +4603,8 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
       return (new (((MExpr).IntrinsicEq))($meta(this), l, r))
     },
     
-    EInvokeInfix2_alt3(this: Ohm.Node, l$0: Ohm.Node, op$0: Ohm.Node, t$0: Ohm.Node): any {
-      const l = l$0.toAST(); const op = op$0.toAST(); const t = t$0.toAST()
+    EInvokeInfix2_alt3(this: Ohm.Node, l$0: Ohm.Node, op$0: Ohm.Node, t$0: Ohm.Node, _4: Ohm.Node): any {
+      const l = l$0.toAST(); const op = op$0.toAST(); const t = t$0.toAST(); 
       return (new (((MExpr).Invoke))($meta(this), op, [(new (MInvokeArg)($meta(this), null, l)), (new (MInvokeArg)($meta(this), null, (new (((MExpr).Static))($meta(this), t))))]))
     },
     
@@ -3928,7 +4618,12 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
       return (new (((MExpr).Is))($meta(this), l, t))
     },
     
-    EInvokeInfix2_alt6(this: Ohm.Node, _1: Ohm.Node): any {
+    EInvokeInfix2_alt6(this: Ohm.Node, l$0: Ohm.Node, _2: Ohm.Node, t$0: Ohm.Node): any {
+      const l = l$0.toAST(); ; const t = t$0.toAST()
+      return (new (((MExpr).HasTrait))($meta(this), l, t))
+    },
+    
+    EInvokeInfix2_alt7(this: Ohm.Node, _1: Ohm.Node): any {
       return this.children[0].toAST();
     },
     
@@ -4129,17 +4824,19 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
       return (new (((MExpr).Self))($meta(this)))
     },
     
-    EPrim_alt7(this: Ohm.Node, n$0: Ohm.Node): any {
+    EPrim_alt7(this: Ohm.Node, _1: Ohm.Node): any {
+      
+      return (new (((MExpr).Package))($meta(this)))
+    },
+    
+    EPrim_alt8(this: Ohm.Node, n$0: Ohm.Node): any {
       const n = n$0.toAST()
       return (new (((MExpr).GetGlobal))($meta(this), n))
     },
     
-    EPrim_alt8(this: Ohm.Node, _1: Ohm.Node): any {
-      return this.children[0].toAST();
-    },
-    
     EPrim_alt9(this: Ohm.Node, _1: Ohm.Node): any {
-      return this.children[0].toAST();
+      
+      return (new (((MExpr).Unreachable))($meta(this)))
     },
     
     EPrim_alt10(this: Ohm.Node, _1: Ohm.Node): any {
@@ -4154,7 +4851,15 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
       return this.children[0].toAST();
     },
     
-    EPrim_alt13(this: Ohm.Node, _1: Ohm.Node, e$0: Ohm.Node, _3: Ohm.Node): any {
+    EPrim_alt13(this: Ohm.Node, _1: Ohm.Node): any {
+      return this.children[0].toAST();
+    },
+    
+    EPrim_alt14(this: Ohm.Node, _1: Ohm.Node): any {
+      return this.children[0].toAST();
+    },
+    
+    EPrim_alt15(this: Ohm.Node, _1: Ohm.Node, e$0: Ohm.Node, _3: Ohm.Node): any {
       ; const e = e$0.toAST(); 
       return e
     },
@@ -4671,7 +5376,7 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
       return this.sourceString;
     },
     
-    escape_sequence_alt2(this: Ohm.Node, _1: Ohm.Node, _2: Ohm.Node, _3: Ohm.Node): any {
+    escape_sequence_alt2(this: Ohm.Node, _1: Ohm.Node, _2: Ohm.Node, _3: Ohm.Node, _4: Ohm.Node): any {
       return this.sourceString;
     },
     
@@ -4699,12 +5404,21 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
       return this.sourceString;
     },
     
-  t_template_text(x: Ohm.Node): any {
+  raw_text(x: Ohm.Node): any {
     return x.toAST();
   },
   
-    t_template_text_alt1(this: Ohm.Node, _1: Ohm.Node, _2: Ohm.Node, _3: Ohm.Node): any {
+    raw_text_alt1(this: Ohm.Node, _1: Ohm.Node): any {
       return this.sourceString;
+    },
+    
+  raw_template_text(x: Ohm.Node): any {
+    return x.toAST();
+  },
+  
+    raw_template_text_alt1(this: Ohm.Node, _1: Ohm.Node, x$0: Ohm.Node, _3: Ohm.Node): any {
+      ; const x = x$0.toAST(); 
+      return x
     },
     
   text(x: Ohm.Node): any {
@@ -5322,6 +6036,86 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
       return this.children[0].toAST();
     },
     
+  unreachable_(x: Ohm.Node): any {
+    return x.toAST();
+  },
+  
+    unreachable__alt1(this: Ohm.Node, _1: Ohm.Node): any {
+      return this.children[0].toAST();
+    },
+    
+  optional_(x: Ohm.Node): any {
+    return x.toAST();
+  },
+  
+    optional__alt1(this: Ohm.Node, _1: Ohm.Node): any {
+      return this.children[0].toAST();
+    },
+    
+  has_(x: Ohm.Node): any {
+    return x.toAST();
+  },
+  
+    has__alt1(this: Ohm.Node, _1: Ohm.Node): any {
+      return this.children[0].toAST();
+    },
+    
+  implies_(x: Ohm.Node): any {
+    return x.toAST();
+  },
+  
+    implies__alt1(this: Ohm.Node, _1: Ohm.Node): any {
+      return this.children[0].toAST();
+    },
+    
+  lift_(x: Ohm.Node): any {
+    return x.toAST();
+  },
+  
+    lift__alt1(this: Ohm.Node, _1: Ohm.Node): any {
+      return this.children[0].toAST();
+    },
+    
+  pure_(x: Ohm.Node): any {
+    return x.toAST();
+  },
+  
+    pure__alt1(this: Ohm.Node, _1: Ohm.Node): any {
+      return this.children[0].toAST();
+    },
+    
+  where_(x: Ohm.Node): any {
+    return x.toAST();
+  },
+  
+    where__alt1(this: Ohm.Node, _1: Ohm.Node): any {
+      return this.children[0].toAST();
+    },
+    
+  asset_(x: Ohm.Node): any {
+    return x.toAST();
+  },
+  
+    asset__alt1(this: Ohm.Node, _1: Ohm.Node): any {
+      return this.children[0].toAST();
+    },
+    
+  file_(x: Ohm.Node): any {
+    return x.toAST();
+  },
+  
+    file__alt1(this: Ohm.Node, _1: Ohm.Node): any {
+      return this.children[0].toAST();
+    },
+    
+  namespace_(x: Ohm.Node): any {
+    return x.toAST();
+  },
+  
+    namespace__alt1(this: Ohm.Node, _1: Ohm.Node): any {
+      return this.children[0].toAST();
+    },
+    
   reserved(x: Ohm.Node): any {
     return x.toAST();
   },
@@ -5511,6 +6305,42 @@ function $assert_type<T>(x: any, t: string, f: Typed): asserts x is T {
     },
     
     reserved_alt47(this: Ohm.Node, _1: Ohm.Node): any {
+      return this.children[0].toAST();
+    },
+    
+    reserved_alt48(this: Ohm.Node, _1: Ohm.Node): any {
+      return this.children[0].toAST();
+    },
+    
+    reserved_alt49(this: Ohm.Node, _1: Ohm.Node): any {
+      return this.children[0].toAST();
+    },
+    
+    reserved_alt50(this: Ohm.Node, _1: Ohm.Node): any {
+      return this.children[0].toAST();
+    },
+    
+    reserved_alt51(this: Ohm.Node, _1: Ohm.Node): any {
+      return this.children[0].toAST();
+    },
+    
+    reserved_alt52(this: Ohm.Node, _1: Ohm.Node): any {
+      return this.children[0].toAST();
+    },
+    
+    reserved_alt53(this: Ohm.Node, _1: Ohm.Node): any {
+      return this.children[0].toAST();
+    },
+    
+    reserved_alt54(this: Ohm.Node, _1: Ohm.Node): any {
+      return this.children[0].toAST();
+    },
+    
+    reserved_alt55(this: Ohm.Node, _1: Ohm.Node): any {
+      return this.children[0].toAST();
+    },
+    
+    reserved_alt56(this: Ohm.Node, _1: Ohm.Node): any {
       return this.children[0].toAST();
     },
     

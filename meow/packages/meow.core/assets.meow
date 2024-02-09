@@ -1,0 +1,5 @@
+% meow/1
+
+pure def package-asset name() = primitive asset.name(self);
+pure def package-asset read-text() = primitive asset.text(self);
+pure def package-asset read-bytes() = primitive asset.bytes(self);

@@ -1,0 +1,29 @@
+% meow/1
+
+def #mutable-list-iterator from(List: L, start Start: int, stop Stop: int) where L has list<A> =
+  new mutable-list-iterator(list: List, index: #cell of(Start), stop: Stop);
+
+
+implement iterable<A> for mutable-list-iterator<A>;
+implement iterator<A> for mutable-list-iterator<A>;
+def mutable-list-iterator<A> size-hint() -> maybe<int> =
+  #maybe some(self.stop - self.index read());
+
+def mutable-list-iterator<A> take-next() -> maybe<A> {
+  assert self.list count() <= self.stop :: valid-underlying-memory;
+  let Ix = self.index read();
+  when {
+    Ix === self.stop -> maybe..none;
+    otherwise {
+      self.index <- Ix + 1;
+      self.list at(Ix);
+    }
+  }
+} test {
+  let A = ["a", "b", "c"] mutable-copy() iterator();
+  assert A is mutable-list-iterator;
+  assert A take-next() unwrap() ==> "a";
+  assert A take-next() unwrap() ==> "b";
+  assert A take-next() unwrap() ==> "c";
+  assert A take-next() is maybe..none;
+}

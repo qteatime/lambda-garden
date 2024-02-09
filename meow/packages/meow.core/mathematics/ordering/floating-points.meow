@@ -3,7 +3,10 @@
 // TODO: it's weird for IEEE754 floats to implement total-order :/
 
 //#region - 64-bit floating points ---------------------------------------------
-def f64 < (X: f64) -> bool {
+implement total-order for f64;
+
+pure def f64 < (X: f64) -> bool {
+  assert not (self is-nan() or X is-nan()) :: defined-number;
   primitive f64.lt(self, X);
 } test {
   assert 0.0f < 1.0f;
@@ -12,7 +15,8 @@ def f64 < (X: f64) -> bool {
   assert not (1.0f < 0.0f);
 }
 
-def f64 <= (X: f64) -> bool {
+pure def f64 <= (X: f64) -> bool {
+  assert not (self is-nan() or X is-nan()) :: defined-number;
   primitive f64.lte(self, X);
 } test {
   assert 0.0f <= 1.0f;
@@ -21,7 +25,8 @@ def f64 <= (X: f64) -> bool {
   assert not (1.0f <= 0.0f);
 }
 
-def f64 > (X: f64) -> bool {
+pure def f64 > (X: f64) -> bool {
+  assert not (self is-nan() or X is-nan()) :: defined-number;
   primitive f64.gt(self, X);
 } test {
   assert 1.0f > 0.0f;
@@ -30,7 +35,8 @@ def f64 > (X: f64) -> bool {
   assert not (0.0f > 1.0f);
 }
 
-def f64 >= (X: f64) -> bool {
+pure def f64 >= (X: f64) -> bool {
+  assert not (self is-nan() or X is-nan()) :: defined-number;
   primitive f64.gte(self, X);
 } test {
   assert 1.0f >= 0.0f;
@@ -39,11 +45,12 @@ def f64 >= (X: f64) -> bool {
   assert not (0.0f >= 1.0f);
 }
 
-def f64 compare-to(X: f64) -> ordering {
+pure def f64 compare-to(X: f64) -> ordering {
+  assert not (self is-nan() or X is-nan()) :: defined-number;
   when {
-    self < X => ordering..less-than;
-    self === X => ordering..equal;
-    self > X => ordering..greater-than;
+    self < X -> ordering..less-than;
+    self === X -> ordering..equal;
+    self > X -> ordering..greater-than;
   }
 } test {
   assert 1.0f compare-to(2.0f) ==> ordering..less-than;

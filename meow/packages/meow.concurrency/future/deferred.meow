@@ -1,0 +1,61 @@
+% meow/1
+
+def #deferred defer() =
+  new deferred(foreign future.defer());
+
+def deferred<T, E> resolve(Value: T) -> deferred<T, E> {
+  assert self is-pending();
+  foreign future.resolve(self.value, new future-result..ok(Value));
+  self;
+} test {
+  let A = #deferred defer() resolve(1);
+  assert A state() ==> new deferred-state..resolved(new future-result..ok(1));
+}
+
+def deferred<T, E> reject(Reason: E) -> deferred<T, E> {
+  assert self is-pending();
+  foreign future.resolve(self.value, new future-result..error(Reason));
+  self;
+} test {
+  let A = #deferred defer() reject(1);
+  assert A state() ==> new deferred-state..resolved(new future-result..error(1));
+}
+
+def deferred<T, E> cancel() -> deferred<T, E> {
+  assert self is-pending();
+  foreign future.resolve(self.value, future-result..cancelled);
+  self;
+} test {
+  let A = #deferred defer() cancel();
+  assert A state() ==> new deferred-state..resolved(future-result..cancelled);
+}
+
+def deferred<T, E> assimilate(Result: future-result<T, E>) {
+  assert self is-pending();
+  foreign future.resolve(self.value, Result);
+  self;
+} test {
+  assert #deferred defer() assimilate(#future-result ok(1)) state()
+    ==> new deferred-state..resolved(new future-result..ok(1));
+}
+
+def deferred<T, E> state() -> deferred-state<T, E> {
+  let State = foreign future.state(self.value);
+  when {
+    State.resolved -> new deferred-state..resolved(State.value);
+    otherwise -> deferred-state..pending;
+  }
+} test {
+  let A = #deferred defer();
+  assert A state() ==> deferred-state..pending;
+  A resolve(1);
+  assert A state() ==> new deferred-state..resolved(new future-result..ok(1));
+}
+
+def deferred<T, E> is-pending() -> bool {
+  self state() is deferred-state..pending;
+}
+
+def deferred<T, E> future() -> future<T, E> {
+  new future(foreign future.promise(self.value));
+}

@@ -1,0 +1,61 @@
+% meow/1
+
+def future<T, E> on-settled(Fn: (future-result<T, E>) -> nothing) -> future<T, E> {
+  foreign future.wait-settled(self.value, Fn(_));
+  self;
+} test {
+  let Cell = #cell of("");
+  #future ok(1) on-settled({ V in Cell <- "ok" }) wait-settled();
+  assert Cell read() ==> "ok";
+  #future error(1) on-settled({ V in Cell <- "error" }) wait-settled();
+  assert Cell read() ==> "error";
+  #future cancelled() on-cancel({ Cell <- "cancel" }) wait-settled();
+  assert Cell read() ==> "cancel";
+}
+
+def future<T, E> on-ok(Fn: (T) -> nothing) -> future<T, E> {
+  self on-settled({ Result in
+    when {
+      Result is future-result..ok -> Fn(Result value());
+      otherwise -> nothing;
+    }
+  });
+} test {
+  let Cell = #cell of("");
+  #future ok(1) on-ok({ V in Cell <- "ok" }) wait-settled();
+  #future error(1) on-ok({ V in Cell <- "error" }) wait-settled();
+  #future cancelled() on-ok({ V in Cell <- "cancel" }) wait-settled();
+  assert Cell read() ==> "ok";
+}
+
+def future<T, E> on-error(Fn: (E) -> nothing) -> future<T, E> {
+  self on-settled({ Result in
+    when {
+      Result is future-result..error -> Fn(Result reason());
+      otherwise -> nothing;
+    }
+  });
+  self;
+} test {
+  let Cell = #cell of("");
+  #future ok(1) on-error({ V in Cell <- "ok" }) wait-settled();
+  #future error(1) on-error({ V in Cell <- "error" }) wait-settled();
+  #future cancelled() on-error({ V in Cell <- "cancel" }) wait-settled();
+  assert Cell read() ==> "error";
+}
+
+def future<T, E> on-cancel(Fn: () -> nothing) -> future<T, E> {
+  self on-settled({ Result in
+    when {
+      Result is future-result..cancelled -> Fn();
+      otherwise -> nothing;
+    }
+  });
+  self;
+} test {
+  let Cell = #cell of("");
+  #future ok(1) on-cancel({ Cell <- "ok" }) wait-settled();
+  #future error(1) on-cancel({ Cell <- "error" }) wait-settled();
+  #future cancelled() on-cancel({ Cell <- "cancel" }) wait-settled();
+  assert Cell read() ==> "cancel";
+}

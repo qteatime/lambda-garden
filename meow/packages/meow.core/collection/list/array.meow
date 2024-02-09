@@ -1,0 +1,95 @@
+% meow/1
+
+//#region List operations ------------------------------------------------------
+implement list<A> for array<A>;
+
+pure def array<A> count() -> int {
+  primitive array.count(self);
+} test {
+  assert [] count() ==> 0;
+  assert [1, 2, 1, 2] count() ==> 4;
+}
+
+pure def array<A> at(Index: int) -> A {
+  when {
+    (Index < 0) or (Index >= self count()) -> maybe..none;
+    otherwise -> #maybe some(primitive array.at(self, Index));
+  }
+} test {
+  assert [1, 2, 3] at(0) ==> #maybe some(1);
+  assert [1, 2, 3] at(2) ==> #maybe some(3);
+}
+
+
+implement modifiable-list<A> for array<A>;
+
+pure def array<A> put(at Index: int, value Value: A) -> array<A> {
+  assert (Index >= 0) and (Index < self count());
+  primitive array.copy-put(self, Index, Value);
+} test {
+  assert [1, 2, 3] put(at: 1, value: 9) ==> [1, 9, 3];
+}
+
+
+implement growable-list<A> for array<A>;
+
+pure def array<A> remove(at Index: int) -> array<A> {
+  assert (Index >= 0) and (Index < self count());
+  primitive array.copy-remove(self, Index);
+} test {
+  assert [1, 2, 3] remove(at: 1) ==> [1, 3];
+}
+
+pure def array<A> insert(at Index: int, value Value: A) -> array<A> {
+  assert (Index >= 0) and (Index <= self count());
+  primitive array.copy-insert-at(self, Index, Value);
+} test {
+  assert [] insert(at: 0, value: 1) ==> [1];
+  assert [1, 2, 3] insert(at: 1, value: 5) ==> [1, 5, 2, 3];
+}
+
+pure def array<A> ++ (That: array<A>) -> array<A> {
+  primitive array.concat(self, That);
+} test {
+  assert [] ++ [] ==> [];
+  assert [] ++ [1, 2, 3] ==> [1, 2, 3];
+  assert [1, 2, 3] ++ [] ==> [1, 2, 3];
+  assert [1, 2, 3] ++ [4, 5] ==> [1, 2, 3, 4, 5];
+}
+
+
+implement sortable-list<A> for array<A>;
+
+def array<A> sort(by Compare: (A, A) -> ordering) -> array<A> {
+  primitive array.copy-sort-by(self, {A, B in Compare(A, B) as int});
+} test {
+  assert [4, 1, 2] sort(by: _ compare-to(_)) ==> [1, 2, 4];
+  assert [4, 1, 2] sort(by: {A, B in B compare-to(A)}) ==> [4, 2, 1];
+}
+
+pure def array<A> reverse() -> array<A> {
+  primitive array.copy-reverse(self);
+} test {
+  assert [1, 3, 2] reverse() ==> [2, 3, 1];
+}
+//#endregion
+
+
+//#region Equality -------------------------------------------------------------
+implement equality for array<A> where A has equality;
+implement comparable-list<A> for array<A> where A has equality;
+//#endregion
+
+//#region Iteration ------------------------------------------------------------
+implement iterable<A> for array<A>;
+
+def array<A> iterator() -> list-iterator<A> {
+  #list-iterator from(self, start: 0, stop: self count());
+}
+//#endregion
+
+//#region Conversions ----------------------------------------------------------
+pure def array<A> mutable-copy() -> mutable-array<A> {
+  new mutable-array(primitive array.shallow-copy(self));
+}
+//#endregion

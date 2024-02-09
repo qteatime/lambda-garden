@@ -1,0 +1,48 @@
+% meow/1
+
+namespace a.b.c {
+  struct point(x: int);
+
+  def point-a() = new point(1);
+}
+
+namespace c.b.a {
+  struct point(x: int);
+
+  def point-b() = new point(1);
+}
+
+test "Multiple namespaces are supported" {
+  assert point-a() ==> new a.b.c.point(1);
+  assert point-b() ==> new c.b.a.point(1);
+  assert not (point-a() is c.b.a.point);
+}
+
+
+namespace a {
+  namespace b {
+    namespace c {
+      singleton other-point;
+
+      def other-point make() = new point(1);
+    }
+  }
+}
+
+test "Namespaces can be nested and extended" {
+  assert a.b.c.other-point make() ==> new a.b.c.point(1);
+}
+
+
+namespace x {
+  open a.b.c as a;
+  open c.b.a as c;
+
+  def point-x1() = new a.point(1);
+  def point-x2() = new c.point(1);
+}
+
+test "Namespaces can be aliased" {
+  assert point-x1() ==> new a.b.c.point(1);
+  assert point-x2() ==> new c.b.a.point(1);
+}

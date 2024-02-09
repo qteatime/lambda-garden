@@ -1,0 +1,11 @@
+% meow/1
+
+//! The Kate SDK
+//! ============
+//!
+//! The officially maintained library for making games for Kate, using the
+//! native resources of the console.
+
+import "cartridge/main.meow";
+import "graphics/main.meow";
+import "sound/main.meow";

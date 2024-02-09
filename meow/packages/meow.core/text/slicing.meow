@@ -1,0 +1,76 @@
+% meow/1
+
+pure def text slice(from Start: int, length Length: int) -> text-slice {
+  assert Length >= 0 :: positive-length;
+  assert (Start >= 0) and ((Start + Length) <= self count-code-units()) :: in-bounds;
+  new text-slice(text: self, offset: Start, length: Length);
+} test {
+  assert "abc" slice(from: 0, length: 0) as text ==> "";
+  assert "abc" slice(from: 0, length: 3) as text ==> "abc";
+  assert "abc" slice(from: 1, length: 1) as text ==> "b";
+  assert "😺🔮" slice(from: 2, length: 2) as text ==> "🔮";
+  // we don't protect against lone surrogates because we'd have to scan all strings
+  assert "😺🔮" slice(from: 1, length: 2) as text ==> "\ude3a\ud83d";
+  // multi-characters can be separated however (no guarantees of grapheme slicing)
+  assert "🙆🏽‍♀️" slice(from: 5, length: 1) as text ==> "♀";
+}
+
+pure def text-slice slice(from Start: int, length Length: int) -> text-slice {
+  assert Length >= 0 :: positive-length;
+  assert (Start >= 0) and ((Start + Length) <= self.length) :: in-bounds;
+  new text-slice(text: self.text, offset: self.offset + Start, length: Length);
+} test {
+  assert "abc" slice(length: 3) slice(from: 0, length: 0) as text ==> "";
+  assert "abc" slice(length: 3) slice(from: 0, length: 3) as text ==> "abc";
+  assert "abc" slice(length: 3) slice(from: 1, length: 1) as text ==> "b";
+}
+
+
+pure def text slice(from Start: int, to Stop: int) -> text-slice {
+  self slice(from: Start, length: Stop - Start);
+} test {
+  assert "abc" slice(from: 1, to: 3) as text ==> "bc";
+  assert "abc" slice(from: 1, to: 1) as text ==> "";
+}
+
+pure def text-slice slice(from Start: int, to Stop: int) -> text-slice {
+  self slice(from: Start, length: Stop - Start);
+} test {
+  assert "abc" slice(length: 3) slice(from: 1, to: 3) as text ==> "bc";
+  assert "abc" slice(length: 3) slice(from: 1, to: 1) as text ==> "";
+}
+
+
+
+pure def text slice(from Start: int) -> text-slice {
+  self slice(from: Start, length: self count-code-units() - Start);
+} test {
+  assert "abc" slice(from: 0) as text ==> "abc";
+  assert "abc" slice(from: 1) as text ==> "bc";
+  assert "abc" slice(from: 3) as text ==> "";
+}
+
+pure def text-slice slice(from Start: int) -> text-slice {
+  self slice(from: Start, length: self count-code-units() - Start);
+} test {
+  assert "abc" slice(length: 3) slice(from: 0) as text ==> "abc";
+  assert "abc" slice(length: 3) slice(from: 1) as text ==> "bc";
+  assert "abc" slice(length: 3) slice(from: 3) as text ==> "";
+}
+
+
+pure def text slice(length End: int) -> text-slice {
+  self slice(from: 0, length: End);
+} test {
+  assert "abc" slice(length: 3) as text ==> "abc";
+  assert "abc" slice(length: 1) as text ==> "a";
+  assert "abc" slice(length: 0) as text ==> "";
+}
+
+pure def text-slice slice(length End: int) -> text-slice {
+  self slice(from: 0, length: End);
+} test {
+  assert "abc" slice(length: 3) slice(length: 3) as text ==> "abc";
+  assert "abc" slice(length: 3) slice(length: 1) as text ==> "a";
+  assert "abc" slice(length: 3) slice(length: 0) as text ==> "";
+}

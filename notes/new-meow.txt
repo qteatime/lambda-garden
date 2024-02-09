@@ -1,0 +1,296 @@
+Meow
+----
+
+A functional language with some system-level properties, multi-methods,
+effect handles, capabilities, and package-based modularity.
+
+Base features:
+
+  - Sized/stack allocated typed data: (int, i8..i64, f64, bool, tuple, enum, union, fixed-array)
+  - Arbitrary precision arithmetic (integer, decimal, rational)
+  - Explicit lazy evaluation (thunks/delay)
+  - Strong references for all types + weak references for cases where you need to collab with GC
+  - Immutable text type designed around unicode
+  - Controlled mutability (cell types, mutable trait with reference capabilities)
+  - Capability-based security (same as Crochet: capability groups protecting types)  (todo)
+  - Multi-methods (restricted from Crochet: limited subtyping)
+  - Traits/interfaces for algebraic code reuse (similar to Rust, Swift, etc)
+  - Enums, tagged unions, and structs for typed values; static records for named tuples
+  - Reasonable collections: byte-array, array, map, set   (map/set use intrinsic equality)
+  - Effects and effect handlers  (one-shot continuations and not algebraic, but powerful)
+  - Gradual typing & effect system  (types can be boxed into/from unknown with runtime assertions)  (todo)
+  - Contracts  (on types, effects, and functions --- checked at runtime)  (todo)
+  - Test blocks and compiler annotations
+  - Context-based extensions --- like Us, Korz, Siren's COP, but static (todo)
+
+
+## Numeric system:
+
+  - sized integers: i8..64, u8..64, int    (Meow is a 64-bit machine, but `int` depends on host's native integer sizes)
+  - sized floats: f64
+  - arbitrary precision: integer, decimal, rational
+
+Arbitrary precision arithmetic automatically promotes values, sized arithmetic
+never does.
+
+
+## Text system:
+
+  - UTF16 strings, but opaque   (provided by host, opaque allows us to avoid some unfun stuff)
+  - Views required for all indexing operations  (similar to Rust, less similar to Swift)
+  - Equality is provided but byte-representation-based
+  - Cultural/international things provided as separate packages
+
+
+## Collections system:
+
+  - Sequences: array, byte-array, range
+  - Set: set
+  - Map: map
+
+Slicing operations yield slices and mostly avoid materialising collection slices
+early. Generic operations are generally done with iterators (similar to Rust).
+Trait system heavily simplified from Crochet's.
+
+
+## Error handling:
+
+  - panic: for all cases where halting the execution is warranted;
+  - result/maybe: for all cases where reifying the error as first-class is useful (e.g.: parsing, indexing);
+  - effects: for everything else/errors that should be retriable or configurable.
+
+
+## Mutability support:
+
+  - mutable versions of collections: fast in-place operations/modifications, guaranteed uniqueness;
+    - similar "move" semantics as Rust, but relaxed as we only care about not
+      allowing concurrent modifications to the underlying memory. We have a tracing GC.
+  - cell<T> type: reified mutable pointer which the compiler can inline.
+  - less straightforwardly: effects can be used to implement "pure" mutability, but would be inefficient for core use cases.
+
+
+## Memory / GC:
+
+  - Meow uses a traced GC (JS or WASM GC, both provided by the host);
+  - The compiler will add calls to `drop()` on types implementing the interface
+    - Similar to Rust: custom refcounting semantics;
+  - For anything with circular references/unbounded lifetimes: it'll be managed by the GC;
+    - weak pointers available through weak-ref<T>;
+    - finalizer<T> for releasing resources associated with groups of references  (not guaranteed to fire);
+  - Copy/Clone traits for memory that can be automatically copied around;
+  - Arena allocation is possible through the regular array<T>, as long as T is sized;
+
+
+## Concurrency:
+
+  - Cooperative concurrency (which fits easily with effects);
+    - Future-based async code for tasks;
+    - Push-stream based async code for events;
+    - CSP channel-based code for synchronisation;
+    - Actors for distributed computation;
+  - Green processes (like Erlang)
+    - 
+
+
+
+--------------------------------------------------------------------------------
+
+Values:
+  - sized: int, i32, i64, f64, bool, tuple, enum, union, fixed-array<T, N>, fixed-byte-array<N>
+  - heap types: integer, decimal, rational, array<T>, thunk<T>, lambda<I..., O>, ref<T>, weak-ref<T>, text, byte-array
+  - mutable types: mutable-byte-array, mutable-array<T>, cell<T>
+
+
+---
+Custom types:
+
+Meow offers structs, tagged unions, and enums. Enums are a special case of a
+tagged union. Structs are similar to what you'd find in other typed, lower
+level languages: a description of how the data is represented in memory.
+
+Singletons are a special kind of struct with no associated data and zero-size
+when not boxed.
+
+Static types are a special kind of reification of the type to runtime for
+performing operations on. Like singletons they have no associated data and
+are zero-size when not boxed.
+
+Examples:
+
+    struct point2d(x: int, y: int);
+
+    union op { // enum special case
+      get-arg;
+      ret;
+      halt;
+    }
+
+    union expr {
+      add(x: expr, y: expr);
+      num(x: int);
+    }
+
+    singleton some-module;
+
+    let A = #expr;  // reified static type
+
+
+Common patterns:
+
+#) configuring modules: use methods on the module instance type:
+
+    singleton parser;
+
+    def parser start-rule() = "top:
+
+    def parser parse(Input: text) = grammar parse(Input, self start-rule());
+
+
+#) constructors for values: use methods on the type's static reification:
+
+    struct point2d(x: int, y: int);
+
+    def #point2d of(x X: int, y Y: int) =
+      new point2d(x: X, y: Y);
+
+
+#) multiple representations of a type: use a union or a trait:
+
+    union list<A> {
+      contiguous(items: array<A>);
+      rope(items: array<array<A>>);
+    }
+
+
+#) Extending representations: patch types:
+
+    patch list<A> {
+      add sorted-contiguous(items: array<A>);
+      deprecate rope "v1.0: complex to maintain in core";
+    }
+
+
+---
+Methods:
+
+Meow uses multi-methods (just like Crochet), but has much more limited subtyping.
+The following are the subtyping rules Meow uses:
+
+    unknown
+      |
+      `---+ trait
+          |
+          `---+ struct type
+          |
+          `---+ union type (e.g.: expr)
+              |
+              `---+ variant type (e.g.: expr..add)
+
+Unlike most functional languages, specific variants of a union *do* get their
+own type, and there's a subtyping relationship between them. This means that
+there's up to 3 levels of subtyping: variant < union < unknown. Meow uses
+this to optimise dispatch.
+
+Dispatch follows the same left-to-right disambiguation rules as in Crochet:
+
+    struct point2d(x: int, y: int);
+
+    union maybe<A> { none; some(value: A); other; }
+
+    trait map<A, B> { def self<A> do(fn: (A) -> B) -> self<B> }
+    implement map<int, int> for int;
+
+
+    def point2d map(Fn: (int) -> int) -> point2d =
+      new point2d(x: Fn(self.x), y: Fn(self.y));
+
+    def maybe..none<A> map(Fn: (A) -> B) -> maybe<B> = self;
+    def maybe..some<A> map(Fn: (A) -> B) -> maybe<B> = self;
+    def maybe<A> map(Fn: (A) -> A) -> maybe<A> = self;
+
+    def &map<A, B> map(Fn: (A) -> B) -> &map<A, B>.self =
+      self do(Fn);
+
+    def unknown map(Fn: (A) -> unknown) -> unknown = 3;
+
+Given this definition, we get:
+
+  - `new point2d(...) map(...)` selects `point2d map()` (distance: 0);
+  - `maybe..none map(...)` selects `maybe..none map()` (distance: 0);
+  - `new maybe..some(...) map(...)` selects `maybe..some map()` (distance: 0);
+  - `maybe..other map(...)` selects `maybe map()` (distance: 1);
+  - `1 map(...)` selects `&map<int, int> map()` (distance: 2);
+  - `"1" map(...)` selects `unknown map()` (distance: 3);
+
+Traits are a bit special as we consider them only after we've exhausted the
+possibilities of using a concrete type. This allows concrete types to override
+default implementations of trait behaviour by just defining the relevant
+multi-methods as usual.
+
+Conflicts in the dispatch can only arise when traits are involved because
+all traits have the same distance, but a value might implement multiple
+traits. When a conflict arise there are two ways of solving them:
+
+  - (preferred) defining a more concrete implementation on the value's type.
+    This means the concrete implementation wins, and no conflict thus ensues.
+
+  - (alternative) defining an ordering between the conflicting traits. This
+    is done at the application level and essentially creates ad-hoc hierarchies:
+
+        prefer equality to other-trait;
+
+    Would make the Meow compiler and runtime pick rank `equality` higher in
+    the method candidate list, allowing methods on it to be picked whenever
+    `other-trait` also defines a method with the same name.
+
+    Ordering must still be transitive, so `prefer a to b; prefer b to c; prefer c to a;`
+    is not a valid set of conflict resolution instructions.
+
+
+---
+Traits
+
+As a gradual typed language, Meow allows reifying the type information to
+the runtime by boxing it into an unknown type, but `unknown` erases all
+type information from the compiler which makes it hard to have good IDE
+feedback and optimisations for generic code.
+
+To address this Meow uses traits: similar to Rust's traits, Swift's protocols,
+Haskell's typeclasses, and Java's interfaces. A trait provides a contract of
+methods that are known to exist in the type.
+
+    trait list<A> {
+      def self count() -> int;
+      def self at(Index: int) -> A;
+      def #self empty() -> self;
+    }
+
+    implement list<A> for array<A>;
+
+    def array<A> count() = ...;
+    def array<A> at(Index: int) = ...;
+    def #array empty() = ...;
+
+Trait functions are defined in the same way as other multimethods.
+Implementations of traits must be explicit. Implementing a trait on
+a type implements it on both the type and the static type, it's the
+function definitions that select which one to use.  At least one of
+the arguments needs to be on the trait-type.
+
+
+---
+Globals
+
+Names that are initialised when the application is loaded (cannot contain
+effects):
+
+    def a = 1;
+    def b = lazy (#type allocate(100));
+
+
+---
+imports
+
+open package name as alias;
+import "file"
+import foreign "file";

@@ -1,0 +1,27 @@
+% meow/1
+
+implement set<A> for set<A>;
+
+pure def set<A> count() -> int {
+  self.map count();
+} test {
+  assert #set from([1, 2, 3]) count() ==> 3;
+}
+
+pure def set<A> contains(Value: V) {
+  self.map has-key(Value);
+} test {
+  assert #set from([1, 2, 3]) contains(2);
+  assert not (#set from([1, 2, 3]) contains(5));
+}
+
+def set<A> values() {
+  self.map keys();
+}
+
+
+implement set<A> for mutable-set<A>;
+
+pure def mutable-set<A> count() = self.map count();
+pure def mutable-set<A> contains(Value: V) = self.map has-key(Value);
+def mutable-set<A> values() = self.map keys();

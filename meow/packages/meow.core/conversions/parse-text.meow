@@ -1,17 +1,32 @@
 % meow/1
 
+implement parse-from-source<text-parse-error> for text;
+implement unparse-to-source for text;
+
 union text-parse-error {
   invalid-text(input: text);
 }
 
-def #text parse(Input: text) -> result<text, text-parse-error> {
+implement panic-message for text-parse-error;
+def panic raise(Msg: text-parse-error..invalid-text, tag Tag: text, data Data: unknown) {
+  panic raise("Invalid text", tag: Tag, data: #(input: Msg.input, other: Data));
+}
+
+def #text parse-from-source(Input: text) -> result<text, text-parse-error> {
   #result
     from(primitive text.parse(Input))
     map-error({ X in new text-parse-error..invalid-text(Input) });
 } test {
-  assert #text parse("\"abc\"") unwrap() ==> "abc";
-  assert #text parse("\"a\nb\u2022\tc\"") unwrap() ==> "a\nb•\tc";
-  assert #text parse("abc") reason() is text-parse-error..invalid-text;
-  assert #text parse("\"abc") reason() is text-parse-error..invalid-text;
-  assert #text parse("'abc'") reason() is text-parse-error..invalid-text;
+  assert #text parse-from-source("\"abc\"") unwrap() ==> "abc";
+  assert #text parse-from-source("\"a\nb\u2022\tc\"") unwrap() ==> "a\nb•\tc";
+  assert #text parse-from-source("abc") reason() is text-parse-error..invalid-text;
+  assert #text parse-from-source("\"abc") reason() is text-parse-error..invalid-text;
+  assert #text parse-from-source("'abc'") reason() is text-parse-error..invalid-text;
+}
+
+def text unparse-to-source() -> text {
+  primitive text.unparse(self);
+} test {
+  assert "abc" unparse-to-source() ==> "\"abc\"";
+  assert "a\nb\nc" unparse-to-source() ==> "\"a\\nb\\nc\"";
 }

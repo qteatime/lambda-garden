@@ -1,0 +1,115 @@
+% meow/1
+
+implement iterable<B> for map-iter<A, B>;
+implement iterator<B> for map-iter<A, B>;
+def map-iter size-hint() -> maybe<int> =
+  self.iter size-hint();
+
+def map-iter<A, B> take-next() -> maybe<B> {
+  self.iter take-next() map(self.fn);
+}
+
+def (_: Iter) map(Fn: (A) -> B) -> map-iter<A, B> where Iter has iterator<A> {
+  new map-iter(iter: self, fn: Fn);
+} test {
+  assert [1, 2, 3] iterator() map(_ + 1) into(#array) ==> [2, 3, 4];
+}
+
+
+implement iterable<A> for enumerate-iter<A>;
+implement iterator<A> for enumerate-iter<A>;
+def enumerate-iter size-hint() -> maybe<int> =
+  self.iter size-hint();
+
+def enumerate-iter<A> take-next() -> maybe<A> {
+  let Item = self.iter take-next();
+  when {
+    Item is maybe..none -> maybe..none;
+    otherwise {
+      let Index = self.index read();
+      self.index <- Index + 1;
+      #maybe some(#(index: Index, value: Item unwrap()));
+    }
+  }
+}
+
+def (_: Iter)enumerate() -> enumerate-iter<A> where Iter has iterator<A> {
+  new enumerate-iter(iter: self, index: #cell of(0));
+} test {
+  assert ["a", "b", "c"] iterator() enumerate() into(#array) ==> [
+    #(index: 0, value: "a"),
+    #(index: 1, value: "b"),
+    #(index: 2, value: "c")
+  ];
+}
+
+
+implement iterable<B> for flatmap-iter<A, B>;
+implement iterator<B> for flatmap-iter<A, B>;
+def flatmap-iter<A, B> take-next() -> maybe<B> {
+  repeat with S = self.state read() {
+    when {
+      S is flatmap-iter-state..next {
+        let Item = S.iter take-next();
+        when {
+          Item is maybe..none -> break with maybe..none;
+          otherwise {
+            let New-state = new flatmap-iter-state..mapcat(self.fn(Item unwrap()) iterator(), S.iter);
+            self.state <- New-state;
+            continue with S = New-state;
+          }
+        }
+      }
+
+      S is flatmap-iter-state..mapcat {
+        let Item = S.iter take-next();
+        when {
+          Item is maybe..none {
+            let New-state = new flatmap-iter-state..next(S.return-to);
+            self.state <- New-state;
+            continue with S = New-state;
+          }
+          otherwise -> break with Item;
+        }
+      }
+    }
+  }
+} test {
+  let A = new flatmap-iter(
+    state: #cell of(new flatmap-iter-state..next(["a", "b"] iterator())),
+    fn: {A in [A, A ++ A]}
+  );
+  assert A take-next() ==> #maybe some("a");
+  assert A.state read() is flatmap-iter-state..mapcat;
+  assert A take-next() ==> #maybe some("aa");
+  assert A take-next() ==> #maybe some("b");
+  assert A take-next() ==> #maybe some("bb");
+  assert A take-next() ==> maybe..none;
+}
+
+def (_: Iter)flat-map(Fn: (A) -> B) -> flatmap-iter<A, C> where Iter has iterator<A>, B has iterable<C> {
+  new flatmap-iter(state: #cell of(new flatmap-iter-state..next(self)), fn: Fn);
+} test {
+  assert [1, 2, 3] iterator() flat-map({X in [X, X]}) into(#array) ==> [1, 1, 2, 2, 3, 3];
+  assert [] iterator() flat-map({_ in [1, 2, 3]}) into(#array) ==> [];
+  assert [1, 2, 3] iterator() flat-map({_ in []}) into(#array) ==> [];
+}
+
+
+def (_: Iter)flatten-once() -> flatmap-iter<A, B> where Iter has iterator<A>, A has iterable<B> {
+  self flat-map({X in X});
+} test {
+  assert [] iterator() flatten-once() into(#array) ==> [];
+  assert [[1, 2], [], [3], [4, [5]]] iterator() flatten-once() into(#array) ==> [1, 2, 3, 4, [5]];
+}
+
+def (_: Iter)++ (That: Iter) -> flatmap-iter<A, B> where Iter has iterator<A>, A has iterable<B> {
+  [self, That] iterator() flatten-once();
+} test {
+  assert ([] iterator() ++ [] iterator()) into(#array) ==> [];
+  assert ([1, 2, 3] iterator() ++ [] iterator()) into(#array) ==> [1, 2, 3];
+  assert ([] iterator() ++ [1, 2, 3] iterator()) into(#array) ==> [1, 2, 3];
+  assert ([1, 2, 3] iterator() ++ [4, 5] iterator()) into(#array) ==> [1, 2, 3, 4, 5];
+}
+
+

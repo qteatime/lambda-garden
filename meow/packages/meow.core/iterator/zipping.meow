@@ -1,0 +1,94 @@
+% meow/1
+
+implement iterable<C> for zipwith-iter<A, B, C>;
+implement iterator<C> for zipwith-iter<A, B, C>;
+def zipwith-iter<A, B, C> size-hint() -> maybe<int> {
+  self.a size-hint();
+}
+
+def zipwith-iter<A, B, C> take-next() -> maybe<C> {
+  let Left = self.a take-next();
+  let Right = self.b take-next();
+  when {
+    Left is maybe..none -> maybe..none;
+    Right is maybe..none -> maybe..none;
+    otherwise -> #maybe some(self.fn(Left unwrap(), Right unwrap()));
+  }
+} test {
+  let A = [1, 2, 3];
+  let B = ["a", "b", "c", "d"];
+  let Z = new zipwith-iter(A iterator(), B iterator(), {A, B in #(a: A, b: B)});
+
+  assert Z take-next() ==> #maybe some(#(a: 1, b: "a"));
+  assert Z take-next() ==> #maybe some(#(a: 2, b: "b"));
+  assert Z take-next() ==> #maybe some(#(a: 3, b: "c"));
+  assert Z take-next() ==> maybe..none;
+
+  let Z1 = new zipwith-iter([1, 2, 3] iterator(), [2] iterator(), {A, B in A + B});
+  assert Z1 take-next() ==> #maybe some(1 + 2);
+  assert Z1 take-next() ==> maybe..none;
+}
+
+
+def (_: Iter)zip(That: &iterable<B>, with Fn: (A, B) -> C) -> zipwith-iter<A, B, C> where Iter has iterator<A> {
+  new zipwith-iter(a: self, b: That iterator(), fn: Fn);
+} test {
+  let A = [1, 2, 3];
+  let B = [4, 5, 6, 7, 8];
+  assert A iterator() zip(B, with:[_, _]) into(#array) ==> [[1, 4], [2, 5], [3, 6]];
+}
+
+
+implement iterable<A> for intersperse-iter<A>;
+implement iterator<A> for intersperse-iter<A>;
+
+def intersperse-iter<A> size-hint() -> maybe<int> =
+  self.iter size-hint() map(_ * 2);
+
+def intersperse-iter<A> take-next() -> maybe<A> {
+  let State = self.state read();
+  when {
+    State is intersperse-iter-state..done -> maybe..none;
+
+    State is intersperse-iter-state..value {
+      self.state <- intersperse-iter-state..separator;
+      self.iter take-next();
+    }
+
+    State is intersperse-iter-state..separator {
+      let Next = self.iter take-next();
+      when {
+        Next is maybe..none {
+          self.state <- intersperse-iter-state..done;
+          maybe..none;
+        }
+
+        otherwise {
+          self.state <- new intersperse-iter-state..buffer(Next unwrap());
+          #maybe some(self.separator);
+        }
+      }
+    }
+
+    State is intersperse-iter-state..buffer {
+      self.state <- intersperse-iter-state..separator;
+      #maybe some(State.value);
+    }
+  }
+} test {
+  let A = new intersperse-iter(#cell of(intersperse-iter-state..value), [1, 2, 3] iterator(), 0);
+  assert A take-next() ==> #maybe some(1);
+  assert A take-next() ==> #maybe some(0);
+  assert A take-next() ==> #maybe some(2);
+  assert A take-next() ==> #maybe some(0);
+  assert A take-next() ==> #maybe some(3);
+  assert A take-next() ==> maybe..none;
+  assert A take-next() ==> maybe..none;
+}
+
+
+def (_: Iter)intersperse(Separator: A) -> intersperse-iter<A> where Iter has iterator<A> {
+  new intersperse-iter(iter: self, state: #cell of(intersperse-iter-state..value), separator: Separator);
+} test {
+  assert [1, 2, 3] iterator() intersperse(0) into(#array) ==> [1, 0, 2, 0, 3];
+}

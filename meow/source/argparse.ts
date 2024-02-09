@@ -37,7 +37,7 @@ export function parse(
     allow_null_file?: boolean;
     compiling?: boolean;
   }
-): { file: string | null; options: Options } {
+): { file: string | null; cache_root: string; options: Options } {
   const {
     positionals: [file0],
     values: args,
@@ -97,8 +97,10 @@ export function parse(
   const search_path = [Path.resolve(__dirname, "../packages"), ...(args.include ?? [])];
 
   let file = file0;
+  let cache_root = file == null ? process.cwd() : Path.dirname(file);
   if (file == null && args.package?.trim()) {
     file = find_package(args.package, search_path);
+    cache_root = Path.dirname(file);
   }
 
   if ((file == null && options.allow_null_file !== true) || args.help) {
@@ -108,6 +110,7 @@ export function parse(
 
   return {
     file,
+    cache_root,
     options: {
       no_prelude: args["no-prelude"] ?? false,
       no_stdlib: args["no-stdlib"] ?? false,

@@ -1,5 +1,0 @@
-% meow/1
-
-import "array.meow";
-import "array-slice.meow";
-import "mutable-array.meow";

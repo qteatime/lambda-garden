@@ -1,18 +1,36 @@
 % meow/1
 
+implement unparse-to-source for bool;
+implement parse-from-source<bool-parse-error> for bool;
+
 union bool-parse-error {
   invalid-bool(input: text);
 }
 
-def #bool parse(Input0: text) -> result<bool, bool-parse-error> {
-  let Input = Input0 trim();
+implement panic-message for bool-parse-error;
+def panic raise(Msg: bool-parse-error, tag Tag: text, data Data: unknown) {
+  panic raise("Invalid boolean", tag: Tag, data: #(input: Msg.input, other: Data));
+}
+
+def bool unparse-to-source() -> text {
   when {
-    Input =:= "true" => #result ok(true);
-    Input =:= "false" => #result ok(false);
-    otherwise => #result error(new bool-parse-error..invalid-bool(Input0));
+    self -> "true";
+    otherwise -> "false";
   }
 } test {
-  assert #bool parse("true") unwrap() ==> true;
-  assert #bool parse("  false  ") unwrap() ==> false;
-  assert #bool parse("no") reason() is bool-parse-error..invalid-bool;
+  assert true unparse-to-source() ==> "true";
+  assert false unparse-to-source() ==> "false";
+}
+
+def #bool parse-from-source(Input0: text) -> result<bool, bool-parse-error> {
+  let Input = Input0 trim();
+  when {
+    Input =:= "true" -> #result ok(true);
+    Input =:= "false" -> #result ok(false);
+    otherwise -> #result error(new bool-parse-error..invalid-bool(Input0));
+  }
+} test {
+  assert #bool parse-from-source("true") unwrap() ==> true;
+  assert #bool parse-from-source("  false  ") unwrap() ==> false;
+  assert #bool parse-from-source("no") reason() is bool-parse-error..invalid-bool;
 }

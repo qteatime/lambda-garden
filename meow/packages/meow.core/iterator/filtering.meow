@@ -1,0 +1,199 @@
+% meow/1
+
+//#region Filtering a known number of items ------------------------------------
+implement iterable<A> for take-iter<A>;
+implement iterator<A> for take-iter<A>;
+def take-iter<A> size-hint() -> maybe<int> =
+  #maybe some(self.count read());
+
+def take-iter<A> take-next() -> maybe<A> {
+  let Count = self.count read();
+  when {
+    Count === 0 -> maybe..none;
+    otherwise {
+      self.count <- Count - 1;
+      self.iter take-next()
+                or-else({
+                  self.count <- 0;
+                  maybe..none;
+                });
+    }
+  }
+}
+
+implement iterable<A> for skip-iter<A>;
+implement iterator<A> for skip-iter<A>;
+def skip-iter<A> size-hint() -> maybe<int> =
+  self.iter size-hint() map({X in X - self.count read()});
+
+def skip-iter<A> take-next() -> maybe<A> {
+  repeat with Count = self.count read(), Item = self.iter take-next() {
+    when {
+      Count === 0 -> break with Item;
+      
+      Item is maybe..none -> break with Item;
+
+      otherwise {
+        self.count <- Count - 1;
+        continue with Count = self.count read(), Item = self.iter take-next();
+      }
+    }
+  }
+} test {
+  let A = new skip-iter([1, 2, 3, 4] iterator(), #cell of(1));
+  assert A take-next() ==> #maybe some(2);
+  assert A.count read() ==> 0;
+  assert A take-next() ==> #maybe some(3);
+  assert A take-next() ==> #maybe some(4);
+  assert A take-next() ==> maybe..none;
+}
+
+def (_: Iter) take(Count: int) -> take-iter<A> where Iter has iterator<A> {
+  assert Count >= 0 :: positive-count;
+  new take-iter(iter: self, count: #cell of(Count));
+} test {
+  assert [1, 2, 3, 4, 5] iterator() take(0) into(#array) ==> [];
+  assert [1, 2, 3, 4, 5] iterator() take(2) into(#array) ==> [1, 2];
+  assert [1, 2, 3, 4, 5] iterator() take(10) into(#array) ==> [1, 2, 3, 4, 5];
+}
+
+def (_: Iter) skip(Count: int) -> skip-iter<A> where Iter has iterator<A> {
+  assert Count >= 0 :: positive-count;
+  new skip-iter(iter: self, count: #cell of(Count));
+} test {
+  assert [1, 2, 3, 4, 5] iterator() skip(0) into(#array) ==> [1, 2, 3, 4, 5];
+  assert [1, 2, 3, 4, 5] iterator() skip(2) into(#array) ==> [3, 4, 5];
+  assert [1, 2, 3, 4, 5] iterator() skip(1_000_000) into(#array) ==> [];
+}
+//#endregion
+
+//#region Filtering items anywhere in the sequence -----------------------------
+implement iterable<A> for filter-iter<A>;
+implement iterator<A> for filter-iter<A>;
+def filter-iter<A> size-hint() -> maybe<int> =
+  self.iter size-hint();
+
+def filter-iter<A> take-next() -> maybe<A> {
+  repeat with Item = self.iter take-next() {
+    when {
+      Item is maybe..none -> break with maybe..none;
+      not self.pred(Item unwrap()) -> continue with Item = self.iter take-next();
+      otherwise -> break with Item;
+    }
+  }
+}
+
+def (_: Iter) take(if Predicate: (A) -> bool) -> filter-iter<A> where Iter has iterator<A> {
+  new filter-iter(iter: self, pred: Predicate);
+} test {
+  assert [1, 2, 3, 4, 5] iterator() take(if: _ >= 3) into(#array) ==> [3, 4, 5];
+}
+
+def (_: Iter)skip(if Predicate: (A) -> bool) -> filter-iter<A> where Iter has iterator<A> {
+  new filter-iter(iter: self, pred: {X in not Predicate(X)});
+} test {
+  assert [1, 2, 3, 4, 5] iterator() skip(if: _ >= 3) into(#array) ==> [1, 2];
+}
+//#endregion
+
+//#region Filtering items in the beginning of the sequence ---------------------
+implement iterable<A> for take-while-iter<A>;
+implement iterator<A> for take-while-iter<A>;
+def take-while-iter<A> size-hint() -> maybe<int> =
+  self.iter size-hint();
+
+def take-while-iter<A> take-next() -> maybe<A> {
+  let Item = self.iter take-next();
+  when {
+    not self.check read() -> Item;
+
+    Item is maybe..none {
+      self.check <- false;
+      maybe..none;
+    }
+
+    not self.pred(Item unwrap()) {
+      self.check <- false;
+      maybe..none;
+    }
+
+    otherwise -> Item;
+  }
+}
+
+implement iterable<A> for skip-while-iter<A>;
+implement iterator<A> for skip-while-iter<A>;
+def skip-while-iter<A> size-hint() -> maybe<int> =
+  self.iter size-hint();
+
+def skip-while-iter<A> take-next() -> maybe<A> {
+  repeat with Item = self.iter take-next(), Check = self.check read() {
+    when {
+      Item is maybe..none -> break with Item;
+      Check and self.pred(Item unwrap()) -> continue with Item = self.iter take-next();
+      Check {
+        self.check <- false;
+        break with Item;
+      }
+      otherwise -> break with Item;
+    }
+  }
+}
+
+def (_: Iter)take(while Predicate: (A) -> bool) -> take-while-iter<A> where Iter has iterator<A> {
+  new take-while-iter(iter: self, pred: Predicate, check: #cell of(true));
+} test {
+  assert [5, 2, 3, 4, 5] iterator() take(while: _ < 3) into(#array) ==> [];
+  assert [1, 2, 3, 4, 5] iterator() take(while: _ < 3) into(#array) ==> [1, 2];
+  assert [1, 2, 0, 2, 1] iterator() take(while: _ < 3) into(#array) ==> [1, 2, 0, 2, 1];
+}
+
+def (_: Iter)skip(while Predicate: (A) -> bool) -> skip-while-iter<A> where Iter has iterator<A> {
+  new skip-while-iter(iter: self, pred: Predicate, check: #cell of(true));
+} test {
+  assert [1, 2, 3, 4, 5] iterator() skip(while: _ < 3) into(#array) ==> [3, 4, 5];
+  assert [5, 2, 1, 0, -1] iterator() skip(while: _ < 3) into(#array) ==> [5, 2, 1, 0, -1];
+  assert [1, 2, 0, 2, 1] iterator() skip(while: _ < 3) into(#array) ==> [];
+}
+//#endregion
+
+//#region Filtering items based on previous items ------------------------------
+implement iterable<A> for distinct-iter<A>;
+implement iterator<A> for distinct-iter<A>;
+def distinct-iter<A> size-hint() -> maybe<int> =
+  self.iter size-hint();
+
+def distinct-iter<A> take-next() -> maybe<A> {
+  repeat with Item = self.iter take-next(), Prev = self.prev read() {
+    when {
+      Item is maybe..none -> break with maybe..none;
+
+      Prev is maybe..none {
+        self.prev <- Item;
+        break with Item;
+      }
+
+      self.eq(Prev unwrap(), Item unwrap()) ->
+        continue with Prev = Item, Item = self.iter take-next();
+
+      otherwise {
+        self.prev <- Item;
+        break with Item;
+      }
+    }
+  }
+}
+
+def (_: Iter)distinct(by Eq: (A, A) -> bool) -> distinct-iter<A> where Iter has iterator<A> {
+  new distinct-iter(iter: self, eq: Eq, prev: #cell of(maybe..none));
+} test {
+  assert [1, 2, 2, 3, 1, 1, 4] iterator() distinct(by: _ =:= _) into(#array) ==> [1, 2, 3, 1, 4];
+  assert [] iterator() distinct(by: _ =:= _) into(#array) ==> [];
+}
+
+def (_: Iter)distinct() -> distinct-iter<A> where Iter has iterator<A>, A has equality {
+  self distinct(by: _ === _);
+} test {
+  assert [1, 2, 2, 3, 1, 1, 4] iterator() distinct() into(#array) ==> [1, 2, 3, 1, 4];
+  assert [] iterator() distinct() into(#array) ==> [];
+}

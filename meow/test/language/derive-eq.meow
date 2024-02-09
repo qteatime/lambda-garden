@@ -1,0 +1,29 @@
+% meow/1
+
+// The compiler can derive equality trait
+
+@derive([equality])
+struct derive-point(x: int, y: int);
+
+@derive([equality])
+union derive-expr {
+  add(x: derive-expr, y: derive-expr);
+  num(x: int);
+  zero;
+}
+
+test "Equality is automatically provided" {
+  let Point-a = new derive-point(1, 2);
+  let Point-b = new derive-point(2, 3);
+  assert Point-a has equality;
+  assert Point-a === Point-a;
+  assert Point-a =/= Point-b;
+
+  let Expr-a = new derive-expr..add(new derive-expr..num(1), derive-expr..zero);
+  let Expr-b = new derive-expr..num(1);
+  assert Expr-a has equality;
+  assert Expr-b has equality;
+  assert derive-expr..zero has equality;
+  assert Expr-a === Expr-a;
+  assert Expr-a =/= Expr-b;
+}

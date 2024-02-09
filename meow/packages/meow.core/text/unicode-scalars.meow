@@ -1,0 +1,61 @@
+% meow/1
+
+def text unicode-scalars() {
+  new unicode-scalars-iterator(text: self, index: #cell of(0), start: 0, end: self count-code-units());
+} test {
+  assert "hi 😺!" unicode-scalars() take(4) into(#array)
+    ==> [#maybe some(104), #maybe some(105), #maybe some(32), #maybe some(128_570)];
+
+  assert "hi \ud800" unicode-scalars() into(#array)
+    ==> [#maybe some(104), #maybe some(105), #maybe some(32), maybe..none];
+}
+
+def text-slice unicode-scalars() {
+  new unicode-scalars-iterator(text: self.text, index: #cell of(self.offset), start: self.offset, end: self.offset + self.length);
+} test {
+  assert "hi 😺!" slice(length: 4) unicode-scalars() take(4) into(#array)
+    ==> [#maybe some(104), #maybe some(105), #maybe some(32), maybe..none];
+
+  assert "hi 😺!" slice(length: 6) unicode-scalars() into(#array)
+    ==> [#maybe some(104), #maybe some(105), #maybe some(32), #maybe some(128_570), #maybe some(33)];
+}
+
+implement iterable<maybe<int>> for unicode-scalars-iterator;
+implement iterator<maybe<int>> for unicode-scalars-iterator;
+def unicode-scalars-iterator size-hint() =
+  #maybe some(self.end - self.index read());
+
+def unicode-scalars-iterator take-next() -> maybe<maybe<int>> {
+  let Index = self.index read();
+  when {
+    Index >= self.end -> maybe..none;
+    otherwise {
+      let Surrogate = self.text surrogate-at!(Index);
+      when {
+        Surrogate is utf16-surrogate..scalar {
+          self.index <- Index + 1;
+          #maybe some(#maybe some(Surrogate to-unicode-scalar()));
+        }
+
+        Surrogate is utf16-surrogate..lone {
+          self.index <- Index + 1;
+          #maybe some(maybe..none);
+        }
+
+        (Surrogate is utf16-surrogate..pair) and ((Index + 1) === self.end) {
+          self.index <- Index + 1;
+          #maybe some(maybe..none);
+        }
+
+        Surrogate is utf16-surrogate..pair {
+          self.index <- Index + 2;
+          #maybe some(#maybe some(Surrogate to-unicode-scalar()));
+        }
+      }
+    }
+  }
+} test {
+  assert "hi" unicode-scalars() into(#array) ==> [#maybe some(104), #maybe some(105)];
+  assert "😺🔮" unicode-scalars() into(#array) ==> [#maybe some(128570), #maybe some(128302)];
+  assert "h\uD83Di" unicode-scalars() into(#array) ==> [#maybe some(104), maybe..none, #maybe some(105)];
+}

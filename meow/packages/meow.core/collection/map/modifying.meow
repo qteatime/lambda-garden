@@ -1,0 +1,53 @@
+% meow/1
+
+implement modifiable-map<K, V> for mutable-map<K, V>;
+
+def mutable-map<K, V> put(at Key: K, value Value: V) -> mutable-map<K, V> {
+  primitive map.mut-put(self.map, Key, Value);
+  self;
+} test {
+  let A = #mutable-map empty();
+  A put(at: "a", value: 1);
+  assert A ==> new mutable-map(["a": 1]);
+
+  A put(at: "b", value: 2);
+  assert A ==> new mutable-map(["a": 1, "b": 2]);
+
+  A put(at: "a", value: 3);
+  assert A ==> new mutable-map(["a": 3, "b": 2]);
+}
+
+def mutable-map<K, V> remove(at Key: K) -> mutable-map<K, V> {
+  primitive map.mut-remove(self.map, Key);
+  self;
+} test {
+  let A = new mutable-map(["a": 1, "b": 2]);
+  A remove(at: "c");
+  assert A ==> new mutable-map(["a": 1, "b": 2]);
+
+  A remove(at: "a");
+  assert A ==> new mutable-map(["b": 2]);
+}
+
+def mutable-map<K, V> remove-all() -> mutable-map<K, V> {
+  primitive map.mut-clear(self.map);
+} test {
+  let A = new mutable-map(["a": 1, "b": 2]);
+  A remove-all();
+  assert A ==> new mutable-map([:]);
+}
+
+
+implement modifiable-map<K, V> for map<K, V>;
+
+def map<K, V> put(at Key: K, value Value: V) -> map<K, V> {
+  self mutable-copy()
+       put(at: Key, value: Value)
+       freeze();
+}
+
+def map<K, V> remove(at Key: K) -> map<K, V> {
+  self mutable-copy()
+       remove(at: Key)
+       freeze();
+}

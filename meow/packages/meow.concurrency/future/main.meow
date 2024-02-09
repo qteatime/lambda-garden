@@ -1,0 +1,34 @@
+% meow/1
+
+open package meow.time;
+
+struct future<T, E>(value: native-promise);
+
+union future-result<T, E> {
+  ok(value: T);
+  error(reason: E);
+  cancelled;
+}
+
+struct deferred<T, E>(value: native-deferred);
+
+union deferred-state<T, E> {
+  pending;
+  resolved(value: future-result<T, E>);
+}
+
+struct timeout-error(time: time-duration);
+implement panic-message for timeout-error;
+def panic raise(Msg: timeout-error, tag Tag: text, data Data: unknown) {
+  panic raise("Future timed out", tag: Tag, data: #(timeout: self.time, other: Data));
+}
+
+
+import "deferred.meow";
+import "future-result.meow";
+import "constructing.meow";
+import "events.meow";
+import "reading.meow";
+import "transforming.meow";
+import "combining.meow";
+import "timing.meow";

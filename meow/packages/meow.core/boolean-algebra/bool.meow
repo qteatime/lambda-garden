@@ -1,0 +1,76 @@
+% meow/1
+
+implement boolean-algebra for bool;
+
+/// Logical conjunction.
+pure def bool and (X: bool) -> bool {
+  primitive bool.and(self, X);
+} test {
+  assert true and true ==> true;
+  assert true and false ==> false;
+  assert false and true ==> false;
+  assert false and false ==> false;
+}
+
+/// Logical disjunction
+pure def bool or (X: bool) -> bool {
+  primitive bool.or(self, X);
+} test {
+  assert true or true ==> true;
+  assert true or false ==> true;
+  assert false or true ==> true;
+  assert false or false ==> false;
+}
+
+/// Logical negation
+pure def not bool -> bool {
+  primitive bool.not(self);
+} test {
+  assert not true ==> false;
+  assert not false ==> true;
+}
+
+/// Logical implication
+pure def bool imply(That: bool) -> bool {
+  when {
+    self -> That;
+    otherwise -> true;
+  }
+} test {
+  assert true imply(false) ==> false;
+  assert true imply(true) ==> true;
+  assert false imply(false) ==> true;
+  assert false imply(true) ==> true;
+}
+
+/// Exclusive OR
+pure def bool ^ (That: bool) -> bool {
+  not (self === That);
+} test {
+  assert true ^ true ==> false;
+  assert true ^ false ==> true;
+  assert false ^ true ==> true;
+  assert false ^ false ==> false;
+}
+
+
+implement lazy-boolean-algebra for bool;
+def bool and-also(F: () -> bool) -> bool {
+  when {
+    self -> F();
+    otherwise -> self;
+  }
+} test {
+  assert true and-also({ false }) ==> false;
+  assert false and-also({ panic raise("no") }) ==> false;
+}
+
+def bool or-else(F: () -> bool) -> bool {
+  when {
+    self -> self;
+    otherwise -> F();
+  }
+} test {
+  assert true or-else({ panic raise("no") }) ==> true;
+  assert false or-else({ true }) ==> true;
+}

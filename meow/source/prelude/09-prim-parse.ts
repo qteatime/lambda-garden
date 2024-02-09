@@ -10,6 +10,8 @@ const int_parse = (x: string) => {
   }
 };
 
+const int_unparse = (x: number) => String(x);
+
 const i64_parse = (x: string) => {
   try {
     return $meow.record({ ok: true, value: BigInt(x.replace(/_/g, "")) });
@@ -17,6 +19,8 @@ const i64_parse = (x: string) => {
     return $meow.record({ ok: false, reason: "not-integer" });
   }
 };
+
+const i64_unparse = (x: bigint) => x.toString();
 
 const f64_parse = (x: string) => {
   const v = Number(x.replace(/_/g, ""));
@@ -26,6 +30,8 @@ const f64_parse = (x: string) => {
     return $meow.record({ ok: true, value: $meow.f64(v) });
   }
 };
+
+const f64_unparse = (x: $F64) => String(x.value);
 
 const text_parse = (x: string) => {
   try {
@@ -37,3 +43,5 @@ const text_parse = (x: string) => {
     return $meow.record({ ok: false, reason: "not-text" });
   }
 };
+
+const text_unparse = (x: string) => JSON.stringify(x);

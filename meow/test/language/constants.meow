@@ -1,0 +1,59 @@
+% meow/1
+
+test "numbers" {
+  assert 1_000_000 is int;
+  assert -1_000 is int;
+
+  assert 1_000_000L is i64;   // TODO: change the suffix?
+  assert -1_000L is i64;
+
+  assert 1_000_000.0f is f64;
+  assert 123.456f is f64;
+  assert -1000.0f is f64;
+
+  assert 1_000 =:= 1000;
+  assert 1_000L =:= 1000L;
+  assert 1_000.0f =:= 1000.0f;
+
+  assert not (1_000 =:= -1_000);
+  assert not (1_000L =:= -1_000L);
+  assert not (1_000.0f =:= -1_000.0f);
+
+  assert not (1_000 =:= 1_000L);
+  assert not (1_000 =:= 1_000.0f);
+
+  assert 255 =:= 0xFF;
+  assert 123456 =:= 0x01_E2_40;
+}
+
+test "basic constants" {
+  assert true is bool;
+  assert false is bool;
+  assert nothing is nothing;
+}
+
+test "text" {
+  // simple text
+  assert "abc" ==> "abc";
+
+  // single-line triple-quote text
+  assert """abc""" ==> "abc";
+
+  // escape sequences
+  assert "hi\u0021 \"cafe\u0301\" is good\ud83d\ude3a\\" ==> """hi! \u0022café\u0022 is good😺\u005c""";
+
+  // multiline text
+  assert "a
+          b
+          c" ==> "a\n          b\n          c";
+  assert """
+         a
+          b
+         c
+         """ ==> "a\n b\nc";
+  assert """ a
+          b
+         c
+        d
+       e """ ==> " a\n b\nc\nd\ne ";
+}

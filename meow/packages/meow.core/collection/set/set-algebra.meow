@@ -1,0 +1,74 @@
+% meow/1
+
+implement set-algebra for set<A>;
+
+def set<A> intersection(That: set<A>) -> set<A> {
+  #set from(
+    self values()
+         take(if: That contains(_))
+  )
+} test {
+  assert #set from([1, 2, 3, 8]) intersection(#set from([2, 4, 5, 8])) ==> #set from([2, 8]);
+  assert #set from([1, 2, 3]) intersection(#set from([])) ==> #set from([]);
+  assert #set from([]) intersection(#set from([1, 2, 3])) ==> #set from([]);
+}
+
+
+def set<A> 'union(That: set<A>) -> set<A> {
+  That values()
+       fold(from: self mutable-copy(), with: _ put(_))
+       freeze();
+} test {
+  assert #set from([1, 2, 3]) 'union(#set from([2, 4, 6])) ==> #set from([1, 2, 3, 4, 6]);
+  assert #set from([]) 'union(#set from([2, 3, 4])) ==> #set from([2, 3, 4]);
+  assert #set from([1, 2, 3]) 'union(#set from([])) ==> #set from([1, 2, 3]);
+}
+
+
+def set<A> difference(That: set<A>) -> set<A> {
+  That values()
+       fold(from: self mutable-copy(), with: _ remove(_))
+       freeze();
+} test {
+  assert #set from([1, 2, 3]) difference(#set from([2, 4, 6])) ==> #set from([1, 3]);
+  assert #set from([1, 2, 3]) difference(#set from([4, 5, 6])) ==> #set from([1, 2, 3]);
+  assert #set from([1, 2, 3]) difference(#set from([1, 2, 3])) ==> #set from([]);
+}
+
+
+def set<A> symmetric-difference(That: set<A>) -> set<A> {
+  (self values() ++ That values())
+    fold(from: #mutable-set empty(), with: { Set, Value in
+      when {
+        self contains(Value) and That contains(Value) -> Set;
+        otherwise -> Set put(Value);
+      }
+    })
+    freeze();
+} test {
+  assert #set from([1, 2, 3]) symmetric-difference(#set from([2, 4, 6]))
+    ==> #set from([1, 3, 4, 6]);
+}
+
+
+implement set-algebra<A> for mutable-set<A>;
+
+def mutable-set<A> intersection(That: mutable-set<A>) -> mutable-set<A> {
+  let Set = new set(self.map) intersection(new set(That.map));
+  new mutable-set(Set.map);
+}
+
+def mutable-set<A> 'union(That: mutable-set<A>) -> mutable-set<A> {
+  let Set = new set(self.map) 'union(new set(That.map));
+  new mutable-set(Set.map);
+}
+
+def mutable-set<A> difference(That: mutable-set<A>) -> mutable-set<A> {
+  let Set = new set(self.map) difference(new set(That.map));
+  new mutable-set(Set.map);
+}
+
+def mutable-set<A> symmetric-difference(That: mutable-set<A>) -> mutable-set<A> {
+  let Set = new set(self.map) symmetric-difference(new set(That.map));
+  new mutable-set(Set.map);
+}

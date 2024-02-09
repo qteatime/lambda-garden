@@ -1,0 +1,47 @@
+% meow/1
+
+//#region Constant byte arrays -------------------------------------------------
+pure def #byte-array allocate(size Size: int, default Default: int) -> byte-array {
+  primitive binary.allocate(Size, Default);
+} test {
+  assert #byte-array allocate(size: 4, default: 1) ==> <<1, 1, 1, 1>>;
+}
+
+pure def #byte-array allocate(size Size: int) =
+  #byte-array allocate(Size, default: 0);
+
+
+def #byte-array from(Iter: Iter) -> byte-array where Iter has iterable<int> {
+  Iter iterator() into(#byte-array);
+} test {
+  assert #byte-array from([] iterator()) ==> <<>>;
+  assert #byte-array from([1, 2, 3] iterator()) ==> <<1, 2, 3>>;
+}
+
+pure def #byte-array from(Array: array<int>) -> byte-array {
+  primitive binary.from-array(Array);
+} test {
+  assert #byte-array from([]) ==> <<>>;
+  assert #byte-array from([1, 2, 3]) ==> <<1, 2, 3>>;
+}
+
+pure def #byte-array concat(Arrays: array<byte-array>) -> byte-array {
+  primitive binary.concat(Arrays);
+} test {
+  assert #byte-array concat([<<1>>, <<>>, <<2>>, <<3, 4>>]) ==> <<1, 2, 3, 4>>;
+}
+//#endregion
+
+//#region Mutable byte arrays --------------------------------------------------
+pure def #mutable-byte-array allocate(size Size: int, default Default: int) -> mutable-byte-array {
+  new mutable-byte-array(#byte-array allocate(size: Size, default: Default));
+}
+
+pure def #mutable-byte-array allocate(size Size: int) -> mutable-byte-array {
+  #mutable-byte-array allocate(size: Size, default: 0);
+}
+
+pure def byte-array mutable-copy() -> mutable-byte-array {
+  new mutable-byte-array(self shallow-copy());
+}
+//#endregion

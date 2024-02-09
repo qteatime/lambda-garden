@@ -50,5 +50,7 @@ class $ShadowStack {
 }
 
 const $stack = new $ShadowStack();
+let $file: string | null = null;
+let $line: number | null = null;
 
 const $t = (data: string) => $stack.push(data);

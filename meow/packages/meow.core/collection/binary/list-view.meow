@@ -1,0 +1,104 @@
+% meow/1
+
+//#region Fixed list -----------------------------------------------------------
+implement list<int> for byte-array;
+
+pure def byte-array count() -> int {
+  primitive binary.count(self);
+} test {
+  assert <<>> count() ==> 0;
+  assert <<1, 2, 3>> count() ==> 3;
+}
+
+pure def byte-array at(Index: int) -> maybe<int> {
+  when {
+    Index < 0 -> maybe..none;
+    Index >= self count() -> maybe..none;
+    otherwise -> #maybe some(self at!(Index));
+  }
+} test {
+  assert <<>> at(0) ==> maybe..none;
+  assert <<1, 2, 3>> at(1) unwrap() ==> 2;
+  assert <<1, 2, 3>> at(5) ==> maybe..none;
+}
+
+pure def byte-array at!(Index: int) -> int {
+  primitive binary.at(self, Index);
+} test {
+  assert <<1>> at!(0) ==> 1;
+  assert <<1, 2, 3>> at!(1) ==> 2;
+}
+
+
+implement list<int> for mutable-byte-array;
+
+pure def mutable-byte-array count() =
+  self.array count();
+
+pure def mutable-byte-array at(Index: int) =
+  self.array at(Index);
+
+pure def mutable-byte-array at!(Index: int) =
+  self.array at!(Index);
+//#endregion
+
+//#region Updating byte arrays -------------------------------------------------
+implement modifiable-list<int> for mutable-byte-array;
+
+pure def mutable-byte-array put(at Index: int, value Value: int) -> mutable-byte-array {
+  primitive binary.at-put(self.array, Index, Value);
+  self;
+} test {
+  let A = new mutable-byte-array(<<1, 2, 3>>);
+  A put(at: 0, value: 0);
+  assert A ==> new mutable-byte-array(<<0, 2, 3>>);
+}
+
+pure def mutable-byte-array put(at Index: int, all-of Values: byte-array) -> mutable-byte-array {
+  primitive binary.at-put-all(self.array, Index, Values);
+  self;
+} test {
+  let A = new mutable-byte-array(<<1, 2, 3, 4, 5, 6>>);
+  A put(at: 1, all-of: <<9, 8, 7>>);
+  assert A ==> new mutable-byte-array(<<1, 9, 8, 7, 5, 6>>);
+}
+
+pure def mutable-byte-array put(at Index: int, all-of Values: mutable-byte-array) -> mutable-byte-array {
+  self put(at: Index, all-of: Values.array);
+} test {
+  let A = new mutable-byte-array(<<1, 2, 3, 4, 5, 6>>);
+  let B = new mutable-byte-array(<<9, 8, 7>>);
+  A put(at: 1, all-of: B);
+  B fill(0);
+  assert A ==> new mutable-byte-array(<<1, 9, 8, 7, 5, 6>>);
+}
+
+pure def mutable-byte-array fill(Value: int) -> mutable-byte-array {
+  primitive binary.fill-all(self.array, Value);
+  self;
+} test {
+  let A = new mutable-byte-array(<<1, 2, 3>>);
+  assert A fill(5) ==> new mutable-byte-array(<<5, 5, 5>>);
+}
+
+pure def mutable-byte-array fill(Value: int, from Start: int, to End: int) -> mutable-byte-array {
+  primitive binary.fill(self.array, Value, Start, End);
+  self;
+} test {
+  let A = new mutable-byte-array(<<1, 2, 3>>);
+  A fill(5, from: 1, to: 3);
+  assert A ==> new mutable-byte-array(<<1, 5, 5>>);
+}
+//#endregion
+
+//#region Joining byte arrays --------------------------------------------------
+implement joinable-list<A> for byte-array;
+pure def byte-array ++ (That: byte-array) -> byte-array {
+  primitive binary.concat([self, That]);
+} test {
+  assert <<>> ++ <<>> ==> <<>>;
+  assert <<>> ++ <<1, 2, 3>> ==> <<1, 2, 3>>;
+  assert <<1, 2, 3>> ++ <<>> ==> <<1, 2, 3>>;
+  assert <<1, 2, 3>> ++ <<4, 5>> ==> <<1, 2, 3, 4, 5>>;
+}
+//#endregion

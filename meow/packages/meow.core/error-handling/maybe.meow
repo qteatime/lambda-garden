@@ -1,26 +1,33 @@
 % meow/1
 
 // -- Constructors -------------------------------------------------------------
-def #maybe from(nullable Value: nothing) -> maybe<T> {
+pure def #maybe from(nullable Value: nothing) -> maybe<T> {
   maybe..none;
 }
 
-def #maybe from(nullable Value: T) -> maybe<T> {
+pure def #maybe from(nullable Value: T) -> maybe<T> {
   new maybe..some(value: Value);
 }
 
-def #maybe from(Result: result<T, _>) -> maybe<T> {
+pure def #maybe from(Result: result<T, _>) -> maybe<T> {
   when {
-    Result is result..ok => #maybe some(Result unwrap());
-    otherwise => maybe..none;
+    Result is result..ok -> #maybe some(Result unwrap());
+    otherwise -> maybe..none;
   }
 }
 
-def #maybe some(Value: T) -> maybe<T> {
+pure def #maybe from(Value: #(ok: bool, value: T)) -> maybe<T> {
+  when {
+    Value.ok -> #maybe some(Value.value);
+    otherwise -> maybe..none;
+  }
+}
+
+pure def #maybe some(Value: T) -> maybe<T> {
   new maybe..some(value: Value);
 }
 
-def #maybe none() -> maybe<T> {
+pure def #maybe none() -> maybe<T> {
   maybe..none;
 }
 
@@ -31,19 +38,22 @@ test "constructing maybes" {
   assert #maybe from(#result ok(1)) unwrap() ==> 1;
   assert #maybe from(#result error(1)) is maybe..none;
 
+  assert #maybe from(#(ok: true, value: 1)) unwrap() ==> 1;
+  assert #maybe from(#(ok: false, value: 1)) is maybe..none;
+
   assert #maybe some(nothing) unwrap() ==> nothing;
   assert #maybe none() is maybe..none;
 }
 
 // -- Getters ------------------------------------------------------------------
-def maybe..some<T> unwrap() -> T = self.value;
+pure def maybe..some<T> unwrap() -> T = self.value;
 
-def maybe..some<T> unwrap(default _: T) -> T = self.value;
-def maybe..none<T> unwrap(default Value: T) -> T = Value;
+pure def maybe..some<T> unwrap(default _: T) -> T = self.value;
+pure def maybe..none<T> unwrap(default Value: T) -> T = Value;
 
-def maybe..some<T> unwrap(or-panic Message: text) -> T = self.value;
-def maybe..none<T> unwrap(or-panic Message: text) -> T {
-  #panic raise(message: Message);
+pure def maybe..some<T> unwrap(or-panic Message: &panic-message<A>) -> T = self.value;
+def maybe..none<T> unwrap(or-panic Message: &panic-message<A>) -> T {
+  panic raise(Message);
 }
 
 def maybe..some<T> unwrap(or-else Fn: () -> T) -> T = self.value;
@@ -75,8 +85,8 @@ def maybe..none<T> or-else(Fn: () -> maybe<U>) -> maybe<U> = Fn();
 
 def maybe..some<T> keep-if(Fn: (T) -> bool) -> maybe<T> {
   when {
-    Fn(self.value) => self;
-    otherwise => maybe..none;
+    Fn(self.value) -> self;
+    otherwise -> maybe..none;
   }
 }
 

@@ -1,0 +1,20 @@
+% meow/1
+
+def future<T, E> wait-settled() -> future-result<T, E> {
+  foreign future.wait(self.value);
+} test {
+  let A = #deferred defer() resolve(1);
+  assert A future() wait-settled() ==> new future-result..ok(1);
+
+  let B = #deferred defer() reject(2);
+  assert B future() wait-settled() ==> new future-result..error(2);
+
+  let C = #deferred defer() cancel();
+  assert C future() wait-settled() ==> future-result..cancelled;
+}
+
+def future<T, E> wait!() -> T {
+  self wait-settled() unwrap();
+} test {
+  assert #future ok(1) wait!() ==> 1;
+}

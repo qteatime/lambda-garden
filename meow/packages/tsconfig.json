@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "module": "commonjs",
+    "target": "ES2020",
+    "lib": ["ESNext", "DOM", "ESNext.Intl"]
+  },
+  "include": ["**/*.ts", "../build/prelude/*.d.ts"]
+}

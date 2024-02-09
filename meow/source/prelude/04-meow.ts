@@ -1,4 +1,5 @@
 const Path = require("path");
+const Show = require("util").inspect;
 
 const $meow = new (class Meow {
   pprint(x: $Value) {
@@ -10,7 +11,27 @@ const $meow = new (class Meow {
     return x;
   }
 
+  start_package(name: string | null) {
+    const pkg = this.package_type_name(name);
+    this.defsingleton(pkg);
+    this.defsingleton(pkg + `-assets`);
+    this.defun("name(self:)/1", [this.type(pkg)], (_) => name as any, true);
+    this.defun(
+      "assets(self:)/1",
+      [this.type(pkg)],
+      (_) => this.global(pkg + "-assets") as any,
+      true
+    );
+  }
+
+  package_type_name(name: string | null) {
+    return name == null ? `package` : `${name}/package`;
+  }
+
   in_package(name: string | null, fn: (_: $Scope) => void) {
+    if (!$types.has(this.package_type_name(name))) {
+      this.start_package(name);
+    }
     const scope = new $Scope(
       $scope,
       name,
@@ -22,6 +43,10 @@ const $meow = new (class Meow {
 
   declare_type(name: string) {
     this.deftype(name, $placeholder_type(name));
+  }
+
+  declare_trait(name: string) {
+    this.deftrait(name, true);
   }
 
   defglobal(name: string, value: MeowFn) {
@@ -74,9 +99,17 @@ const $meow = new (class Meow {
     return yield* fn(...args);
   }
 
-  defun(name: string, types: $Type[], fn: MeowFn) {
+  calljs_pure(name: string, args: $Value[]) {
+    const fn = $foreign.get(name);
+    if (fn == null) {
+      throw new $Panic("no-foreign", `Undefined foreign ${name} in ${$scope}`);
+    }
+    return fn(...args);
+  }
+
+  defun(name: string, types: $Type[], fn: MeowFn, pure: boolean = false) {
     const fns = $fns.get(name) ?? [];
-    fns.push(new $Fn(name, types, fn));
+    fns.push(new $Fn(name, types, fn, pure));
     if (fns.some((x) => x.types.length !== types.length)) {
       console.log(fns.map((x) => `${x.name} :: ${x.types.map((x) => x.name).join(", ")}`));
       throw new $Panic(
@@ -97,6 +130,32 @@ const $meow = new (class Meow {
     $fns.set(name, fns);
   }
 
+  call_pure(name: string, ...args: $Value[]) {
+    const fns = $fns.get(name);
+    if (fns == null) {
+      throw new $Panic("no-function", `Undefined function ${name}`);
+    }
+    SEARCH: for (const fn of fns) {
+      for (let i = 0; i < args.length; ++i) {
+        if (!fn.types[i].is(args[i])) {
+          continue SEARCH;
+        }
+      }
+      if (!fn.pure) {
+        throw new $Panic("layer-violation", `Effectful function ${fn.name} called from pure code`);
+      }
+      return fn.code(...args);
+    }
+
+    const branches = fns.map((x) => `  - (${x.types.map((t) => t.name).join(", ")})\n`).join("");
+    throw new $Panic(
+      "no-method",
+      `No branch of ${name} matched (${args
+        .map((x) => $meow.typeof(x).name)
+        .join(", ")})\n\nDefined branches:\n${branches}`
+    );
+  }
+
   *call(name: string, ...args: $Value[]) {
     const fns = $fns.get(name);
     if (fns == null) {
@@ -108,11 +167,19 @@ const $meow = new (class Meow {
           continue SEARCH;
         }
       }
-      return yield* fn.code(...args);
+      if (fn.pure) {
+        return fn.code(...args) as any as $Value;
+      } else {
+        return yield* fn.code(...args);
+      }
     }
+
+    const branches = fns.map((x) => `  - (${x.types.map((t) => t.name).join(", ")})\n`).join("");
     throw new $Panic(
       "no-method",
-      `No branch of ${name} matched (${args.map((x) => $pprint(x, 1))})`
+      `No branch of ${name} matched (${args
+        .map((x) => $meow.typeof(x).name)
+        .join(", ")})\n\nDefined branches:\n${branches}`
     );
   }
 
@@ -128,9 +195,28 @@ const $meow = new (class Meow {
       existing.placeholder = false;
       existing.distance = type.distance;
       existing.is = type.is;
+      existing.subtypes = type.subtypes;
       return;
     }
     $types.set(name, type);
+  }
+
+  def_foreign_type<T>(name: string, test: (_: unknown) => boolean) {
+    if ($types.has(name)) {
+      throw new $Panic("duplicate-type", `Duplicated type ${name}`);
+    }
+    const t = new $ForeignType<T>(name, test);
+    $types.set(name, t);
+    return t;
+  }
+
+  with_trait(type: $Type, traits: $Type[]) {
+    return $type(
+      `(${type.name} has ${traits.map((x) => x.name).join(", ")})`,
+      (x) => type.is(x) && traits.every((t) => t.is(x)),
+      Math.min(type.distance, 254),
+      []
+    );
   }
 
   type(name: string) {
@@ -147,9 +233,9 @@ const $meow = new (class Meow {
     } else if (typeof x === "string") {
       return $meow.type("text");
     } else if (typeof x === "number") {
-      return $meow.type("i32");
+      return $meow.type("int");
     } else if (typeof x === "bigint") {
-      return $meow.type("integer");
+      return $meow.type("i64");
     } else if (typeof x === "boolean") {
       return $meow.type("bool");
     } else if (x instanceof Map) {
@@ -160,34 +246,47 @@ const $meow = new (class Meow {
       return $meow.type("byte-array");
     } else if (x instanceof WeakRef) {
       return $meow.type("weak-ref");
+    } else if (x instanceof $Process) {
+      return $meow.type("process");
     } else if (
       x instanceof $Struct ||
       x instanceof $Static ||
       x instanceof $Variant ||
       x instanceof $Cell ||
-      x instanceof $Graphemes
+      x instanceof $Foreign ||
+      x instanceof $Record ||
+      x instanceof $Asset
     ) {
       return x.$type;
     } else if (typeof x === "function") {
       return $meow.type(`lambda-${x.length}`);
     } else {
-      throw new $Panic("weird-value", `Unknown type`);
+      throw new $Panic("weird-value", `Unknown type for ${Show(x)}`);
     }
   }
 
-  deftrait(name: string, defaults: { [key: string]: null | MeowFn }) {
+  deftrait(name: string, placeholder: boolean = false) {
     if ($traits.has(name)) {
-      throw new $Panic("duplicate-trait", `Duplicated trait ${name}`);
+      const trait = $traits.get(name)!;
+      if (!trait.is_placeholder) {
+        if (placeholder) return;
+        throw new $Panic("duplicate-trait", `Duplicate trait ${name}`);
+      }
+      if (!placeholder) {
+        trait.materialise();
+      }
+    } else {
+      $traits.set(name, new $Trait(name, placeholder));
     }
-    $traits.set(name, new $Trait(name, defaults));
   }
 
-  implement(name: string, type: $Type, dict: { [key: string]: MeowFn }) {
+  implement(name: string, type: $Type) {
     const trait = $traits.get(name);
     if (trait == null) {
       throw new $Panic("no-trait", `Undefined trait ${name} in ${$scope}`);
     }
-    trait.implement(type, dict);
+    trait.implement(type);
+    trait.implement(type.$static);
   }
 
   trait(name: string) {
@@ -196,6 +295,14 @@ const $meow = new (class Meow {
       throw new $Panic("no-trait", `Undefined trait ${name} in ${$scope}`);
     }
     return trait.type;
+  }
+
+  has_trait(value: $Value, name: string) {
+    const trait = $traits.get(name);
+    if (trait == null) {
+      throw new $Panic("no-trait", `Undefined trait ${name} in ${$scope}`);
+    }
+    return trait.has(value);
   }
 
   vtype(name: string, variant: string) {
@@ -220,7 +327,7 @@ const $meow = new (class Meow {
         return name;
       }
       toString() {
-        return `${name}()`;
+        return $pprint(this);
       }
       static of() {
         throw new $Panic("invalid-new", `new on a singleton`);
@@ -275,7 +382,7 @@ const $meow = new (class Meow {
         }
       }
       toString() {
-        return `${name}(${fields.map((x) => `${x}: ${(this as any)[x]}`).join(", ")})`;
+        return $pprint(this);
       }
       static of(value: object) {
         return new s(value);
@@ -312,7 +419,7 @@ const $meow = new (class Meow {
     const allowed = new Set(variants.map((x) => x.name));
     const s = class Union extends $Variant {
       get $type() {
-        return $meow.type(name);
+        return $meow.type(`${name}..${this.$variant}`);
       }
       get $fields() {
         return constructors[this.$variant]?.fields ?? [];
@@ -382,16 +489,18 @@ const $meow = new (class Meow {
     Object.defineProperty(s, "name", { value: name });
     $structs.set(name, s as any);
 
+    const variant_types = variants.map((v) => {
+      const t = $type(`${name}..${v.name}`, (x) => x instanceof s && x.$variant === v.name, 0);
+      this.deftype(`${name}..${v.name}`, t);
+      return t;
+    });
+
     this.deftype(
       name,
-      $type(name, (x) => x instanceof s, 1)
+      $type(name, (x) => x instanceof s, 1, variant_types)
     );
 
     for (const v of variants) {
-      this.deftype(
-        `${name}..${v.name}`,
-        $type(`${name}..${v.name}`, (x) => x instanceof s && x.$variant === v.name, 0)
-      );
       if (v.fields == null) {
         const i = new s(v.name, null);
         singletons[v.name] = i;
@@ -495,7 +604,7 @@ const $meow = new (class Meow {
 
   extend(x: $Value, binds: any) {
     if (x instanceof $Record) {
-      return new $Record({ ...x.$dict, binds });
+      return new $Record({ ...x.$dict, ...binds });
     } else if (x instanceof $Struct || x instanceof $Variant) {
       return x.$clone(binds);
     } else {
@@ -504,7 +613,11 @@ const $meow = new (class Meow {
   }
 
   assert_fail(tag: string | null, expr: string, source: any = null) {
-    throw new $AssertionFailed(tag ?? "", expr, source);
+    if (!(source instanceof $AssertionFailed)) {
+      throw new $AssertionFailed(tag ?? "", expr, source);
+    } else {
+      throw source;
+    }
   }
 
   unreachable() {
@@ -514,6 +627,14 @@ const $meow = new (class Meow {
   checked(x: unknown) {
     if (x === undefined) {
       throw new $Panic("weird-value", `Unexpected undefined value`);
+    } else {
+      return x;
+    }
+  }
+
+  checked_project(x: unknown, v: $Value, f: string) {
+    if (x === undefined) {
+      throw new $Panic("invalid-field", `Invalid field ${f} for type ${$meow.typeof(v).name}`);
     } else {
       return x;
     }
@@ -599,6 +720,29 @@ const $meow = new (class Meow {
     $handlers.set(name, handler);
   }
 
+  // -- Assets
+  put_asset(name: string, data: Uint8Array) {
+    if ($assets.has(name)) {
+      throw new $Panic("duplicate-asset", `Duplicate asset ${name}`);
+    }
+    $assets.set(name, new $Asset(name, data));
+  }
+
+  put_asset_base64(name: string, data: string) {
+    this.put_asset(
+      name,
+      Uint8Array.from(atob(data) as any, (x) => (x as any as string).codePointAt(0)!)
+    );
+  }
+
+  get_asset(name: string) {
+    const x = $assets.get(name);
+    if (x == null) {
+      throw new $Panic("no-asset", `Undefined asset ${name}`);
+    }
+    return x;
+  }
+
   // -- Tests
   deftest(name: string, fn: MeowFn) {
     $tests.push(new $Test(name, fn));
@@ -615,14 +759,24 @@ const $meow = new (class Meow {
       if (!test_filter(x.name)) {
         continue;
       }
+      process.stdout.write(`[...] ${x.name}`.slice(0, process.stdout.columns - 5));
       try {
-        await $meow.wait(
-          $meow.with_default_handlers(function* () {
-            return yield* x.fn();
-          })
+        const test = await $run_throw(
+          $with_default_handlers(
+            (function* () {
+              return yield* x.fn();
+            })()
+          ),
+          `<test: ${x.name}>`
         );
+        await $loop_run();
+        await test.result;
+        process.stdout.clearLine(0);
+        process.stdout.cursorTo(0);
         console.log(`[OK ] ${x.name}`);
       } catch (e) {
+        process.stdout.clearLine(0);
+        process.stdout.cursorTo(0);
         console.log(`[ERR] ${x.name} (${errors.length + 1})`);
         errors.push({ error: e, test: x });
       }
@@ -642,6 +796,14 @@ const $meow = new (class Meow {
     return null;
   }
 
+  wait_promise(promise: Promise<$Value>) {
+    return new $AwaitSignal(promise);
+  }
+
+  yield() {
+    return new $YieldProcessSignal();
+  }
+
   wait_sync(gen: MeowGen): $Value {
     let result = gen.next();
     while (true) {
@@ -655,84 +817,27 @@ const $meow = new (class Meow {
     }
   }
 
-  *with_default_handlers(fn: MeowFn0) {
-    for (const handler of $default_handlers) {
-      const cases = yield* handler.fn();
-      yield new $InstallHandlerCasesSignal(cases as any);
-    }
-    return yield* fn();
-  }
-
-  async wait(gen: MeowGen): Promise<$Value> {
-    let ctx = new $HandleStack(null, gen, {}, null);
-    let result = ctx.gen.next();
-    while (true) {
-      if (result.done) {
-        if (ctx.parent == null) {
-          return result.value;
-        } else {
-          ctx = ctx.parent;
-          result = ctx.gen.next(result.value);
-        }
-      } else {
-        const signal = result.value;
-        if (signal instanceof $PanicSignal) {
-          throw signal.error;
-        } else if (signal instanceof $AwaitSignal) {
-          const value = await signal.value;
-          result = ctx.gen.next(value);
-        } else if (signal instanceof $PerformSignal) {
-          const { stack, handler } = ctx.find_handler(signal.name);
-          const gen = handler(...signal.args);
-          ctx = new $HandleStack(ctx, gen, {}, stack.parent);
-          result = gen.next();
-        } else if (signal instanceof $HandleSignal) {
-          ctx = new $HandleStack(ctx, signal.gen, signal.cases, ctx.abort_to);
-          result = ctx.gen.next();
-        } else if (signal instanceof $ResumeSignal) {
-          if (ctx.parent == null) {
-            return signal.value;
-          } else {
-            ctx = ctx.parent;
-            result = ctx.gen.next(signal.value);
-          }
-        } else if (signal instanceof $AbortSignal) {
-          if (ctx.abort_to == null) {
-            return signal.value;
-          } else {
-            ctx = ctx.abort_to;
-            result = ctx.gen.next(signal.value);
-          }
-        } else if (signal instanceof $InstallHandlerCasesSignal) {
-          for (const [k, v] of Object.entries(signal.cases)) {
-            if (Object.hasOwn(ctx.cases, k)) {
-              throw new $Panic(
-                "duplicate-install-handler",
-                `Scope already has a handler defined for ${k} (${ctx.cases[k].name}), but a new one (${v.name}) was installed.`
-              );
-            }
-            ctx.cases[k] = v;
-          }
-          result = ctx.gen.next(null);
-        } else {
-          throw new $Panic("unknown-signal", `Unknown signal in execution`, { signal });
-        }
-      }
-    }
-  }
-
   async run(args: string[]) {
+    $file = null;
+    $line = null;
     try {
       if (args.includes("--test")) {
         $stack.push("<runtime> run tests");
-        return await $meow.run_tests();
+        await $meow.run_tests();
       } else {
         $stack.push("<runtime> main entry point");
-        return await $meow.wait(
-          $meow.with_default_handlers(function* () {
-            return yield* $meow.call("main()/1", args);
-          })
+        $keep_alive(true);
+        const main = await $run_throw(
+          $with_default_handlers(
+            (function* () {
+              return yield* $meow.call("main()/1", args);
+            })()
+          ),
+          "<main>"
         );
+        await $loop_run();
+        await main.result;
+        $keep_alive(false);
       }
     } catch (error: any) {
       console.error(`PANIC: Meow exited with an error at ${$stack.current()}.`);

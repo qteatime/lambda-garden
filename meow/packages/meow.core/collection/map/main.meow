@@ -1,4 +1,152 @@
 % meow/1
 
-import "base.meow";
-import "record.meow";
+trait map<K, V> {
+  def self count() -> int;
+  optional def self is-empty() -> bool;
+
+  def self at(Key: K) -> maybe<V>;
+  optional def self at!(Key: K) -> V;
+  optional def self at(Key: K, default Default: V) -> V;
+  optional def self has-key(Key: K) -> bool;
+
+  def self entries() -> Iter where Iter has iterator<#(key: K, value: V)>;
+  optional def self keys() -> Iter where Iter has iterator<K>;
+  optional def self values() -> Iter where Iter has iterator<V>;
+}
+
+trait modifiable-map<K, V> {
+  requires trait map<K, V> for self;
+
+  def self put(at Key: K, value Value: V) -> self;
+  optional def self put(all-of Entries: EntryIter) -> self where EntryIter has iterable<#(key: K, value: V)>;
+  optional def self put(at-absent Key: K, value Value: V) -> self;
+  optional def self update(at Key: K, with Fn: (V) -> V) -> self;
+  optional def self update(at Key: K, with Fn: (V) -> V, default Default: V) -> self;
+
+  def self remove(at Key: K) -> self;
+  optional def self remove(at-existing Key: K) -> self;
+  optional def self remove-all() -> self;
+  optional def self without-keys(Keys: KeyIter) -> self where KeyIter has iterator<K>;
+//  optional def self with-keys(Keys: KeyIter) -> self where KeyIter has iterable<K>;
+}
+
+trait mergeable-map<K, V> {
+  requires trait map<K, V> for self;
+
+  def self merge(That: self, with Fn: (V, V) -> V) -> self;
+}
+
+
+//#region Default map implementation -------------------------------------------
+def (_: Map) is-empty() -> bool where Map has map<K, V> {
+  self count() === 0;
+} test {
+  assert [:] is-empty();
+  assert not (["a": 1, "b": 2]) is-empty();
+}
+
+def (_: Map) at!(Key: K) -> V where Map has map<K, V> {
+  self at(Key) unwrap();
+}
+
+def (_: Map) at(Key: K, default Value: V) -> V where Map has map<K, V> {
+  self at(Key) unwrap(default: Value);
+} test {
+  assert [:] at("a", default: 1) ==> 1;
+  assert ["a": 2] at("a", default: 1) ==> 2;
+}
+
+def (_: Map) has-key(Key: K) -> bool where Map has map<K, V> {
+  self at(Key) is maybe..some;
+}
+
+def (_: Map) keys() -> Iter where Map has map<K, V>, Iter has iterator<K> {
+  self entries() map(_.key);
+}
+
+def (_: Map) values() -> Iter where Map has map<K, V>, Iter has iterator<V> {
+  self entries() map(_.value);
+}
+//#endregion
+
+//#region Default modifiable map -----------------------------------------------
+def (_: Map) put(all-of Entries: EntryIter) -> Map
+  where Map has modifiable-map<K, V>,
+        EntryIter has iterable<#(key: K, value: V)>
+{
+  Entries iterator()
+          fold(from: self, with: { Map, Entry in
+            Map put(at: Entry.key, value: Entry.value);
+          });
+} test {
+  assert [:] put(all-of: [#(key: "a", value: 1), #(key: "b", value: 2)])
+    ==> ["a": 1, "b": 2];
+
+  assert ["a": 2, "c": 3] put(all-of: [#(key: "a", value: 1), #(key: "b", value: 2)])
+    ==> ["a": 1, "b": 2, "c": 3];  
+}
+
+def (_: Map) put(at-absent Key: K, value Value: V) -> Map where Map has modifiable-map<K, V> {
+  assert not (self has-key(Key)) :: absent-key;
+  self put(at: Key, value: Value);
+} test {
+  assert ["a": 1] put(at-absent: "b", value: 2) ==> ["a": 1, "b": 2];
+  assert panic catch({ ["a": 1] put(at-absent: "a", value: 3) }) is result..error;
+}
+
+def (_: Map) update(at Key: K, with Fn: (V) -> V) -> Map where Map has modifiable-map<K, V> {
+  let Value = self at(Key);
+  when {
+    Value is maybe..none -> self;
+    otherwise -> self put(at: Key, value: Fn(Value unwrap()));
+  }
+} test {
+  assert ["a": 1] update(at: "a", with: _ + 1) ==> ["a": 2];
+  assert ["a": 1] update(at: "b", with: _ + 1) ==> ["a": 1];
+}
+
+def (_: Map) update(at Key: K, with Fn: (V) -> V, default Default: V) -> Map 
+  where Map has modifiable-map<K, V>
+{
+  self put(at: Key, value: self at(Key) map(Fn) unwrap(default: Default));
+} test {
+  assert ["a": 1] update(at: "a", with: _ + 1, default: 0) ==> ["a": 2];
+  assert ["a": 1] update(at: "b", with: _ + 1, default: 0) ==> ["a": 1, "b": 0];
+}
+
+def (_: Map) remove(at-existing Key: K) -> Map where Map has modifiable-map<K, V> {
+  assert self has-key(Key) :: existing-key;
+  self remove(at: Key);
+} test {
+  assert ["a": 1, "b": 2] remove(at-existing: "a") ==> ["b": 2];
+  assert panic catch({ ["a": 1] remove(at-existing: "b") }) is result..error;
+}
+
+def (_: Map) remove-all() -> Map where Map has modifiable-map<K, V> {
+  self keys() fold(from: self, with: _ remove(at: _));
+} test {
+  assert ["a": 1, "b": 2] remove-all() ==> [:];
+  assert [:] remove-all() ==> [:];
+}
+
+def (_: Map) without-keys(Keys: KeyIter) -> Map
+  where Map has modifiable-map<K, V>,
+        KeyIter has iterable<K> 
+{
+  Keys iterator() fold(from: self, with: _ remove(at: _));
+} test {
+  assert ["a": 1, "b": 2, "c": 3] without-keys(["a", "c", "d"]) ==> ["b": 2];
+  assert ["a": 1, "b": 2] without-keys([]) ==> ["a": 1, "b": 2];
+  assert [:] without-keys(["a", "b", "c"]) ==> [:];
+}
+//#endregion
+
+
+import "constructing.meow";
+import "memory.meow";
+import "basic-map.meow";
+import "iteration.meow";
+import "conversions.meow";
+import "modifying.meow";
+import "equality.meow";
+import "merging.meow";

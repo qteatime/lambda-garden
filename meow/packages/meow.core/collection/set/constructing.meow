@@ -1,0 +1,24 @@
+% meow/1
+
+def #set from(Values: Iter) -> set<V> where Iter has iterable<V> {
+  new set(#map from(Values iterator() map({X in #(key: X, value: nothing)})));
+} test {
+  assert #set from([1, 2, 3])
+    ==> new set([1: nothing, 2: nothing, 3: nothing]);
+}
+
+def #set empty() =
+  new set([:]);
+
+
+def #mutable-set from(Values: Iter) -> mutable-set<V> where Iter has iterable<V> {
+  #set from(Values) mutable-copy();
+}
+
+def set<V> mutable-copy() -> mutable-set<V> {
+  new mutable-set(self.map mutable-copy());
+}
+
+def #mutable-set empty() -> mutable-set<V> {
+  new mutable-set([:] mutable-copy());
+}

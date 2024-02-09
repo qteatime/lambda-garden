@@ -1,33 +1,33 @@
 % meow/1
 
 // -- Constructors -------------------------------------------------------------
-def #result from(Maybe: maybe<T>) -> result<T, nothing> {
+pure def #result from(Maybe: maybe<T>) -> result<T, nothing> {
   when {
-    Maybe is maybe..some => #result ok(Maybe unwrap());
-    Maybe is maybe..none => #result error(nothing);
+    Maybe is maybe..some -> #result ok(Maybe unwrap());
+    Maybe is maybe..none -> #result error(nothing);
   }
 }
 
-def #result from(nullable Value: nothing) -> result<T, E> {
+pure def #result from(nullable Value: nothing) -> result<T, E> {
   new result..error(nothing);
 }
 
-def #result from(nullable Value: T) -> result<T, E> {
+pure def #result from(nullable Value: T) -> result<T, E> {
   new result..ok(Value);
 }
 
-def #result from(Record: #(ok: bool, value: T, reason: E)) -> result<T, E> {
+pure def #result from(Record: #(ok: bool, value: T, reason: E)) -> result<T, E> {
   when {
-    Record.ok => new result..ok(Record.value);
-    otherwise => new result..error(Record.reason);
+    Record.ok -> new result..ok(Record.value);
+    otherwise -> new result..error(Record.reason);
   }
 }
 
-def #result ok(Value: T) -> result<T, E> {
+pure def #result ok(Value: T) -> result<T, E> {
   new result..ok(Value);
 }
 
-def #result error(Reason: E) -> result<T, E> {
+pure def #result error(Reason: E) -> result<T, E> {
   new result..error(Reason);
 }
 
@@ -48,22 +48,25 @@ test "constructing results" {
 
 
 // -- Getters ------------------------------------------------------------------
-def result..ok<T, E> unwrap() -> T = self.value;
+pure def result..ok<T, E> unwrap() -> T = self.value;
+def result..error<T, E> unwrap() -> T = panic raise(self.reason);
 
-def result..ok<T, E> unwrap(default _: T) -> T = self.value;
-def result..error<T, E> unwrap(default Value: T) -> T = Value;
+pure def result..ok<T, E> unwrap(default _: T) -> T = self.value;
+pure def result..error<T, E> unwrap(default Value: T) -> T = Value;
 
-def result..ok<T, E> unwrap(or-panic Message: text) -> T = self.value;
-def result..error<T, E> unwrap(or-panic Message: text) -> T = #panic raise(message: Message, data: self);
+pure def result..ok<T, E> unwrap(or-panic Message: &panic-message<A>) -> T = self.value;
+def result..error<T, E> unwrap(or-panic Message: &panic-message<A>) -> T {
+  panic raise(Message, data: self);
+}
 
 def result..ok<T, E> unwrap(or-else Fn: (E) -> T) -> T = self.value;
 def result..error<T, E> unwrap(or-else Fn: (E) -> T) -> T = Fn(self.reason);
 
-def result..ok<T, T> value-or-reason() -> T = self.value;
-def result..error<T, T> value-or-reason() -> T = self.reason;
+pure def result..ok<T, T> value-or-reason() -> T = self.value;
+pure def result..error<T, T> value-or-reason() -> T = self.reason;
 
-def result..ok<T, E> value() -> T = self.value;
-def result..error<T, E> reason() -> E = self.reason;
+pure def result..ok<T, E> value() -> T = self.value;
+pure def result..error<T, E> reason() -> E = self.reason;
 
 test "unwrapping results" {
   assert #result ok(1) unwrap() ==> 1;
@@ -116,8 +119,8 @@ def result..error<T, E> or-else(Fn: (T) -> result<T, E2>) -> result<T, E2> =
 
 def result..ok<T, T> keep-if(Fn: (T) -> bool) -> result<T, T> =
   when {
-    Fn(self.value) => self;
-    otherwise => #result error(self.value);
+    Fn(self.value) -> self;
+    otherwise -> #result error(self.value);
   };
 
 def result..error<T, T> keep-if(Fn: (T) -> bool) -> result<T, T> =

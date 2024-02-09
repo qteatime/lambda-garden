@@ -1,0 +1,18 @@
+% meow/1
+
+implement shallow-copy for utf16-code-units-iterator;
+def utf16-code-units-iterator shallow-copy() =
+  new utf16-code-units-iterator(
+    text: self.text,
+    index: self.index shallow-copy(),
+    end: self.end
+  );
+
+implement shallow-copy for unicode-scalars-iterator;
+def unicode-scalars-iterator shallow-copy() =
+  new unicode-scalars-iterator(
+    text: self.text,
+    index: self.index shallow-copy(),
+    start: self.start,
+    end: self.end
+  );

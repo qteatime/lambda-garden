@@ -1,0 +1,25 @@
+% meow/1
+
+implement ieee-float for f64;
+
+pure def f64 is-nan() -> bool {
+  primitive f64.is-nan(self);
+} test {
+  assert not (1.0f is-nan());
+  assert not (#f64 positive-infinity() is-nan());
+  assert #f64 nan() is-nan();
+}
+
+pure def f64 is-finite() -> bool {
+  primitive f64.is-finite(self);
+} test {
+  assert 1.0f is-finite();
+  assert not (#f64 nan() is-finite());
+  assert not (#f64 positive-infinity() is-finite());
+  assert not (#f64 negative-infinity() is-finite());
+}
+
+
+pure def #f64 nan() = primitive f64.nan();
+pure def #f64 positive-infinity() = primitive f64.positive-inf();
+pure def #f64 negative-infinity() = primitive f64.negative-inf();

@@ -62,12 +62,12 @@ def time-duration =/= (X: time-duration) =
 // -- Properties ---------------------------------------------------------------
 def time-duration largest-time-unit() {
   when {
-    self.hours =/= 0L => unit..hours;
-    self.minutes =/= 0L => unit..minutes;
-    self.seconds =/= 0L => unit..seconds;
-    self.milliseconds =/= 0L => unit..milliseconds;
-    self.microseconds =/= 0L => unit..microseconds;
-    otherwise => unit..nanoseconds;
+    self.hours =/= 0L -> unit..hours;
+    self.minutes =/= 0L -> unit..minutes;
+    self.seconds =/= 0L -> unit..seconds;
+    self.milliseconds =/= 0L -> unit..milliseconds;
+    self.microseconds =/= 0L -> unit..microseconds;
+    otherwise -> unit..nanoseconds;
   }
 } test {
   assert new time-duration(1L, 1L, 1L, 1L, 1L, 1L) largest-time-unit() ==> unit..hours;

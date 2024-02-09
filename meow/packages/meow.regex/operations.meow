@@ -1,0 +1,15 @@
+% meow/1
+
+def compiled-pattern can-match(Text: text) -> bool {
+  foreign re.test(self.code, Text);
+} test {
+  assert (regex from("ca.") compile() can-match("cat"));
+  assert not (regex from("ca.") compile() can-match("bat"));
+}
+
+def compiled-pattern split(Text: text) -> Iter where Iter has iterator<text> {
+  (foreign re.split(self.code, Text)) iterator();
+} test {
+  assert "abc,def,ghi" split(regex from(",")) into(#array) ==> ["abc", "def", "ghi"];
+}
+

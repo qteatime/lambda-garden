@@ -1,0 +1,70 @@
+% meow/1
+
+pure def text is-empty() -> bool {
+  self =:= "";
+} test {
+  assert "" is-empty();
+  assert not (" " is-empty());
+  assert not ("a" is-empty());
+  assert not "​" is-empty(); // zero-width space (u200B)
+  assert not "🐈" is-empty();
+}
+
+pure def text-slice is-empty() -> bool {
+  self.length === 0;
+} test {
+  assert "abc" slice(from: 1, length: 0) is-empty();
+  assert not ("abc" slice(from: 1, length: 1) is-empty());
+}
+
+
+pure def text contains(Part: text) -> bool {
+  primitive text.contains(self, Part);
+} test {
+  assert "cat" contains("a");
+  assert not ("cat" contains("b"));
+  assert "abacate" contains("cat");
+  assert "abacate" contains("aba");
+  assert "abacate" contains("ate");
+  assert "🐈🔮✔️" contains("🔮");
+  assert not ("🐈🔮✔️" contains("😺"));
+}
+
+pure def text-slice contains(Part: text) -> bool {
+  primitive text-slice.contains(self.text, self.offset, self.length, Part);
+} test {
+  assert "abacate" slice(from: 2, length: 4) contains("cat");
+  assert not ("abacate" slice(from: 0, length: 4) contains("cat"));
+}
+
+
+pure def text starts-with(Part: text) -> bool {
+  primitive text.starts-with(self, Part);
+} test {
+  assert "cat" starts-with("ca");
+  assert not ("cat" starts-with("at"));
+  assert "🐈🔮✔️" starts-with("🐈");
+  assert not ("🐈🔮✔️" starts-with("✔️"));
+}
+
+pure def text-slice starts-with(Part: text) -> bool {
+  primitive text-slice.starts-with(self.text, self.offset, self.length, Part);
+} test {
+  assert "cat" slice(length: 3) starts-with("ca");
+}
+
+
+pure def text ends-with(Part: text) -> bool {
+  primitive text.ends-with(self, Part);
+} test {
+  assert "cat" ends-with("at");
+  assert not ("cat" ends-with("ca"));
+  assert "🐈🔮✔️" ends-with("✔️");
+  assert not ("🐈🔮✔️" ends-with("🐈")); 
+}
+
+pure def text-slice ends-with(Part: text) -> bool {
+  primitive text-slice.ends-with(self.text, self.offset, self.length, Part);
+} test {
+  assert "cat" slice(length: 3) ends-with("at");
+}

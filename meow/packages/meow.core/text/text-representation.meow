@@ -1,0 +1,49 @@
+% meow/1
+
+pure def text count-code-units() -> int {
+  primitive text.count-code-units(self);
+} test {
+  assert "" count-code-units() ==> 0;
+  assert "café" count-code-units() ==> 4;
+  assert "cafe\u0301" count-code-units() ==> 5; // with combining acute accent
+  assert "hi 😺!" count-code-units() ==> 6;
+  assert "🙆🏽‍♀️" count-code-units() ==> 7;
+}
+
+pure def text-slice count-code-units() -> int {
+  self.length
+} test {
+  assert "abc" slice(length: 3) count-code-units() ==> 3;
+}
+
+
+pure def text is-empty() -> bool {
+  self =:= "";
+}
+
+pure def text-slice is-empty() -> bool {
+  self.length === 0;
+}
+
+
+pure def text is-well-formed() -> bool {
+  primitive text.is-well-formed(self);
+} test {
+  assert "hi 😺!" is-well-formed();
+  assert "hi \ud800\udc00" is-well-formed();
+  assert not ("hi \uD800" is-well-formed());
+  assert not ("hi \uD800\uDBFF" is-well-formed());
+  assert not ("\udc00 hi" is-well-formed());
+  assert not ("hi \uD800!" is-well-formed());
+}
+
+pure def text to-well-formed() -> text {
+  primitive text.to-well-formed(self);
+} test {
+  assert "hi 😺!" to-well-formed() ==> "hi 😺!";
+  assert "hi \ud800\udc00" to-well-formed() ==> "hi \ud800\udc00";
+  assert "hi \uD800" to-well-formed() ==> "hi �";
+  assert "hi \uD800\uDBFF" to-well-formed() ==> "hi ��";
+  assert "\udc00 hi" to-well-formed() ==> "� hi";
+  assert "hi \uD800!" to-well-formed() ==> "hi �!";
+}

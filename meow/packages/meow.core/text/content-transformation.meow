@@ -1,0 +1,75 @@
+% meow/1
+
+pure def text trim-start() -> text {
+  primitive text.trim-start(self);
+} test {
+  assert "" trim-start() ==> "";
+  assert "abc" trim-start() ==> "abc";
+  assert "  \t\n\r abc" trim-start() ==> "abc";
+  assert "  abc  " trim-start() ==> "abc  ";
+}
+
+pure def text trim-end() -> text {
+  primitive text.trim-end(self);
+} test {
+  assert "" trim-end() ==> "";
+  assert "abc" trim-end() ==> "abc";
+  assert "abc  \t\n\r" trim-end() ==> "abc";
+  assert "  abc  " trim-end() ==> "  abc";
+}
+
+pure def text trim() -> text {
+  primitive text.trim(self);
+} test {
+  assert "" trim() ==> "";
+  assert "abc" trim() ==> "abc";
+  assert "  \t\n\r abc" trim() ==> "abc";
+  assert "abc  \t\n\r" trim() ==> "abc";
+  assert "  abc  " trim() ==> "abc";
+}
+
+pure def text split(where Part: text) -> array<text> {
+  primitive text.split(self, Part);
+} test {
+  assert "a,b,c" split(where: ",") ==> ["a", "b", "c"];
+  assert "a," split(where: ",") ==> ["a", ""];
+  assert "a,b,c" split(where: "no") ==> ["a,b,c"];
+}
+
+pure def text replace(first Part: text, by Text: text) -> text {
+  primitive text.replace-first(self, Part, Text);
+} test {
+  assert "abacate" replace(first: "cat", by: "CAT") ==> "abaCATe";
+  assert "doggie" replace(first: "cat", by: "CAT") ==> "doggie";
+  assert "hem hex hey" replace(first: "he", by: "!") ==> "!m hex hey";
+}
+
+pure def text replace(all Part: text, by Text: text) -> text {
+  primitive text.replace-all(self, Part, Text);
+} test {
+  assert "abacate" replace(all: "cat", by: "CAT") ==> "abaCATe";
+  assert "doggie" replace(all: "cat", by: "CAT") ==> "doggie";
+  assert "hem hex hey" replace(all: "he", by: "!") ==> "!m !x !y";
+}
+
+pure def text pad-start(min-code-units Size: int, with Char: text) -> text {
+  primitive text.pad-start(self, Size, Char);
+} test {
+  assert "30" pad-start(min-code-units: 4, with: "0") ==> "0030";
+  assert "😺" pad-start(min-code-units: 4, with: "0") ==> "00😺"; // emoji takes 2 code units
+  assert "" pad-start(min-code-units: 4, with: "0") ==> "0000";
+  assert "30" pad-start(min-code-units: 4, with: "😺") ==> "😺30"; // emoji takes 2 code units
+  assert "30" pad-start(min-code-units: 6, with: "😺") ==> "😺😺30"; // emoji takes 2 code units
+  assert "30" pad-start(min-code-units: 5, with: "😺") ==> "😺30"; // emoji is not split into lone surrogate pairs
+}
+
+pure def text pad-end(min-code-units Size: int, with Char: text) -> text {
+  primitive text.pad-end(self, Size, Char);
+} test {
+  assert "30" pad-end(min-code-units: 4, with: "X") ==> "30XX";
+  assert "😺" pad-end(min-code-units: 4, with: "X") ==> "😺XX"; // emoji takes 2 code units
+  assert "" pad-end(min-code-units: 4, with: "X") ==> "XXXX";
+  assert "30" pad-end(min-code-units: 4, with: "😺") ==> "30😺"; // emoji takes 2 code units
+  assert "30" pad-end(min-code-units: 6, with: "😺") ==> "30😺😺"; // emoji takes 2 code units
+  assert "30" pad-end(min-code-units: 5, with: "😺") ==> "30😺"; // emoji is not split into lone surrogate pairs
+}

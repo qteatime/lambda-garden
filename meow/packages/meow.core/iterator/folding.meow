@@ -1,0 +1,98 @@
+% meow/1
+
+def (_: Iter)fold(from Init: B, with Fn: (B, A) -> B) -> B where Iter has iterator<A> {
+  let State = #cell of(Init);
+  self each({ X in State <- Fn(State read(), X) });
+  State read();
+} test {
+  assert [1, 2, 3] iterator() fold(from: 5, with: _ + _) ==> (5 + 1 + 2 + 3);
+}
+
+//#region Testing properties of values -----------------------------------------
+def (_: Iter)all(Fn: (A) -> bool) -> bool where Iter has iterator<A> {
+  self fold(from: true, with: {A, B in A and Fn(B)});
+} test {
+  assert [1, 2, 3, 4] iterator() all(_ > 2) ==> false;
+  assert [1, 2, 3, 4] iterator() all(_ > 0) ==> true;
+}
+
+def (_: Iter)all-true() -> bool where Iter has iterator<A> {
+  self fold(from: true, with: {A, B in A and B});
+} test {
+  assert [true, true, true] iterator() all-true();
+  assert not ([true, false, true] iterator() all-true());
+}
+
+def (_: Iter)some(Fn: (A) -> bool) -> bool where Iter has iterator<A> {
+  self fold(from: false, with: {A, B in A or Fn(B)});
+} test {
+  assert [1, 2, 3, 4] iterator() some(_ > 2) ==> true;
+  assert [1, 2, 3, 4] iterator() some(_ < 0) ==> false;
+}
+
+def (_: Iter)some-true() -> bool where Iter has iterator<A> {
+  self fold(from: false, with: {A, B in A or B});
+} test {
+  assert [true, true, true] iterator() some-true();
+  assert [true, false, true] iterator() some-true();
+  assert not ([false, false, false] iterator() some-true());
+}
+
+def (_: Iter)none(Fn: (A) -> bool) -> bool where Iter has iterator<A> {
+  not (self some(Fn));
+} test {
+  assert [1, 2, 3, 4] iterator() none(_ > 2) ==> false;
+  assert [1, 2, 3, 4] iterator() none(_ < 0) ==> true;
+}
+
+def (_: Iter)none-true() -> bool where Iter has iterator<A> {
+  not (self some-true());
+} test {
+  assert not ([true, true, true] iterator() none-true());
+  assert not ([true, false, true] iterator() none-true());
+  assert [false, false, false] iterator() none-true();
+}
+//#endregion
+
+//#region Aggregating values ---------------------------------------------------
+def (_: Iter)compute-count() -> int where Iter has iterator<A> {
+  self fold(from: 0, with: {State, _ in State + 1});
+} test {
+  assert [] iterator() compute-count() ==> 0;
+  assert ["a", "b", "c"] iterator() compute-count() ==> 3;
+}
+
+def (_: Iter)sum(of Type: #A) -> A where Iter has iterator<A>, A has addition {
+  self fold(from: Type zero(), with: _ + _);
+} test {
+  assert [1, 2, 3] iterator() sum(of: #int) ==> 0 + 1 + 2 + 3;
+  assert [1L, 2L, 3L] iterator() sum(of: #i64) ==> 0L + 1L + 2L + 3L;
+}
+
+def (_: Iter)product(of Type: #A) -> A where Iter has iterator<A>, A has multiplication {
+  self fold(from: Type one(), with: _ * _);
+} test {
+  assert [1, 2, 3] iterator() product(of: #int) ==> 1 * 1 * 2 * 3;
+  assert [1L, 2L, 3L] iterator() product(of: #i64) ==> 1L * 1L * 2L * 3L;
+}
+
+def (_: Iter)max() -> maybe<A> where Iter has iterator<A> {
+  self fold(
+    from: maybe..none,
+    with: { A, B in A map(max(_, B))
+                      or-else({#maybe some(B)}) })
+} test {
+  assert [2, 3, 1] iterator() max() unwrap() ==> 3;
+  assert [] iterator() max() ==> maybe..none;
+}
+
+def (_: Iter)min() -> maybe<A> where Iter has iterator<A> {
+  self fold(
+    from: maybe..none,
+    with: { A, B in A map(min(_, B))
+                      or-else({#maybe some(B)}) })
+} test {
+  assert [2, 1, 3] iterator() min() unwrap() ==> 1;
+  assert [] iterator() min() ==> maybe..none;
+}
+//#endregion

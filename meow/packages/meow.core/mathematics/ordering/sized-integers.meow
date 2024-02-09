@@ -1,7 +1,9 @@
 % meow/1
 
 //#region - Native-sized integers (int) ----------------------------------------
-def int < (X: int) -> bool {
+implement total-order for int;
+
+pure def int < (X: int) -> bool {
   primitive int.lt(self, X);
 } test {
   assert 0 < 1;
@@ -10,7 +12,7 @@ def int < (X: int) -> bool {
   assert not (1 < 0);
 }
 
-def int <= (X: int) -> bool {
+pure def int <= (X: int) -> bool {
   primitive int.lte(self, X);
 } test {
   assert 0 <= 1;
@@ -19,7 +21,7 @@ def int <= (X: int) -> bool {
   assert not (1 <= 0);
 }
 
-def int > (X: int) -> bool {
+pure def int > (X: int) -> bool {
   primitive int.gt(self, X);
 } test {
   assert 1 > 0;
@@ -28,7 +30,7 @@ def int > (X: int) -> bool {
   assert not (0 > 1);
 }
 
-def int >= (X: int) -> bool {
+pure def int >= (X: int) -> bool {
   primitive int.gte(self, X);
 } test {
   assert 1 >= 0;
@@ -37,11 +39,11 @@ def int >= (X: int) -> bool {
   assert not (0 >= 1);
 }
 
-def int compare-to(X: int) -> ordering {
+pure def int compare-to(X: int) -> ordering {
   when {
-    self < X => ordering..less-than;
-    self === X => ordering..equal;
-    self > X => ordering..greater-than;
+    self < X -> ordering..less-than;
+    self === X -> ordering..equal;
+    self > X -> ordering..greater-than;
   }
 } test {
   assert 1 compare-to(2) ==> ordering..less-than;
@@ -51,7 +53,9 @@ def int compare-to(X: int) -> ordering {
 //#endregion
 
 //#region - 64-bit sized integers (i64) ----------------------------------------
-def i64 < (X: i64) -> bool {
+implement total-order for i64;
+
+pure def i64 < (X: i64) -> bool {
   primitive i64.lt(self, X);
 } test {
   assert 0L < 1L;
@@ -60,7 +64,7 @@ def i64 < (X: i64) -> bool {
   assert not (1L < 0L);
 }
 
-def i64 <= (X: i64) -> bool {
+pure def i64 <= (X: i64) -> bool {
   primitive i64.lte(self, X);
 } test {
   assert 0L <= 1L;
@@ -69,7 +73,7 @@ def i64 <= (X: i64) -> bool {
   assert not (1L <= 0L);
 }
 
-def i64 > (X: i64) -> bool {
+pure def i64 > (X: i64) -> bool {
   primitive i64.gt(self, X);
 } test {
   assert 1L > 0L;
@@ -78,7 +82,7 @@ def i64 > (X: i64) -> bool {
   assert not (0L > 1L);
 }
 
-def i64 >= (X: i64) -> bool {
+pure def i64 >= (X: i64) -> bool {
   primitive i64.gte(self, X);
 } test {
   assert 1L >= 0L;
@@ -87,11 +91,11 @@ def i64 >= (X: i64) -> bool {
   assert not (0L >= 1L);
 }
 
-def i64 compare-to(X: i64) -> ordering {
+pure def i64 compare-to(X: i64) -> ordering {
   when {
-    self < X => ordering..less-than;
-    self === X => ordering..equal;
-    self > X => ordering..greater-than;
+    self < X -> ordering..less-than;
+    self === X -> ordering..equal;
+    self > X -> ordering..greater-than;
   }
 } test {
   assert 1L compare-to(2L) ==> ordering..less-than;

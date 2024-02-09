@@ -2,13 +2,14 @@ import * as Ast from "../syntax/parser";
 import * as Path from "path";
 import * as FS from "fs";
 import { desugar } from "./desugar";
+import { decorate } from "./decorate";
 
 export const prelude_code = FS.readFileSync(Path.join(__dirname, "../../meow-prelude.js"), "utf-8");
 
 export class Ctx {
   private next_id = 0;
   private loc: Ast.Meta | null = null;
-  constructor(readonly params: string[], readonly options: Options) {}
+  constructor(readonly params: string[], readonly options: Options, readonly pure: boolean) {}
 
   fresh() {
     return `$r${this.next_id++}`;
@@ -21,6 +22,18 @@ export class Ctx {
   get_loc() {
     return this.loc;
   }
+
+  get gen_mark() {
+    return this.pure ? "" : "*";
+  }
+
+  get call_prefix() {
+    return this.pure ? "" : "yield*";
+  }
+
+  get call_suffix() {
+    return this.pure ? "_pure" : "";
+  }
 }
 
 export class Block {
@@ -31,19 +44,22 @@ export class Block {
     r.push(line);
     return r;
   }
-  static of_info(line: string, ctx: Ctx, loc: Ast.Meta | null) {
-    const r = new Block(0);
-    r.push(line);
-    return r;
-  }
   push(line: string | Block) {
     this.lines.push(line);
   }
   push_atomic(expr: Ast.MExpr, ctx: Ctx) {
-    const r = ctx.fresh();
-    this.lines.push(`let ${r};`);
-    this.lines.push(lower_expr(expr, ctx, r));
-    return r;
+    if (is_atomic(expr)) {
+      return lower_expr(expr, ctx, null).render(0).trim();
+    } else if (is_constable(expr)) {
+      const r = `$c${ctx.fresh()}`;
+      this.lines.push(lower_expr(expr, ctx, r));
+      return r;
+    } else {
+      const r = ctx.fresh();
+      this.lines.push(`let ${r};`);
+      this.lines.push(lower_expr(expr, ctx, r));
+      return r;
+    }
   }
   push_fresh(ctx: Ctx) {
     const r = ctx.fresh();
@@ -56,6 +72,12 @@ export class Block {
       const file = `${pkg}/${options.file}`;
       this.push(`$t(${str(name + " at " + file + ":" + String(loc.position.line))})`);
     }
+  }
+  push_file(name: string) {
+    this.push(`$file = ${str(name)};`);
+  }
+  push_line(loc: Ast.Meta | null) {
+    this.push(`$line = ${loc?.position.line ?? "null"};`);
   }
   block_wrap() {
     const res = new Block(0);
@@ -159,7 +181,7 @@ export type Options = {
   test: boolean;
   build: boolean;
 };
-export type ImportContext = { pkgs: Set<string>; files: Set<string> };
+export type ImportContext = { pkgs: Set<string>; files: Set<string>; cache_root: string };
 
 export function find_package(name: string, search_path: string[]) {
   for (const dir of search_path) {
@@ -203,8 +225,8 @@ function pkg_from_cache(cache: PkgCache, options: Options, ictx: ImportContext):
 }
 
 export function pkg_from_file(entry: string, name: string, options: Options, ictx: ImportContext) {
-  const source = FS.readFileSync(entry, "utf-8");
-  const ast = Ast.parse(source);
+  const cache_root = Path.dirname(entry);
+  const ast = Ast.parse_file(entry, cache_root);
   const js = lower(
     ast,
     {
@@ -214,7 +236,7 @@ export function pkg_from_file(entry: string, name: string, options: Options, ict
       no_prelude: true,
       cwd: Path.dirname(entry),
     },
-    ictx
+    { ...ictx, cache_root: cache_root }
   );
   return js;
 }
@@ -234,9 +256,11 @@ export function lower(m: Ast.MModule, options: Options, ictx: ImportContext) {
     block.push("");
   }
 
+  block.push_file(`${options.pkg ?? "()"} :: ${options.file}`);
   block.push(`$meow.in_package(${options.pkg == null ? "null" : str(options.pkg)}, ($scope) => {`);
   for (const x of m.declarations) {
-    block.push(lower_decl(x, options, ictx));
+    block.push_line((x as any)?.info ?? null);
+    block.push(lower_decl(x, options, ictx).render(2));
   }
   block.push(`});`);
 
@@ -250,8 +274,8 @@ export function lower(m: Ast.MModule, options: Options, ictx: ImportContext) {
 
 export function lower_decl(m: Ast.MDecl, options: Options, ictx: ImportContext): Block {
   return m.match({
-    Fun(info, name, params, ret, body, test) {
-      const { name: fname, args, types } = Ast.fun_parts(name, params);
+    Fun(info, name, params, ret, ct, body, test, pure) {
+      const { name: fname, args, types } = Ast.fun_parts(name, params, ct);
 
       const n = str(fname);
       const sn = mangle_fn(fname);
@@ -259,27 +283,25 @@ export function lower_decl(m: Ast.MDecl, options: Options, ictx: ImportContext):
       const tn = types.map(type_name).join(", ");
       const as = args.map(mangle);
 
-      const ctx = new Ctx(as, options);
-      const ref = ctx.fresh();
+      const ctx = new Ctx(as, options, pure != null);
       const res = new Block(0);
       const b = new Block(2);
       b.push_stack(fname, options, ctx, info);
-      b.push(`let ${ref};`);
-      b.push(lower_expr(desugar(body), ctx, ref));
+      const r = b.push_atomic(desugar(body), ctx);
       b.push(`$stack.pop();`);
-      b.push(`return ${ref};`);
+      b.push(`return ${r};`);
 
-      const fn0 = `function* ${sn} (${as.join(", ")}) {\n${b.render(0)}\n}`;
+      const fn0 = `function${ctx.gen_mark} ${sn} (${as.join(", ")}) {\n${b.render(0)}\n}`;
       const fn = attach_info(info, options.pkg ?? "()", options.file, fname, fn0);
-      res.push(`$meow.defun(${n}, [${ts}], ${fn});`);
+      res.push(`$meow.defun(${n}, [${ts}], ${fn}, ${ctx.pure});`);
       if (test != null) {
         res.push(lower_decl(new Ast.MDecl.Test(info, `${fname} for (${tn})`, test), options, ictx));
       }
       return res;
     },
 
-    SFun(info, name, self, params, ret, body, test) {
-      const { name: fname, args, types } = Ast.sfun_parts(name, self, params);
+    SFun(info, name, self, params, ret, ct, body, test, pure) {
+      const { name: fname, args, types } = Ast.sfun_parts(name, self, params, ct);
 
       const n = str(fname);
       const sn = mangle_fn(fname);
@@ -287,19 +309,17 @@ export function lower_decl(m: Ast.MDecl, options: Options, ictx: ImportContext):
       const tn = types.map(type_name).join(", ");
       const as = args.map(mangle);
 
-      const ctx = new Ctx(as, options);
-      const ref = ctx.fresh();
+      const ctx = new Ctx(as, options, pure != null);
       const res = new Block(0);
       const b = new Block(2);
       b.push_stack(fname, options, ctx, info);
-      b.push(`let ${ref};`);
-      b.push(lower_expr(desugar(body), ctx, ref));
+      const r = b.push_atomic(desugar(body), ctx);
       b.push(`$stack.pop();`);
-      b.push(`return ${ref};`);
+      b.push(`return ${r};`);
 
-      const fn0 = `function* ${sn} (${as.join(", ")}) {\n${b.render(0)}\n}`;
+      const fn0 = `function${ctx.gen_mark} ${sn} (${as.join(", ")}) {\n${b.render(0)}\n}`;
       const fn = attach_info(info, options.pkg ?? "()", options.file, fname, fn0);
-      res.push(`$meow.defun(${n}, [${ts}], ${fn});`);
+      res.push(`$meow.defun(${n}, [${ts}], ${fn}, ${ctx.pure});`);
       if (test != null) {
         res.push(lower_decl(new Ast.MDecl.Test(info, `${fname} for (${tn})`, test), options, ictx));
       }
@@ -335,15 +355,13 @@ export function lower_decl(m: Ast.MDecl, options: Options, ictx: ImportContext):
 
     Def(info, name, typ, body) {
       const sn = mangle_fn(name);
-      const ctx = new Ctx([], options);
-      const ref = ctx.fresh();
+      const ctx = new Ctx([], options, false);
       const res = new Block(0);
       const b = new Block(2);
       b.push_stack(`global ${name}`, options, ctx, info);
-      b.push(`let ${ref}`);
-      b.push(lower_expr(desugar(body), ctx, ref));
+      const r = b.push_atomic(desugar(body), ctx);
       b.push(`$stack.pop();`);
-      b.push(`return ${ref}`);
+      b.push(`return ${r}`);
       const fn0 = `function* ${sn} () {\n${b.render(0)}\n}`;
       const fn = attach_info(info, options.pkg ?? "()", options.file, name, fn0);
       res.push(`$meow.defglobal($scope.wrap(${str(name)}), ${fn});`);
@@ -351,14 +369,18 @@ export function lower_decl(m: Ast.MDecl, options: Options, ictx: ImportContext):
     },
 
     DeclareType(info, name) {
-      return Block.of(`$meow.declare_type($scope.wrap(${str(name)}))`);
+      return Block.of(`$meow.declare_type($scope.wrap(${str(ref_name(name))}))`);
+    },
+
+    DeclareTrait(info, name) {
+      return Block.of(`$meow.declare_trait($scope.wrap(${str(ref_name(name))}))`);
     },
 
     Test(info, name, body) {
       if (options.no_test) {
         return Block.of("");
       } else {
-        const ctx = new Ctx([], options);
+        const ctx = new Ctx([], options, false);
         const b = new Block(2);
         b.push_stack(`test ${str(name)}`, options, ctx, info);
         const v = b.push_atomic(desugar(body), ctx);
@@ -375,8 +397,7 @@ export function lower_decl(m: Ast.MDecl, options: Options, ictx: ImportContext):
     Import(info, id) {
       const path = Path.resolve(options.cwd, id);
       ictx.files.add(path);
-      const source = FS.readFileSync(path, "utf-8");
-      const ast = Ast.parse(source);
+      const ast = Ast.parse_file(path, ictx.cache_root);
       const js = lower(
         ast,
         { ...options, file: id, no_prelude: true, cwd: Path.dirname(path) },
@@ -399,20 +420,8 @@ $meow.defjs($scope, ${str(path)}, module.exports);
 }(${str(dir)}, ${str(file)});`);
     },
 
-    Trait(info, name, reqs) {
-      const res = new Block(0);
-      const dict = reqs.flatMap((x) => {
-        if (x == null) {
-          return [];
-        } else {
-          const name = Ast.trait_req_name(x);
-          const fn = lower_trait_fn(x, options);
-          return [[name, fn] as [string, Block]];
-        }
-      });
-      const dict1 = dict.map(([k, v]) => `${str(k)}: ${v.render(2)}`).join(",\n  ");
-      res.push(`$meow.deftrait($scope.wrap(${str(name)}), {\n  ${dict1}\n});`);
-      return res;
+    Trait(info, name) {
+      return Block.of(`$meow.deftrait($scope.wrap(${str(name)}));`);
     },
 
     Effect(info, name, cases) {
@@ -425,17 +434,8 @@ $meow.defjs($scope, ${str(path)}, module.exports);
       return Block.of(xs.join("\n;"));
     },
 
-    Implement(info, name, typ, decls) {
-      const res = new Block(0);
-      const dict = decls.map((x0) => {
-        const x = x0 as any as Ast.$$MDecl$_SFun;
-        const { name } = Ast.sfun_parts(x.name, x.self, x.params);
-        const fn = lower_trait_fn(new Ast.TraitReq.Provided(x), options);
-        return [name, fn] as [string, Block];
-      });
-      const dict1 = dict.map(([k, v]) => `${str(k)}: ${v.render(2)}`).join(",\n  ");
-      res.push(`$meow.implement(${str(name)}, ${type_ref(typ)}, {\n  ${dict1}\n});`);
-      return res;
+    Implement(info, name, typ) {
+      return Block.of(`$meow.implement($scope.rtrait(${str(ref_name(name))}), ${type_ref(typ)});`);
     },
 
     OpenPkg(info, name, alias) {
@@ -451,7 +451,7 @@ $meow.defjs($scope, ${str(path)}, module.exports);
     },
 
     Handler(info, name0, params0, init, cases, auto_install) {
-      const { name, args, types } = Ast.handler_parts(name0, params0);
+      const { name, args, types } = Ast.handler_parts(name0, params0, []);
       if (auto_install && args.length !== 0) {
         throw new Error(
           `Cannot make handler ${name} default because it's parameterised.\n\n${info?.formatted_position_message}`
@@ -461,7 +461,7 @@ $meow.defjs($scope, ${str(path)}, module.exports);
       const ps = args.map((x) => mangle(x));
       const ts = types.map((x) => type_ref(x));
 
-      const ctx = new Ctx(args, options);
+      const ctx = new Ctx(args, options, false);
       const b = new Block(2);
       b.push_stack(`handler ${name}`, options, ctx, info);
       if (init != null) {
@@ -478,42 +478,57 @@ $meow.defjs($scope, ${str(path)}, module.exports);
       );
       return res;
     },
-  });
-}
-
-function lower_trait_fn(x: Ast.TraitReq, options: Options) {
-  return x.match({
-    Provided(fn: Ast.$$MDecl$_SFun) {
-      const { name, args, types } = Ast.sfun_parts(fn.name, fn.self, fn.params);
-      const n = str(name);
-      const sn = mangle_fn(name);
-      const ts = types.map(type_ref).join(", ");
-      const as = args.map(mangle);
-      const ctx = new Ctx(as, options);
+    Decorator(info, name, args, decl) {
+      const decls = decorate(m as any);
       const res = new Block(0);
-      const b = new Block(2);
-      b.push_stack(name, options, ctx, fn.info);
-      const v = b.push_atomic(desugar(fn.body), ctx);
-      b.push(`$stack.pop();`);
-      b.push(`return ${v}`);
-      const fn0 = `function* ${sn} () {\n${b.render(0)}\n}`;
-      const fn1 = attach_info(fn.info, options.pkg ?? "()", options.file, name, fn0);
-      res.push(fn1);
+      for (const x of decls) {
+        res.push(lower_decl(x, options, ictx));
+      }
       return res;
     },
-    Required(name, params) {
-      return Block.of("null");
+    Asset(info, name, kind) {
+      const res = new Block(0);
+      const data = kind.match({
+        File(info, path) {
+          return FS.readFileSync(Path.join(options.cwd, path));
+        },
+      });
+      res.push(
+        `$meow.put_asset_base64($scope.wrap(${str(name)}), ${JSON.stringify(
+          data.toString("base64")
+        )});`
+      );
+      res.push(
+        `$meow.defun(${str(
+          name + "(self:)/1"
+        )}, [$meow.type($scope.wrap("package-assets"))], (_) => $meow.get_asset($scope.wrap(${str(
+          name
+        )})), true);`
+      );
+      return res;
+    },
+    Namespace(info, name, decls) {
+      const res = new Block(0);
+      res.push(`$scope.in_namespace(${str(name.join("."))}, ($scope) => {`);
+      for (const x of decls) {
+        res.push(lower_decl(x, options, ictx).render(2));
+      }
+      res.push("});");
+      return res;
+    },
+    OpenNamespace(info, ref, alias) {
+      return Block.of(`$scope.open_namespace(${str(ref_name(ref))}, ${mstr(alias)})`);
     },
   });
 }
 
-function type_name(x: Ast.MType) {
+function type_name(x: Ast.MType): string {
   return x.match({
     Infer(info) {
       return "unknown";
     },
-    Trait(info, ref) {
-      return `trait ${ref_name(ref)}`;
+    Trait(info, name) {
+      return `&${ref_name(name)}`;
     },
     Ref(info, ref) {
       return ref_name(ref);
@@ -533,16 +548,31 @@ function type_name(x: Ast.MType) {
     Record(info, fields) {
       return `record`;
     },
+    Self(info) {
+      return `self`;
+    },
+    StaticSelf(info) {
+      return `#self`;
+    },
+    StaticVar(info, name) {
+      return `#${name}`;
+    },
+    WithTraits(info, bound, traits) {
+      return `(${type_name(bound)} has ${traits.map((x) => ref_name(x)).join(", ")})`;
+    },
+    Package(info) {
+      return `package`;
+    },
   });
 }
 
-function type_ref(x: Ast.MType) {
+function type_ref(x: Ast.MType): string {
   return x.match({
     Infer(info) {
       return `$meow.type("unknown")`;
     },
-    Trait(info, ref) {
-      return `$scope.trait(${str(ref_name(ref))})`;
+    Trait(info, name) {
+      return `$scope.trait(${str(ref_name(name))})`;
     },
     Ref(info, ref) {
       return `$scope.type(${str(ref_name(ref))})`;
@@ -561,6 +591,23 @@ function type_ref(x: Ast.MType) {
     },
     Record(info, fields) {
       return `$meow.type("record")`;
+    },
+    Self(info) {
+      return `$meow.type("unknown")`;
+    },
+    StaticSelf(info) {
+      return `$meow.type("static")`;
+    },
+    StaticVar(info, name) {
+      return `$meow.type("static")`;
+    },
+    WithTraits(info, bound, traits) {
+      return `$meow.with_trait(${type_ref(bound)}, [${traits
+        .map((x) => `$scope.trait(${str(ref_name(x))})`)
+        .join(", ")}])`;
+    },
+    Package(info) {
+      return `$meow.type($scope.wrap("package"))`;
     },
   });
 }
@@ -599,27 +646,37 @@ export function lower_expr(x: Ast.MExpr, ctx: Ctx, k: string | null): Block {
     },
 
     If(info, clauses) {
-      const statements = clauses.reduceRight((p: If | null, v) => {
-        return {
-          guard: v.guard,
-          if_true: v.body,
-          if_false: p,
-        };
-      }, null);
+      const last = clauses[clauses.length - 1];
+      if (last == null) {
+        throw new Error(`malformed when at ${info?.formatted_position_message}`);
+      }
+      const statements = clauses.slice(0, -1).reduceRight(
+        (p: If | null, v) => {
+          return {
+            guard: v.guard,
+            if_true: v.body,
+            if_false: p,
+          };
+        },
+        { guard: last.guard, if_true: last.body, if_false: null }
+      );
       const go: (x: If | null, k: string | null) => Block = (x: If | null, k: string | null) => {
         if (x == null) {
           return Block.of(`throw $meow.unreachable("no clause matched");`);
         }
-        const r = ctx.fresh();
-        const g = ctx.fresh();
         const res = new Block(0);
-        res.push(`let ${r}, ${g};`);
-        res.push(lower_expr(x.guard, ctx, g));
+        const r = ctx.fresh();
+        res.push(`let ${r}`);
+        const g = res.push_atomic(x.guard, ctx);
         const tres = new Block(2);
         tres.push(lower_expr(x.if_true, ctx, r));
-        const fres = new Block(2);
-        fres.push(go(x.if_false, r));
-        res.push(`if (${g}) {\n${tres.render(0)}\n} else {\n${fres.render(0)}\n}`);
+        if (x.if_false == null) {
+          res.push(`if (${g}) {\n${tres.render(0)}\n}`);
+        } else {
+          const fres = new Block(2);
+          fres.push(go(x.if_false, r));
+          res.push(`if (${g}) {\n${tres.render(0)}\n} else {\n${fres.render(0)}\n}`);
+        }
         if (k != null) {
           res.push(bind(k, r));
         }
@@ -632,34 +689,32 @@ export function lower_expr(x: Ast.MExpr, ctx: Ctx, k: string | null): Block {
 
     Invoke(info, name, args) {
       const lines = new Block(0);
-      const xs = [];
       const { name: real_name, args: real_args } = Ast.invoke_parts(name, args);
-      for (const x of real_args) {
-        const r = ctx.fresh();
-        lines.push(`let ${r};`);
-        lines.push(lower_expr(x, ctx, r));
-        xs.push(r);
-      }
-      lines.push(bind(k, `yield* $meow.call(${str(real_name)}, ${xs.join(", ")})`));
+      const xs = real_args.map((x) => lines.push_atomic(x, ctx));
+      lines.push(
+        bind(
+          k,
+          `${ctx.call_prefix} $meow.call${ctx.call_suffix}(${str(real_name)}, ${xs.join(", ")})`
+        )
+      );
       return lines;
     },
 
     InvokeSelf(info, name, self, args) {
       const lines = new Block(0);
-      const xs = [];
       const { name: real_name, args: real_args } = Ast.sinvoke_parts(name, self, args);
-      for (const x of real_args) {
-        const r = ctx.fresh();
-        lines.push(`let ${r};`);
-        lines.push(lower_expr(x, ctx, r));
-        xs.push(r);
-      }
-      lines.push(bind(k, `yield* $meow.call(${str(real_name)}, ${xs.join(", ")})`));
+      const xs = real_args.map((x) => lines.push_atomic(x, ctx));
+      lines.push(
+        bind(
+          k,
+          `${ctx.call_prefix} $meow.call${ctx.call_suffix}(${str(real_name)}, ${xs.join(", ")})`
+        )
+      );
       return lines;
     },
 
     Var(info, name) {
-      return Block.of_info(bind(k, `${mangle(name)}`), ctx, info);
+      return Block.of(bind(k, `${mangle(name)}`));
     },
 
     IntrinsicEq(info, left, right) {
@@ -680,14 +735,21 @@ export function lower_expr(x: Ast.MExpr, ctx: Ctx, k: string | null): Block {
     Project(info, value, field) {
       const res = new Block(0);
       const r = res.push_atomic(value, ctx);
-      res.push(bind(k, `$meow.checked(${r}[${str(field)}])`));
+      res.push(bind(k, `$meow.checked_project(${r}[${str(field)}], ${r}, ${str(field)})`));
       return res;
     },
 
     Foreign(info, name, args) {
       const res = new Block(0);
       const xs = args.map((x) => res.push_atomic(x, ctx));
-      res.push(bind(k, `yield* $meow.calljs($scope.wrap_pkg(${str(name)}), [${xs.join(", ")}])`));
+      res.push(
+        bind(
+          k,
+          `${ctx.call_prefix} $meow.calljs${ctx.call_suffix}($scope.wrap_pkg(${str(
+            name
+          )}), [${xs.join(", ")}])`
+        )
+      );
       return res;
     },
 
@@ -713,7 +775,7 @@ export function lower_expr(x: Ast.MExpr, ctx: Ctx, k: string | null): Block {
     },
 
     Static(info, ref) {
-      return Block.of_info(bind(k, `$scope.smake(${str(ref_name(ref))})`), ctx, info);
+      return Block.of(bind(k, `$scope.smake(${str(ref_name(ref))})`));
     },
 
     NewVariant(info, ref, variant, fields) {
@@ -748,15 +810,11 @@ export function lower_expr(x: Ast.MExpr, ctx: Ctx, k: string | null): Block {
     },
 
     GetVariant(info, ref, variant) {
-      return Block.of_info(
-        bind(k, `$scope.get_variant(${str(ref_name(ref))}, ${str(variant)})`),
-        ctx,
-        info
-      );
+      return Block.of(bind(k, `$scope.get_variant(${str(ref_name(ref))}, ${str(variant)})`));
     },
 
     GetGlobal(info, ref) {
-      return Block.of_info(bind(k, `$scope.global(${str(ref_name(ref))})`), ctx, info);
+      return Block.of(bind(k, `$scope.global(${str(ref_name(ref))})`));
     },
 
     List(info, items) {
@@ -779,7 +837,7 @@ export function lower_expr(x: Ast.MExpr, ctx: Ctx, k: string | null): Block {
     Lazy(info, expr) {
       const b = new Block(2);
       b.push_stack(`thunk`, ctx.options, ctx, info);
-      const bctx = new Ctx(ctx.params, ctx.options);
+      const bctx = new Ctx(ctx.params, ctx.options, false);
       const v = b.push_atomic(expr, bctx);
       b.push(`$stack.pop();`);
       b.push(`return ${v};`);
@@ -815,20 +873,30 @@ export function lower_expr(x: Ast.MExpr, ctx: Ctx, k: string | null): Block {
     },
 
     Assert(info, expr, tag) {
-      const b = new Block(0);
-      const v = b.push_atomic(expr, ctx);
-      const loc = str(
+      const res = new Block(0);
+      let r;
+      if (k == null) {
+        r = ctx.fresh();
+        res.push(`let ${r}`);
+      } else {
+        r = k;
+      }
+      const loc_msg = str(
         (info?.formatted_position_message ?? "(unknown location)") +
           " in " +
           (ctx.options.pkg ?? "()") +
           "/" +
           ctx.options.file
       );
+      const loc = ctx.fresh();
+      res.push(`const ${loc} = ${loc_msg}`);
+      const b = new Block(0);
+      b.push(lower_expr(expr, ctx, r));
       const t = mstr(tag);
-      b.push(`if (!${v}) { throw $meow.assert_fail(${t}, ${loc}); }`);
-      b.push(bind(k, v));
-      const res = new Block(0);
-      res.push(`try {\n${b.render(2)}\n} catch (e) {\nthrow $meow.assert_fail(${t}, ${loc}, e)\n}`);
+      b.push(`if (!${r}) { throw $meow.assert_fail(${t}, ${loc}); }`);
+      res.push(
+        `try {\n${b.render(2)}\n} catch ($e) {\n  throw $meow.assert_fail(${t}, ${loc}, $e)\n}`
+      );
       return res;
     },
 
@@ -859,7 +927,7 @@ export function lower_expr(x: Ast.MExpr, ctx: Ctx, k: string | null): Block {
     Lambda(info, params, body) {
       const b = new Block(0);
       b.push_stack(`lambda`, ctx.options, ctx, info);
-      const lctx = new Ctx(ctx.params, ctx.options);
+      const lctx = new Ctx(ctx.params, ctx.options, false);
       const v = b.push_atomic(body, lctx);
       b.push(`$stack.pop();`);
       b.push(`return ${v};`);
@@ -991,6 +1059,22 @@ export function lower_expr(x: Ast.MExpr, ctx: Ctx, k: string | null): Block {
       res.push(bind(k, `yield $meow.eff_handle(${fn}, ${h})`));
       return res;
     },
+
+    Unreachable(info) {
+      return Block.of(
+        `throw $meow.unreachable(${str(info?.formatted_position_message ?? "unrechable")})`
+      );
+    },
+
+    HasTrait(info, value, ref) {
+      const res = new Block(0);
+      const v = res.push_atomic(value, ctx);
+      res.push(bind(k, `$scope.has_trait(${v}, ${str(ref_name(ref))})`));
+      return res;
+    },
+    Package(info) {
+      return Block.of(bind(k, `$meow.global($scope.wrap("package"))`));
+    },
   });
 }
 
@@ -999,10 +1083,15 @@ function make_handle_cases(handlers: Ast.HandlerCase[], ctx: Ctx) {
   const hs = new Block(2);
   for (const h of handlers) {
     h.match({
-      On(info, name, params, body) {
+      On(info, name, params, k, body) {
         const n = `$scope.effect(${str(ref_name(name))})`;
         const fb = new Block(2);
-        fb.push_stack(`on ${name}`, ctx.options, ctx, info);
+        fb.push_stack(`'on ${ref_name(name)}'`, ctx.options, ctx, info);
+        if (k != null) {
+          throw new Error(
+            `lifting continuations is not yet implemented. At ${info?.formatted_position_message}`
+          );
+        }
         fb.push(lower_expr(body, ctx, null));
         fb.push(`throw $meow.unreachable()`);
         const fn0 = `function* ${mangle_fn("_hc_on_" + ref_name(name))}(${params
@@ -1099,30 +1188,411 @@ function lower_const(x: Ast.MConst) {
     },
 
     Text(info, value) {
-      return str(value.replace(/\r\n|\r/g, "\n"));
+      return str(parse_str(value));
     },
 
     TemplateText(info, value) {
-      const col = info?.position.column ?? 1;
-      const space_re = new RegExp(`^[ \\t]{0,${col - 1}}`);
-      const lines = value.split(/\r\n|\r|\n/);
-      const result = [];
-      if (lines[0].trim()) {
-        result.push(lines[0]);
-      }
-      result.push(...lines.slice(1, -1).map((x) => x.replace(space_re, "")));
-      if (lines.length > 0 && lines[lines.length - 1].trim()) {
-        result.push(lines[lines.length - 1].replace(space_re, ""));
-      }
-      return str(result.join("\n"));
+      return str(fix_template_text(info, parse_str(value)));
     },
   });
+}
+
+function fix_template_text(info: Ast.Meta | null, value: string) {
+  const col = info?.position.column ?? 1;
+  const space_re = new RegExp(`^[ \\t]{0,${col - 1}}`);
+  const lines = value.split(/\r\n|\r|\n/);
+  const result = [];
+  if (lines[0].trim()) {
+    result.push(lines[0]);
+  }
+  result.push(...lines.slice(1, -1).map((x) => x.replace(space_re, "")));
+  if (lines.length > 1 && lines[lines.length - 1].trim()) {
+    result.push(lines[lines.length - 1].replace(space_re, ""));
+  }
+  return result.join("\n");
 }
 
 function bind(k: string | null, v: string) {
   if (k == null) {
     return v;
+  } else if (k.startsWith(`$c$`)) {
+    return `const ${k} = ${v}`;
   } else {
     return `${k} = ${v};`;
   }
+}
+
+function is_atomic(expr: Ast.MExpr): boolean {
+  return expr.match({
+    AbortWith(info, value) {
+      return false;
+    },
+    Apply(info, callee, args) {
+      return false;
+    },
+    Assert(info, expr, atag) {
+      return false;
+    },
+    Binary(info, elements) {
+      return elements.every((x) => is_atomic_bin_element(x));
+    },
+    Block(info, exprs) {
+      return false;
+    },
+    Break(info, value) {
+      return false;
+    },
+    Const(info, value) {
+      return true;
+    },
+    Continue(info, bindings) {
+      return false;
+    },
+    Extend(info, object, fields) {
+      return false;
+    },
+    Force(info, thunk) {
+      return false;
+    },
+    Foreign(info, name, args) {
+      return false;
+    },
+    GetGlobal(info, ref) {
+      return true;
+    },
+    GetVariant(info, ref, variant) {
+      return true;
+    },
+    Handle(info, body, handlers) {
+      return false;
+    },
+    Hole(info) {
+      return false;
+    },
+    If(info, clauses) {
+      return false;
+    },
+    IntrinsicEq(info, left, right) {
+      return false;
+    },
+    Invoke(info, name, args) {
+      return false;
+    },
+    InvokeSelf(info, name, self, args) {
+      return false;
+    },
+    Is(info, expr, typ) {
+      return false;
+    },
+    IsVariant(info, expr, typ, variant) {
+      return false;
+    },
+    Lambda(info, params, body) {
+      return true;
+    },
+    Lazy(info, expr) {
+      return true;
+    },
+    Let(info, name, typ, value) {
+      return false;
+    },
+    List(info, items) {
+      return items.every((x) => is_atomic_list_element(x));
+    },
+    Map(info, pairs) {
+      return pairs.every((x) => is_atomic_map_element(x));
+    },
+    New(info, ref, fields) {
+      return false;
+    },
+    NewPos(info, ref, values) {
+      return false;
+    },
+    NewVariant(info, ref, variant, fields) {
+      return false;
+    },
+    NewVariantPos(info, ref, variant, args) {
+      return false;
+    },
+    Perform(info, name, args) {
+      return false;
+    },
+    Pipe(info, left, right) {
+      return false;
+    },
+    Primitive(info, name, args) {
+      return false;
+    },
+    Project(info, value, field) {
+      return false;
+    },
+    Record(info, fields) {
+      return false;
+    },
+    Repeat(info, bindings, body) {
+      return false;
+    },
+    ResumeWith(info, value) {
+      return false;
+    },
+    Self(info) {
+      return true;
+    },
+    Static(info, ref) {
+      return true;
+    },
+    Unreachable(info) {
+      return false;
+    },
+    Var(info, name) {
+      return true;
+    },
+    HasTrait(info, value, ref) {
+      return false;
+    },
+    Package(info) {
+      return true;
+    },
+  });
+}
+
+function is_constable(x: Ast.MExpr): boolean {
+  return x.match({
+    AbortWith(info, value) {
+      return false;
+    },
+    Apply(info, callee, args) {
+      return true;
+    },
+    Assert(info, expr, atag) {
+      return false;
+    },
+    Binary(info, elements) {
+      return true;
+    },
+    Block(info, exprs) {
+      return false;
+    },
+    Break(info, value) {
+      return false;
+    },
+    Const(info, value) {
+      return true;
+    },
+    Continue(info, bindings) {
+      return false;
+    },
+    Extend(info, object, fields) {
+      return is_constable(object) && fields.every((x) => is_constable(x.value));
+    },
+    Force(info, thunk) {
+      return is_constable(thunk);
+    },
+    Foreign(info, name, args) {
+      return args.every(is_constable);
+    },
+    GetGlobal(info, ref) {
+      return true;
+    },
+    GetVariant(info, ref, variant) {
+      return true;
+    },
+    Handle(info, body, handlers) {
+      return false;
+    },
+    Hole(info) {
+      return false;
+    },
+    If(info, clauses) {
+      return false;
+    },
+    IntrinsicEq(info, left, right) {
+      return is_constable(left) && is_constable(right);
+    },
+    Invoke(info, name, args) {
+      return args.every((x) => is_constable(x.value));
+    },
+    InvokeSelf(info, name, self, args) {
+      return args.every((x) => is_constable(x.value)) && is_constable(self);
+    },
+    Is(info, expr, typ) {
+      return is_constable(expr);
+    },
+    IsVariant(info, expr, typ, variant) {
+      return is_constable(expr);
+    },
+    Lambda(info, params, body) {
+      return true;
+    },
+    Lazy(info, expr) {
+      return true;
+    },
+    Let(info, name, typ, value) {
+      return false;
+    },
+    List(info, items) {
+      return items.every(is_atomic_list_element);
+    },
+    Map(info, pairs) {
+      return pairs.every(is_atomic_map_element);
+    },
+    New(info, ref, fields) {
+      return fields.every((x) => is_constable(x.value));
+    },
+    NewPos(info, ref, values) {
+      return values.every(is_constable);
+    },
+    NewVariant(info, ref, variant, fields) {
+      return fields.every((x) => is_constable(x.value));
+    },
+    NewVariantPos(info, ref, variant, args) {
+      return args.every(is_constable);
+    },
+    Perform(info, name, args) {
+      return args.every(is_constable);
+    },
+    Pipe(info, left, right) {
+      return is_constable(left) && is_constable(right);
+    },
+    Primitive(info, name, args) {
+      return args.every(is_constable);
+    },
+    Project(info, value, field) {
+      return is_constable(value);
+    },
+    Record(info, fields) {
+      return fields.every((x) => is_constable(x.value));
+    },
+    Repeat(info, bindings, body) {
+      return false;
+    },
+    ResumeWith(info, value) {
+      return false;
+    },
+    Self(info) {
+      return true;
+    },
+    Static(info, ref) {
+      return true;
+    },
+    Unreachable(info) {
+      return false;
+    },
+    Var(info, name) {
+      return true;
+    },
+    HasTrait(info, value, ref) {
+      return is_constable(value);
+    },
+    Package(info) {
+      return true;
+    },
+  });
+}
+
+function is_atomic_bin_element(x: Ast.EBinElement) {
+  return x.match({
+    Byte(value) {
+      return true;
+    },
+    Int(value, size, endianess, signed) {
+      return true;
+    },
+  });
+}
+
+function is_atomic_list_element(x: Ast.ListItem): boolean {
+  return x.match({
+    Item(value) {
+      return is_atomic(value);
+    },
+    Spread(value) {
+      return is_atomic(value);
+    },
+  });
+}
+
+function is_atomic_map_element(x: Ast.MapItem): boolean {
+  return x.match({
+    Pair(key, value) {
+      return is_atomic(key) && is_atomic(value);
+    },
+    Spread(value) {
+      return is_atomic(value);
+    },
+  });
+}
+
+export function eval_const_expr(x: Ast.ConstExpr): unknown {
+  return x.match({
+    List(info, values) {
+      return values.map(eval_const_expr);
+    },
+    Symbol(info, name) {
+      return name;
+    },
+    Literal(info, value) {
+      return value.match<unknown>({
+        False(info) {
+          return false;
+        },
+        Int(info, value) {
+          return Number(value);
+        },
+        Float(info, value) {
+          return value;
+        },
+        Int32(info, value) {
+          return Number(value);
+        },
+        Int64(info, value) {
+          return value;
+        },
+        Nothing(info) {
+          return null;
+        },
+        TemplateText(info, value) {
+          return fix_template_text(info, parse_str(value));
+        },
+        Text(info, value) {
+          return parse_str(value);
+        },
+        True(info) {
+          return true;
+        },
+      });
+    },
+  });
+}
+
+function parse_str(x0: string) {
+  if (!x0.startsWith('"') || !x0.endsWith('"')) {
+    throw new Error(`invalid string literal`);
+  }
+  const x1 = x0.slice(1, -1);
+  return x1.replace(/\\u\{[^\}]+\}|\\u[a-fA-F0-9]{4}|\\./g, (match) => {
+    if (match.startsWith("\\u{")) {
+      return String.fromCodePoint(parseInt(match.slice(3, -1), 16));
+    } else if (match.startsWith("\\u")) {
+      return String.fromCharCode(parseInt(match.slice(2), 16));
+    } else {
+      const c = match[1];
+      switch (c) {
+        case "f":
+          return "\f";
+        case "n":
+          return "\n";
+        case "r":
+          return "\r";
+        case "t":
+          return "\t";
+        case "v":
+          return "\v";
+        case "b":
+          return "\b";
+        default:
+          return c;
+      }
+    }
+  });
 }

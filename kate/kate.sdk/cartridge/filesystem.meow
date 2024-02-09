@@ -1,0 +1,9 @@
+% meow/1
+
+open cartridge as c;
+
+def c.file-system at(Id: text) -> c.file {
+  let File = foreign cart-fs.read-file(Id);
+  new c.file(mime: File.mime, data: File.data);
+}
+

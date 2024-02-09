@@ -1,0 +1,28 @@
+% meow/1
+
+def #list-iterator from(List: L, start Start: int, stop Stop: int) where L has list<A> =
+  new list-iterator(list: List, index: #cell of(Start), stop: Stop);
+
+
+implement iterable<A> for list-iterator<A>;
+implement iterator<A> for list-iterator<A>;
+def list-iterator<A> size-hint() -> maybe<int> =
+  #maybe some(self.stop - self.index read());
+
+def list-iterator<A> take-next() -> maybe<A> {
+  let Ix = self.index read();
+  when {
+    Ix === self.stop -> maybe..none;
+    otherwise {
+      self.index <- Ix + 1;
+      self.list at(Ix);
+    }
+  }
+} test {
+  let A = ["a", "b", "c"] iterator();
+  assert A is list-iterator;
+  assert A take-next() unwrap() ==> "a";
+  assert A take-next() unwrap() ==> "b";
+  assert A take-next() unwrap() ==> "c";
+  assert A take-next() is maybe..none;
+}

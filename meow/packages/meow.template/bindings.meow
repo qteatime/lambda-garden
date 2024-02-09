@@ -3,10 +3,10 @@
 def #bindings from(X: bindings, on-not-found F: (array<text>) -> text) =
   new bindings(mapping: X.mapping, on-not-found: F);
 
-def #bindings from(X: unknown, on-not-found F: (array<text>) -> text) =
+def #bindings from(X: map<text, unknown>, on-not-found F: (array<text>) -> text) =
   new bindings(mapping: X, on-not-found: F);
 
-def #bindings from(X: unknown) =
+def #bindings from(X: map<text, unknown>) =
   self from(X, on-not-found: { Names in
     panic raise("Binding not found " ++ #text join(Names, with: "."))
   });
@@ -15,13 +15,13 @@ def #bindings from(X: unknown) =
 def bindings lookup(Names: array<text>) {
   repeat with X = Names, M = self.mapping {
     when {
-      X is-empty() => break with M;
-      otherwise => do {
+      X is-empty() -> break with M;
+      otherwise {
         let Name = X first!();
         let Value = M at(Name);
         when {
-          Value is maybe..none => break with self.on-not-found(Names);
-          Value is maybe..some => continue with X = X rest(), M = Value unwrap();
+          Value is maybe..none -> break with self.on-not-found(Names);
+          Value is maybe..some -> continue with X = X rest(), M = Value unwrap();
         }
       }
     }
@@ -32,3 +32,12 @@ def bindings lookup(Names: array<text>) {
   assert Env lookup(["a"]) ==> ["b": ["c": "ok"]];
   assert Env lookup(["a", "d"]) ==> "";
 }
+
+implement bindings-provider<map<A, B>> for map<A, B>;
+def map as bindings = #bindings from(self);
+
+implement bindings-provider<record> for record;
+def record as bindings = #bindings from(self as map);
+
+implement bindings-provider<bindings> for bindings;
+def bindings as bindings = self;

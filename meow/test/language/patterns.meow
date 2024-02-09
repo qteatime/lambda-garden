@@ -1,0 +1,5 @@
+% meow/1
+
+test "testing with patterns" {
+  assert [1, 2L, 3.0f] ==> @<[1, 2L, 3.0f]>@;
+}

@@ -4,3 +4,8 @@ const transcript_write = (x: string) => console.log(x);
 
 const transcript_trace = (x: $Value, tag: string) =>
   console.trace(`(${tag}) ${$pprint(x)}\n\nStack:\n${$stack.format()}\n---`);
+
+const breakpoint = () => {
+  debugger;
+  return null;
+};

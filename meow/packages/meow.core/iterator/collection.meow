@@ -1,0 +1,40 @@
+% meow/1
+
+def (_: Iter) into(#array) -> array<A> where Iter has iterator<A> {
+  let Result = #mutable-array empty();
+  self each(Result append(_));
+  Result freeze();
+} test {
+  let A = [1, 2, 3] iterator();
+  assert A into(#array) ==> [1, 2, 3];
+  assert A into(#array) ==> []; // fully consumed before
+}
+
+def (_: Iter) into(#byte-array) -> array<A> where Iter has iterator<A> {
+  // TODO: there are cases where we can optimise this and pre-allocate
+  //       byte arrays and consume directly into that memory, but we
+  //       can't trust size-hint.
+  #byte-array from(self into(#array));
+} test {
+  let A = [1, 2, 3] iterator();
+  assert A into(#byte-array) ==> <<1, 2, 3>>;
+  assert A into(#byte-array) ==> <<>>; // fully consumed before
+}
+
+def (_: Iter) into(#map) -> map<K, V> where Iter has iterator<#(key: K, value: V)> {
+  let Result = #mutable-map empty();
+  self each({ Entry in Result put(at: Entry.key, value: Entry.value) });
+  Result freeze();
+} test {
+  assert [#(key: 1, value: "a"), #(key: 2, value: "b")] iterator() into(#map)
+    ==> [1: "a", 2: "b"]
+}
+
+def (_: Iter) into(#set) -> set<V> where Iter has iterator<V> {
+  let Result = #mutable-set empty();
+  self each(Result put(_));
+  Result freeze();
+} test {
+  assert [1, 2, 3] iterator() into(#set)
+    ==> new set([1: nothing, 2: nothing, 3: nothing]);
+}

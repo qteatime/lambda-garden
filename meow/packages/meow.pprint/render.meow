@@ -6,7 +6,7 @@ struct layout-ctx(output: mutable-array<flat>, column: int);
 def p layout(Doc: doc) -> array<flat> {
   let Output = #mutable-array empty();
   let Layout = new layout-ctx(output: Output, column: 0) lay(Doc, indent: 0);
-  Layout.output read-only();
+  Layout.output freeze();
 }
 
 def layout-ctx lay(Doc: doc..empty, indent I: int) =
@@ -29,6 +29,7 @@ def layout-ctx lay(Doc: doc..text, indent I: int) {
 
 def layout-ctx lay(Doc: doc..stack, indent I: int) {
   Doc.children
+    iterator()
     intersperse(doc..line-break)
     fold(from: self, with: _ lay(_, indent: I));
 }
@@ -50,7 +51,9 @@ def layout-ctx lay(Doc: doc..source-info, indent I: int) {
 
 // -- Rendering ----------------------------------------------------------------
 def p print(Doc: doc) {
-  self layout(Doc) fold(from: "", with: {Acc, X in Acc ++ X print() });  
+  self layout(Doc)
+       iterator()
+       fold(from: "", with: {Acc, X in Acc ++ X print() });  
 }
 
 def flat..text print() = self.content;

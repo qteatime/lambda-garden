@@ -1,0 +1,21 @@
+% meow/1
+
+import foreign "native/js.js";
+
+def #js-generator from(Value: unknown) -> js-generator<A> {
+  foreign js.assert-generator(Value);
+  new js-generator(Value);
+}
+
+implement iterable<A> for js-generator<A>;
+implement iterator<A> for js-generator<A>;
+def js-generator<A> take-next() -> maybe<A> {
+  #maybe from(foreign js.gen-next(self.value));
+} test {
+  let Gen = #js-generator from(foreign js.gen-sample());
+  assert Gen take-next() ==> #maybe some(1);
+  assert Gen take-next() ==> #maybe some(2);
+  assert Gen take-next() ==> #maybe some(3);
+  assert Gen take-next() ==> maybe..none;
+  assert Gen take-next() ==> maybe..none;
+}

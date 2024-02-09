@@ -28,13 +28,33 @@ export function desugar(x: Ast.MExpr): Ast.MExpr {
     Hole(info) {
       return x;
     },
-    If(info, clauses) {
-      return new Ast.MExpr.If(
-        null,
-        clauses.map((x) => {
-          return new Ast.MIfClause(null, desugar(x.guard), desugar(x.body));
-        })
+    If(info, clauses0) {
+      const is_total = (xs: Ast.MIfClause[]) => {
+        if (xs.length === 0) {
+          return false;
+        }
+        const last = xs[xs.length - 1];
+        if (last.guard.tag !== "Const") {
+          return false;
+        }
+        return (last.guard as Ast.$$MExpr$_Const).value.tag === "True";
+      };
+
+      const clauses1 = clauses0.map(
+        (x) => new Ast.MIfClause(x.info, desugar(x.guard), desugar(x.body))
       );
+      const clauses2 = is_total(clauses1)
+        ? clauses1
+        : [
+            ...clauses1,
+            new Ast.MIfClause(
+              info,
+              new Ast.MExpr.Const(info, new Ast.MConst.True(info)),
+              new Ast.MExpr.Unreachable(info)
+            ),
+          ];
+
+      return new Ast.MExpr.If(info, clauses2);
     },
     Pipe(info, left, right) {
       return new Ast.MExpr.Pipe(info, desugar(left), desugar(right));
@@ -213,8 +233,8 @@ export function desugar(x: Ast.MExpr): Ast.MExpr {
         desugar(body),
         handlers.map((x) => {
           return x.match<Ast.HandlerCase>({
-            On(info, name, params, body) {
-              return new Ast.HandlerCase.On(info, name, params, desugar(body));
+            On(info, name, params, k, body) {
+              return new Ast.HandlerCase.On(info, name, params, k, desugar(body));
             },
             Use(info, name, args) {
               return new Ast.HandlerCase.Use(
@@ -226,6 +246,15 @@ export function desugar(x: Ast.MExpr): Ast.MExpr {
           });
         })
       );
+    },
+    Unreachable(info) {
+      return x;
+    },
+    HasTrait(info, value, ref) {
+      return lift([value], ([value]) => new Ast.MExpr.HasTrait(info, value, ref));
+    },
+    Package(info) {
+      return x;
     },
   });
 }
@@ -298,12 +327,12 @@ function to_lambda_param(x: { index: number; value: Ast.MExpr }) {
 
 function to_lambda_arg(x: { index: number; value: Ast.MExpr }) {
   if (is_hole(x.value)) {
-    return new Ast.MExpr.Var(null, `$h${x.index}`);
+    return new Ast.MExpr.Var(x.value.info, `$h${x.index}`);
   } else {
     return x.value;
   }
 }
 
-function is_hole(x: Ast.MExpr) {
-  return x.tag === "Hole";
+function is_hole(x: Ast.MExpr): x is Ast.$$MExpr$_Hole {
+  return x instanceof Ast.$$MExpr$_Hole;
 }

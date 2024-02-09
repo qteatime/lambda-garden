@@ -1,0 +1,32 @@
+% meow/1
+
+implement panic-message<parse-error> for parse-error;
+
+def #parse-error span(Text: text, offset Offset: int) {
+  let Start = (Offset - 20) clamp(min: 0, max: #int upper-bound());
+  let Stop = (Start + 40) clamp(min: Start, max: Text count-code-units());
+  #(
+    text-span: Text slice(from: Start, to: Stop) as text,
+    padding: " " replicate(max(0, Offset - Start)),
+  );
+}
+
+def panic raise(Msg: parse-error..syntax-error, tag Tag: text, data Data: unknown) {
+  panic raise(
+    #template render(
+      """
+      Syntax error parsing template:
+
+      ${reason}
+
+      At offset ${offset}:
+        ${text-span}
+        ${padding}^
+      """,
+      with: (#parse-error span(Msg.input, offset: Msg.offset))#(
+        reason: Msg.reason,
+        offset: Msg.offset as text,
+      )
+    )
+  )
+}

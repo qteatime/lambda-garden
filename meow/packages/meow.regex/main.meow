@@ -1,17 +1,28 @@
 % meow/1
 
-singleton regex;
+import foreign "native/re.js";
 
-union regex-error {}
+singleton regex;
 
 struct regex-match(input: text, groups: array<text>);
 
-struct compiled-pattern(code: unknown);
+struct compiled-pattern(code: compiled-regex);
 
 union flag {
   ignore-case;
   multiline;
   dot-all;
+  global;
+  sticky;
+}
+
+union regex-error {
+  no-matches(pattern: compiled-pattern, input: text);
+}
+
+implement panic-message for regex-error;
+def panic raise(Msg: regex-error..no-matches, tag Tag: text, data Data: unknown) {
+  panic raise("No matches for regex", tag: Tag, data: #(pattern: Msg.pattern, input: Msg.input, other: Data));
 }
 
 struct regex-id(name: text);
@@ -49,7 +60,15 @@ union pattern {
   seq(items: array<pattern>);
   // Captures
   capture(expr: pattern);
-  named-capture(name: regex-id, pattern: expr);
+  named-capture(name: regex-id, expr: pattern);
   backref(index: int);
   named-backref(name: regex-id);
 }
+
+
+struct split-iterator(pattern: compiled-pattern, text: text, offset: cell<int>);
+
+
+import "compilation.meow";
+import "constructors.meow";
+import "operations.meow";

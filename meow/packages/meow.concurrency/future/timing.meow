@@ -1,0 +1,27 @@
+% meow/1
+
+open package meow.time;
+
+def #future sleep(Time: time-duration) -> future<nothing, E> {
+  current-zone
+    spawn({
+      current-process sleep(Time);
+      #future-result ok(nothing);
+    })
+    future-result();
+} test {
+  assert #future sleep(10 milliseconds()) wait!() ==> nothing;
+}
+
+
+def #future timeout(Time: time-duration) -> future<nothing, timeout-error> {
+  current-zone
+    spawn({
+      current-process sleep(Time);
+      #future-result error(new timeout-error(Time));
+    })
+    future-result();
+} test {
+  assert #future timeout(10 milliseconds()) wait-settled()
+    ==> #future-result error(new timeout-error(10 milliseconds()));
+}

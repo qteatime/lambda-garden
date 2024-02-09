@@ -1,10 +1,12 @@
 % meow/1
 
 //#region - Native-sized integer (int) -----------------------------------------
-def int absolute() -> int {
+implement signedness for int;
+
+pure def int absolute() -> int {
   when {
-    self < 0 => -(self);
-    otherwise => self;
+    self < 0 -> -(self);
+    otherwise -> self;
   }
 } test {
   assert 0 absolute() ==> 0;
@@ -12,10 +14,10 @@ def int absolute() -> int {
   assert -1 absolute() ==> 1;
 }
 
-def int sign() -> sign {
+pure def int sign() -> sign {
   when {
-    self < 0 => sign..negative;
-    otherwise => sign..positive;
+    self < 0 -> sign..negative;
+    otherwise -> sign..positive;
   }
 } test {
   assert -1 sign() ==> sign..negative;
@@ -25,10 +27,12 @@ def int sign() -> sign {
 //#endregion
 
 //#region - 64-bit sized integer (i64) -----------------------------------------
-def i64 absolute() -> i64 {
+implement signedness for i64;
+
+pure def i64 absolute() -> i64 {
   when {
-    self < 0L => -(self);
-    otherwise => self;
+    self < 0L -> -(self);
+    otherwise -> self;
   }
 } test {
   assert 0L absolute() ==> 0L;
@@ -36,10 +40,10 @@ def i64 absolute() -> i64 {
   assert -1L absolute() ==> 1L;
 }
 
-def i64 sign() -> sign {
+pure def i64 sign() -> sign {
   when {
-    self < 0L => sign..negative;
-    otherwise => sign..positive;
+    self < 0L -> sign..negative;
+    otherwise -> sign..positive;
   }
 } test {
   assert -1L sign() ==> sign..negative;

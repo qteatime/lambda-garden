@@ -1,0 +1,40 @@
+% meow/1
+
+def f(A, B, C) { (A as int) + (B as int) + (C as int) }
+def f(A, B: int, C) { (A as int) - (B as int) - (C as int) }
+def f(A: int, B, C) { (A as int) * (B as int) * (C as int) }
+
+test "multimethods" {
+  assert f(1L, 2L, 3L) ==> 1 + 2 + 3;
+  assert f(1L, 2, 3L) ==> 1 - 2 - 3;
+  assert f(1, 2, 3L) ==> 1 * 2 * 3;
+}
+
+test "lambdas" {
+  assert { 1 } is lambda-0;
+  assert { A in 1 } is lambda-1;
+  assert { A, B, C in 1 } is lambda-3;
+
+  assert { 1 }() ==> 1;
+  assert { A in A + 1 }(1) ==> 2;
+  assert { A, B in A + B }(1, 2) ==> 3;
+}
+
+test "thunks" {
+  assert (lazy 1) is thunk;
+  assert force (lazy 1) ==> 1;
+
+  let A = #cell of([]);
+  let B = lazy do {
+    A <- A read() append(1);
+    2;
+  };
+  assert force B ==> 2;
+  assert force B ==> 2;
+  assert A read() ==> [1];
+}
+
+test "pipes" {
+  assert (1 |> _ + 1) ==> 2;
+  assert (#(a: 1) |> _.a) ==> 1;
+}

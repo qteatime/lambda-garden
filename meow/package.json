@@ -13,13 +13,15 @@
     "test": "test"
   },
   "scripts": {
-    "test": "npm run build && node --test && meow --test --no-stdlib test/packages.meow",
-    "compile": "tsc -p .",
+    "test": "npm run build && node --test && npm run language-test && npm run stdlib-test",
+    "language-test": "meow --test test/language/main.meow",
+    "stdlib-test": "meow --test --no-stdlib --no-cache test/packages.meow",
+    "compile-vm": "tsc -p .",
+    "compile": "tsc -p . && tsc -p packages",
     "build-prelude": "npm run compile && node support/make-prelude.js",
-    "build": "npm run compile && npm run build-prelude",
-    "build-core": "meowc --no-prelude --no-test --package meow.core lib/core.meow > lib/_core.js",
+    "build": "npm run compile && npm run build-prelude && npm run build-stdlib",
     "build-grammar": "node ../tools/lingua.js grammar.lingua typescript > source/generated/grammar.ts",
-    "build-all": "npm run build && npm run build-core"
+    "build-stdlib": "tsc -p packages && meowc --build"
   },
   "author": "Niini",
   "license": "MPL-2.0",

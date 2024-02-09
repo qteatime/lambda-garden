@@ -42,11 +42,15 @@ class $InstallHandlerCasesSignal extends $Signal {
   }
 }
 
+class $YieldProcessSignal extends $Signal {}
+
+type $HandlerCases = { [key: string]: MeowFn };
+
 class $HandleStack {
   constructor(
     readonly parent: null | $HandleStack,
     readonly gen: MeowGen,
-    readonly cases: { [key: string]: MeowFn },
+    readonly cases: $HandlerCases,
     readonly abort_to: $HandleStack | null
   ) {}
 
@@ -58,5 +62,10 @@ class $HandleStack {
     } else {
       throw new $Panic("no-handler", `No handler defined for ${name}`);
     }
+  }
+
+  collect_handlers() {
+    const base = this.parent ? this.parent.cases : {};
+    return { ...base, ...this.cases };
   }
 }

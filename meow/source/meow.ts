@@ -4,13 +4,13 @@ import * as syntax from "./syntax/parser";
 import * as compile from "./compile/lower";
 import { parse } from "./argparse";
 
-const { file, options } = parse(`meow`, `Run Meow programs`, process.argv.slice(2), {});
+const { file, cache_root, options } = parse(`meow`, `Run Meow programs`, process.argv.slice(2), {});
 
-const source = FS.readFileSync(file!, "utf-8");
-const ast = syntax.parse(source);
+const ast = syntax.parse_file(file!, cache_root);
 const js = compile.lower(ast, options, {
   pkgs: new Set(),
   files: new Set(file == null ? [] : [Path.resolve(file)]),
+  cache_root: cache_root,
 });
 new Function("__dirname", "require", "module", "exports", js + `\n//# sourceURL=${file}`)(
   Path.resolve(Path.dirname(file!)),

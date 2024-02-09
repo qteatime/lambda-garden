@@ -1,0 +1,150 @@
+% meow/1
+
+def text lines-indexed() -> lines-iterator {
+  new lines-iterator(#js-generator from(primitive text.lines(self)), self count-code-units());
+} test {
+  assert "One thing\nTwo things\r\nThree things\rdone." lines-indexed() into(#array) ==> [
+    #(index: 0, line: "One thing"),
+    #(index: 10, line: "Two things"),
+    #(index: 22, line: "Three things"),
+    #(index: 35, line: "done."),
+  ]
+}
+
+def text lines() -> Iter where Iter has iterator<text> {
+  self lines-indexed() map(_.line);
+} test {
+  assert "One thing\nTwo things\r\nThree things\rdone." lines() into(#array) ==> [
+    "One thing",
+    "Two things",
+    "Three things",
+    "done.",
+  ];
+}
+
+
+implement iterable<#(index: int, line: text)> for lines-iterator;
+implement iterator<#(index: int, line: text)> for lines-iterator;
+def lines-iterator size-hint() =
+  #maybe some(self.length);
+
+def lines-iterator take-next() -> maybe<#(index: int, line: text)> {
+  self.iter take-next() map({ Info in
+    #(index: Info at!(0), line: Info at!(1))
+  });
+}
+
+
+def text graphemes-indexed() -> graphemes-iterator {
+  new graphemes-iterator(#js-generator from(primitive text.graphemes(self)), self count-code-units());
+} test {
+  assert "😺✔️🙆🏽‍♀️🔮" graphemes-indexed() into(#array) ==> [
+    #(index: 0, grapheme: "😺"),
+    #(index: 2, grapheme: "✔️"),
+    #(index: 4, grapheme: "🙆🏽‍♀️"),
+    #(index: 11, grapheme: "🔮"),
+  ];
+}
+
+def text graphemes() -> Iter where Iter has iterator<text> {
+  self graphemes-indexed() map(_.grapheme);
+} test {
+  assert "😺✔️🙆🏽‍♀️🔮" graphemes() into(#array) ==> ["😺", "✔️", "🙆🏽‍♀️", "🔮"];
+}
+
+implement iterator<#(index: int, grapheme: text)> for graphemes-iterator;
+def graphemes-iterator size-hint() = #maybe some(self.length);
+
+def graphemes-iterator take-next() -> maybe<#(index: int, grapheme: text)> {
+  self.iter take-next() map({ Info in
+    #(index: Info at!(0), grapheme: Info at!(1))
+  });
+}
+
+
+def text unicode-words-indexed() -> unicode-words-iterator {
+  self unicode-words-and-bounds-indexed()
+       take(if: _.is-word-like)
+       map({X in #(index: X.index, word: X.word) });
+} test {
+  assert "Words (\"and\") only words!" unicode-words-indexed() into(#array) ==> [
+    #(index: 0, word: "Words"),
+    #(index: 8, word: "and"),
+    #(index: 14, word: "only"),
+    #(index: 19, word: "words"),
+  ];
+}
+
+def text unicode-words() -> Iter where Iter has iterator<text> {
+  self unicode-words-indexed() map(_.word);
+} test {
+    assert "Words (\"and\") only words!" unicode-words() into(#array)
+      ==> ["Words", "and", "only", "words"];
+}
+
+def text unicode-words-and-bounds-indexed() -> unicode-words-iterator {
+  new unicode-words-iterator(
+    iter: #js-generator from(primitive text.words(self)),
+    length: self count-code-units()
+  );
+} test {
+  assert "Here, some words! And stuff." unicode-words-and-bounds-indexed() into(#array) ==> [
+    #(index: 0, word: "Here", is-word-like: true),
+    #(index: 4, word: ",", is-word-like: false),
+    #(index: 5, word: " ", is-word-like: false),
+    #(index: 6, word: "some", is-word-like: true),
+    #(index: 10, word: " ", is-word-like: false),
+    #(index: 11, word: "words", is-word-like: true),
+    #(index: 16, word: "!", is-word-like: false),
+    #(index: 17, word: " ", is-word-like: false),
+    #(index: 18, word: "And", is-word-like: true),
+    #(index: 21, word: " ", is-word-like: false),
+    #(index: 22, word: "stuff", is-word-like: true),
+    #(index: 27, word: ".", is-word-like: false)
+  ]
+}
+
+def text unicode-words-and-bounds() -> Iter where Iter has iterator<text> {
+  self unicode-words-and-bounds-indexed() map(_.word);
+} test {
+    assert "Here, some words! And stuff." unicode-words-and-bounds() into(#array)
+      ==> ["Here", ",", " ", "some", " ", "words", "!", " ", "And", " ", "stuff", "."];
+}
+
+implement iterable for unicode-words-iterator;
+implement iterator<#(index: int, word: text, is-word-like: bool)> for unicode-words-iterator;
+def unicode-words-iterator take-next() -> maybe<#(index: int, word: text, is-word-like: bool)> {
+  self.iter take-next() map({ Info in
+    #(index: Info at!(0), word: Info at!(1), is-word-like: Info at!(2))
+  });
+}
+
+
+def text unicode-sentences-indexed() -> unicode-sentences-iterator {
+  new unicode-sentences-iterator(#js-generator from(primitive text.sentences(self)), self count-code-units());
+} test {
+  assert "Once. Once upon a time...? I guess!" unicode-sentences-indexed() into(#array) ==> [
+    #(index: 0, sentence: "Once. "),
+    #(index: 6, sentence: "Once upon a time...? "),
+    #(index: 27, sentence: "I guess!"),
+  ];
+}
+
+def text unicode-sentences() -> Iter where Iter has iterator<text> {
+  self unicode-sentences-indexed() map(_.sentence);
+} test {
+    assert "Once. Once upon a time...? I guess!" unicode-sentences() into(#array)
+      ==> [
+        "Once. ",
+        "Once upon a time...? ",
+        "I guess!"
+      ];
+}
+
+implement iterable for unicode-sentences-iterator;
+implement iterator<#(index: int, sentence: text)> for unicode-sentences-iterator;
+def unicode-sentences-iterator take-next() -> maybe<#(index: int, sentence: text)> {
+  self.iter take-next() map({ Info in
+    #(index: Info at!(0), sentence: Info at!(1))
+  });
+}

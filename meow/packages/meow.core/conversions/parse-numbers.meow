@@ -1,68 +1,116 @@
 % meow/1
 
 //#region - Integral values ----------------------------------------------------
+implement unparse-to-source for int;
+implement unparse-to-source for i64;
+implement parse-from-source<integer-parse-error> for int;
+implement parse-from-source<integer-parse-error> for i64;
+
 union integer-parse-error {
   invalid-integer(input: text);
   out-of-range(input: text, type: static);
 }
 
-def #int parse(Input: text) -> result<int, integer-parse-error> {
+implement panic-message for integer-parse-error;
+def panic raise(Msg: integer-parse-error..invalid-integer, tag Tag: text, data Data: unknown) {
+  panic raise("Invalid integer", tag: Tag, data: #(input: Msg.input, other: Data));
+}
+def panic raise(Msg: integer-parse-error..out-of-range, tag Tag: text, data Data: unknown) {
+  panic raise("Integer out of range for the chosen type", tag: Tag, data: #(input: Msg.input, type: Msg.type, other: Data));
+}
+
+
+def #int parse-from-source(Input: text) -> result<int, integer-parse-error> {
   #result
     from(primitive int.parse(Input))
     map-error({X in
       when {
-        X =:= "not-integer" => new integer-parse-error..invalid-integer(Input);
-        X =:= "out-of-range" => new integer-parse-error..out-of-range(Input, #int);
+        X =:= "not-integer" -> new integer-parse-error..invalid-integer(Input);
+        X =:= "out-of-range" -> new integer-parse-error..out-of-range(Input, #int);
       }
     });
 } test {
-  assert #int parse("-1234") unwrap() ==> -1234;
-  assert #int parse("1234") unwrap() ==> 1234;
-  assert #int parse("1_234") unwrap() ==> 1234;
-  assert #int parse("  123  ") unwrap() ==> 123;
-  assert #int parse("123s") reason() is integer-parse-error..invalid-integer;
-  assert #int parse("1234567890123456789") reason() is integer-parse-error..out-of-range;
-  assert #int parse("123.1") reason() is integer-parse-error..invalid-integer;
+  assert #int parse-from-source("-1234") unwrap() ==> -1234;
+  assert #int parse-from-source("1234") unwrap() ==> 1234;
+  assert #int parse-from-source("1_234") unwrap() ==> 1234;
+  assert #int parse-from-source("  123  ") unwrap() ==> 123;
+  assert #int parse-from-source("123L") reason() is integer-parse-error..invalid-integer;
+  assert #int parse-from-source("1234567890123456789") reason() is integer-parse-error..out-of-range;
+  assert #int parse-from-source("123.1") reason() is integer-parse-error..invalid-integer;
 }
 
-def #i64 parse(Input: text) -> result<i64, integer-parse-error> {
+def int unparse-to-source() -> text {
+  primitive int.unparse(self);
+} test {
+  assert 1_000 unparse-to-source() ==> "1000";
+  assert -1_000 unparse-to-source() ==> "-1000";
+}
+
+def #i64 parse-from-source(Input: text) -> result<i64, integer-parse-error> {
   #result
     from(primitive i64.parse(Input))
     map-error({X in
       when {
-        X =:= "not-integer" => new integer-parse-error..invalid-integer(Input);
+        X =:= "not-integer" -> new integer-parse-error..invalid-integer(Input);
       }
     });
 } test {
-  assert #i64 parse("-1234") unwrap() ==> -1234L;
-  assert #i64 parse("1234") unwrap() ==> 1234L;
-  assert #i64 parse("1_234") unwrap() ==> 1234L;
-  assert #i64 parse("  123  ") unwrap() ==> 123L;
-  assert #i64 parse("123L") reason() is integer-parse-error..invalid-integer;
-  assert #i64 parse("1234567890123456789") unwrap() ==> 1234567890123456789L;
-  assert #i64 parse("123.1") reason() is integer-parse-error..invalid-integer;
+  assert #i64 parse-from-source("-1234") unwrap() ==> -1234L;
+  assert #i64 parse-from-source("1234") unwrap() ==> 1234L;
+  assert #i64 parse-from-source("1_234") unwrap() ==> 1234L;
+  assert #i64 parse-from-source("  123  ") unwrap() ==> 123L;
+  assert #i64 parse-from-source("123L") reason() is integer-parse-error..invalid-integer;
+  assert #i64 parse-from-source("1234567890123456789") unwrap() ==> 1234567890123456789L;
+  assert #i64 parse-from-source("123.1") reason() is integer-parse-error..invalid-integer;
+}
+
+def i64 unparse-to-source() -> text {
+  primitive i64.unparse(self);
+} test {
+  assert 1_000L unparse-to-source() ==> "1000";
+  assert -1_000L unparse-to-source() ==> "-1000";
+  assert 123456789123456789123456L unparse-to-source() ==> "123456789123456789123456";
 }
 //#endregion
 
 //#region - Floating point values ----------------------------------------------
+implement parse-from-source<float-parse-error> for f64;
+implement unparse-to-source for f64;
+
 union float-parse-error {
   invalid-float(input: text);
   out-of-range(input: text, type: static);
 }
 
-def #f64 parse(Input: text) -> result<f64, float-parse-error> {
+implement panic-message for float-parse-error;
+def panic raise(Msg: float-parse-error..invalid-float, tag Tag: text, data Data: unknown) {
+  panic raise("Invalid float", tag: Tag, data: #(input: Msg.input, other: Data));
+}
+def panic raise(Msg: float-parse-error..out-of-range, tag Tag: text, data Data: unknown) {
+  panic raise("Float out of range for the chosen type", tag: Tag, data: #(input: Msg.input, type: Msg.type, other: Data));
+}
+
+def #f64 parse-from-source(Input: text) -> result<f64, float-parse-error> {
   #result
     from(primitive f64.parse(Input))
     map-error({X in
       when {
-        X =:= "not-float" => new float-parse-error..invalid-float(Input);
+        X =:= "not-float" -> new float-parse-error..invalid-float(Input);
       }
     });
 } test {
-  assert #f64 parse("1") unwrap() ==> 1.0f;
-  assert #f64 parse("100_000.10") unwrap() ==> 100_000.10f;
-  assert #f64 parse("-123.456") unwrap() ==> -123.456f;
-  assert #f64 parse("NaN") reason() is float-parse-error..invalid-float;
-  assert #f64 parse("123f") reason() is float-parse-error..invalid-float;
+  assert #f64 parse-from-source("1") unwrap() ==> 1.0f;
+  assert #f64 parse-from-source("100_000.10") unwrap() ==> 100_000.10f;
+  assert #f64 parse-from-source("-123.456") unwrap() ==> -123.456f;
+  assert #f64 parse-from-source("NaN") reason() is float-parse-error..invalid-float;
+  assert #f64 parse-from-source("123f") reason() is float-parse-error..invalid-float;
+}
+
+def f64 unparse-to-source() -> text {
+  primitive f64.unparse(self);
+} test {
+  assert 1.0f unparse-to-source() ==> "1";
+  assert 1_000.20f unparse-to-source() ==> "1000.2";
+  assert -123.456f unparse-to-source() ==> "-123.456";
 }
 //#endregion

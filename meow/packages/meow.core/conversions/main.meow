@@ -1,21 +1,31 @@
 % meow/1
 
-/// Convert a value to its *canonical* representation in type U. Some loss
-/// of precision is allowed since checked-casts only happen explicitly.
-// trait checked-cast {
-//   def A as U;
-// }
+/// A value that can be canonically rendered as a number.
+trait cast-to-number {
+  def self as int;
+  def self as i64;
+  def self as f64;
+}
+
+/// A value that can be canonically rendered as text.
+trait cast-to-text {
+  def self as text;
+}
 
 import "cast-between-numbers.meow";
 import "cast-to-text.meow";
 import "cast-to-numbers.meow";
 
 
-/// Parsing allows reconstructing a type from its binary or textual
-/// representation.
-// trait parse-from-text {
-//   def T parse(Input: text) -> result<A, E>;
-// }
+/// Unparsing allows deconstructing a value to its Meow textual representation.
+trait unparse-to-source {
+  def self unparse-to-source() -> text;
+}
+
+/// Parsing allows reconstructing a type from its Meow textual representation.
+trait parse-from-source<E> {
+  def #self parse-from-source(Input: text) -> result<self, E>;
+}
 
 import "parse-numbers.meow";
 import "parse-boolean.meow";

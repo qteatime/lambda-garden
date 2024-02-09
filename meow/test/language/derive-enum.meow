@@ -1,0 +1,30 @@
+% meow/1
+
+// The compiler can derive the enum trait.
+
+@enum()
+union opcode {
+  get-arg;
+  ret;
+  halt;
+}
+
+test "Enum derivation" {
+  assert opcode..get-arg has enum;
+  assert opcode..ret has enum;
+  assert opcode..halt has enum;
+
+  assert opcode..get-arg code() ==> 0;
+  assert opcode..ret code() ==> 1;
+  assert opcode..halt code() ==> 2;
+
+  assert opcode..get-arg name() ==> "get-arg";
+  assert opcode..ret name() ==> "ret";
+  assert opcode..halt name() ==> "halt";
+
+  assert opcode..get-arg < opcode..ret;
+  assert opcode..get-arg < opcode..halt;
+  assert opcode..ret < opcode..halt;
+  
+  assert opcode..ret === opcode..ret;
+}

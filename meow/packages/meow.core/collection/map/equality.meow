@@ -1,0 +1,25 @@
+% meow/1
+
+implement equality for map<K, V> where V has equality;
+
+def map<K, V> === (That: map<K, V>) -> bool where V has equality {
+  when {
+    self count() =/= That count() -> false;
+
+    otherwise ->
+      self entries() all({ Entry in
+        That at(Entry.key) map(_ === Entry.value) unwrap(default: false)
+      });
+  }
+} test {
+  assert [:] === [:];
+  assert ["a": 1, "b": 2] === ["b": 2, "a": 1];
+  assert not (["a": 1] === ["a": 1, "b": 2]);
+  assert not (["a": 1, "b": 2] === ["a": 1]);
+  assert not (["a": 1, "b": 2] === ["a": 1, "b": 1]);
+}
+
+
+implement equality for mutable-map<K, V> where V has equality;
+def mutable-map<K, V> === (That: mutable-map<K, V>) -> bool where V has equality =
+  self.map === That.map;

@@ -1,0 +1,125 @@
+% meow/1
+
+singleton module;
+
+def module value() = 1;
+def #module value() = 2;
+
+test "singleton types" {
+  assert module =:= module;
+  assert #module =:= #module;
+  assert not (module =:= #module);
+
+  assert module is module;
+  // assert not (module is #module);    // TODO: static type testing
+  assert not (#module is module);
+
+  assert module value() ==> 1;
+  assert #module value() ==> 2;
+}
+
+
+struct point(x: int, y: int);
+
+def point sum() = self.x + self.y;
+def #point sum() = 0;
+
+def point === (X: point) = (self.x === X.x) and (self.y === X.y);
+
+
+test "struct types" {
+  // constructing
+  assert new point(1, 2) === new point(y: 2, x: 1);
+
+  // intrinsic equality
+  let A = new point(1, 2);
+  assert A =:= A;
+  assert not (A =:= new point(1, 2));
+
+  // dispatch
+  assert new point(1, 2) sum() ==> 3;
+  assert #point sum() ==> 0;
+
+  // testing
+  assert new point(1, 2) is point;
+
+  // projecting
+  assert (new point(1, 2)).x ==> 1;
+  assert (new point(1, 2)).y ==> 2;
+
+  // extending
+  assert (new point(1, 2))#(y: 3) === new point(1, 3);
+  assert (new point(1, 2))#(x: 2, y: 3) === new point(2, 3);
+}
+
+
+union expr {
+  add(x: expr, y: expr);
+  int(x: int);
+  zero;
+}
+
+def expr eval() = "never called";
+def expr..zero eval() = 0;
+def expr..int eval() = self.x;
+def expr..add eval() = self.x eval() + self.y eval();
+
+def expr === expr = false;
+def expr..zero === expr..zero = true;
+def expr..zero === (B: expr..int) = B.x === 0;
+def (A: expr..int) === expr..zero = A.x === 0;
+def (A: expr..int) === (B: expr..int) = A.x === B.x;
+def (A: expr..add) === (B: expr..add) = (A.x === B.x) and (A.y === B.y);
+
+test "union types" {
+  // constructing
+  assert new expr..add(expr..zero, expr..zero) === new expr..add(x: new expr..int(0), y: new expr..int(0));
+  assert new expr..int(4) === new expr..int(x: 4);
+  assert expr..zero === expr..zero;
+  assert not (expr..zero === new expr..int(3));
+  assert not (new expr..add(new expr..int(1), new expr..int(2)) === new expr..add(new expr..int(2), new expr..int(1)));
+
+  // intrinsic equality
+  let A = new expr..int(0);
+  let B = new expr..add(A, A);
+  assert A =:= A;
+  assert B =:= B;
+  assert expr..zero === expr..zero;
+  assert not (A =:= B);
+  assert not (A =:= expr..zero);
+
+  // testing
+  assert new expr..add(expr..zero, expr..zero) is expr;
+  assert new expr..add(expr..zero, expr..zero) is expr..add;
+  assert not (new expr..add(expr..zero, expr..zero) is expr..zero);
+
+  assert new expr..int(0) is expr;
+  assert new expr..int(0) is expr..int;
+  assert not (new expr..int(0) is expr..zero);
+
+  assert expr..zero is expr;
+  assert expr..zero is expr..zero;
+  assert not (expr..zero is expr..int);
+
+  assert #expr =:= #expr;
+  // assert #expr..int =:= #expr..int;          // TODO: static variant types
+  // assert not (#expr..int =:= #expr..zero);
+  // assert not (#expr..int =:= #expr);
+
+  // projecting
+  let C = new expr..int(3);
+  let D = new expr..int(4);
+  let E = new expr..add(C, D);
+  assert C.x ==> 3;
+  assert E.x ==> C;
+  assert E.y ==> D;
+
+  // extending
+  assert C#(x: 4) === new expr..int(4);
+  assert E#(x: D, y: expr..zero) === new expr..add(D, expr..zero);
+
+  // dispatch
+  assert expr..zero eval() ==> 0;
+  assert new expr..int(3) eval() ==> 3;
+  assert new expr..add(new expr..int(3), new expr..int(4)) eval() ==> 3 + 4;
+}

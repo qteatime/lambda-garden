@@ -1,0 +1,23 @@
+% meow/1
+
+implement mergeable-map<K, V> for map<K, V>;
+
+def map<K, V> merge(That: map<K, V>, with Fn: (V, V) -> V) -> map<K, V> {
+  let Result = self mutable-copy();
+  That entries() each({ Entry in
+    Result update(
+      at: Entry.key,
+      with: {Old in Fn(Old, Entry.value)},
+      default: Entry.value
+    );
+  });
+  Result freeze();
+} test {
+  let A = ["a": 1, "b": 2];
+  let C = ["c": 3];
+  let D = ["b": 4, "c": 5];
+
+  assert A merge(C, with: _ - _) ==> ["a": 1, "b": 2, "c": 3];
+  assert A merge(D, with: _ - _) ==> ["a": 1, "b": -2, "c": 5];
+  assert D merge(C, with: _ - _) ==> ["b": 4, "c": 2];
+}

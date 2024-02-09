@@ -44,8 +44,8 @@ def p concat(Xs: array<doc>) =
 
 def p sep-by(Xs0: array<doc>, separator Sep: doc) {
   when {
-    Xs0 is-empty() => doc..empty;
-    otherwise => self spread([...Xs0 without-last() map({X in X ++ Sep }), Xs0 last!()]);
+    Xs0 is-empty() -> doc..empty;
+    otherwise -> self spread([...Xs0 without-last() map({X in X ++ Sep }), Xs0 last!()]);
   }
 }
 
@@ -62,8 +62,8 @@ def doc angle-brackets() = self between(start: p text("<"), end: p text(">"));
 
 def doc maybe-parens(Wrap: bool) {
   when {
-    Wrap => self parens();
-    otherwise => self;
+    Wrap -> self parens();
+    otherwise -> self;
   }
 }
 
@@ -78,8 +78,8 @@ def p pair(Key: doc, Value: doc, separator Sep: doc) =
 
 def p pairs(Xs: array<#(key: doc, value: doc)>, separator Sep: doc) {
   when {
-    Xs is-empty() => Sep;
-    otherwise => {
+    Xs is-empty() -> Sep;
+    otherwise {
       let Pairs = Xs map({ X in self pair(X.key, X.value, sparator: Sep) });
       self comma-list(Pairs);
     }

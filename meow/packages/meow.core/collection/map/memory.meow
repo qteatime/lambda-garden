@@ -1,0 +1,33 @@
+% meow/1
+
+implement shallow-copy for map<K, V>;
+pure def map<K, V> shallow-copy() -> map<K, V> {
+  primitive map.copy(self);
+} test {
+  let A = ["a": 1, "b": 2];
+  let B = new mutable-map(A shallow-copy());
+  B put(at: "a", value: 0);
+  assert A ==> ["a": 1, "b": 2];
+  assert B ==> new mutable-map(["a": 0, "b": 2]);
+}
+
+
+implement shallow-copy for mutable-map<K, V>;
+pure def mutable-map<K, V> shallow-copy() -> mutable-map<K, V> {
+  new mutable-map(self.map shallow-copy());
+} test {
+  let A = new mutable-map(["a": 1, "b": 2]);
+  let B = A shallow-copy();
+  B put(at: "a", value: 0);
+  assert A ==> new mutable-map(["a": 1, "b": 2]);
+  assert B ==> new mutable-map(["a": 0, "b": 2]);
+}
+
+
+implement mutable<map<K, V>> for mutable-map<K, V>;
+pure def mutable-map<K, V> freeze() -> map<K, V> {
+  self.map;
+} test {
+  let A = new mutable-map(["a": 1]);
+  assert A freeze() ==> ["a": 1];
+}

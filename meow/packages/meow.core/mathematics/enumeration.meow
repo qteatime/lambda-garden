@@ -1,0 +1,8 @@
+% meow/1
+
+trait enum {
+  requires trait total-order for self;
+
+  def self code() -> int;
+  def self name() -> text;
+}

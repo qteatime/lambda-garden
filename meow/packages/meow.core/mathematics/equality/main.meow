@@ -1,4 +1,13 @@
 % meow/1
 
+trait equality {
+  def (Left: self) === (Right: self) -> bool;
+  optional def (Left: self) =/= (Right: self) -> bool;
+}
+
 import "bool.meow";
 import "numbers.meow";
+
+def (A: Eq) =/= (B: Eq) -> bool where Eq has equality {
+  not (A === B);
+}

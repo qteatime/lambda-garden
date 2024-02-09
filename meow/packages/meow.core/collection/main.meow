@@ -1,6 +1,7 @@
 % meow/1
 
-import "array/main.meow";
+import "range/main.meow";
+import "list/main.meow";
 import "binary/main.meow";
 import "map/main.meow";
-import "stream.meow";
+import "set/main.meow";

@@ -1,0 +1,57 @@
+% meow/1
+
+def #list-slice from(List: L, start Start: int, end End: int) where L has list<A> {
+  assert (Start >= 0) and (End >= Start) and (End <= List count()) :: in-bounds;
+  new list-slice(list: List, start: Start, stop: End);
+}
+
+
+implement list<A> for list-slice<A>;
+
+pure def list-slice<A> count() -> int {
+  self.stop - self.start;
+} test {
+  assert [1, 2, 3, 4] slice(length: 3) count() ==> 3;
+}
+
+def list-slice<A> is-empty() -> bool {
+  self count() === 0;
+} test {
+  assert [1, 2, 3] slice(length: 0) is-empty();
+  assert not ([1, 2, 3] slice(length: 1) is-empty());
+}
+
+def list-slice<A> at(Index: int) -> maybe<A> {
+  self.list at(Index + self.start);
+} test {
+  assert [1, 2, 3] slice(length: 3) at(1) ==> #maybe some(2);
+}
+
+
+implement iterable<A> for list-slice<A>;
+
+def list-slice<A> iterator() -> list-iterator<A> {
+  #list-iterator from(self, start: self.start, stop: self.stop);
+}
+
+
+pure def list-slice<A> as array<A> {
+  when {
+    self.list is array -> primitive array.slice(self.list, self.start, self.stop);
+    otherwise -> self iterator() into(#array);
+  }
+} test {
+  assert [] slice(length: 0) as array ==> [];
+  assert [1, 2, 3, 4] slice(from: 1, length: 2) as array ==> [2, 3];
+}
+
+pure def list-slice<A> as mutable-array<A> {
+  (self as array) mutable-copy();
+} test {
+  assert [] slice(length: 0) as mutable-array ==> [] mutable-copy();
+  assert [1, 2, 3, 4] slice(from: 1, length: 2) as mutable-array ==> [2, 3] mutable-copy();
+}
+
+
+implement comparable-list<A> for list-slice<A>;
+implement equality for list-slice<A>;

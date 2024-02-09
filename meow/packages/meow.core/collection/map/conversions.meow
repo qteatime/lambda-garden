@@ -1,0 +1,9 @@
+% meow/1
+
+pure def record as map {
+  primitive record.to-map(self);
+} test {
+  assert #() as map ==> [:];
+  assert #(a: 1, b: 2) as map ==> ["a": 1, "b": 2];
+}
+

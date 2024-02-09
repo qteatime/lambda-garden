@@ -1,0 +1,158 @@
+% meow/1
+
+open package meow.time;
+
+
+pure def process id() -> int {
+  foreign process.id(self);
+}
+
+
+def current-zone spawn(Fn: () -> A, name Name: text) -> process<A> {
+  perform local-zone.spawn(Fn, #maybe some(Name));
+}
+
+def current-zone spawn(Fn: () -> A) -> process<A> {
+  perform local-zone.spawn(Fn, #maybe none());
+}
+
+def process<A> wait() -> result<A, process-error> {
+  perform local-zone.wait(self);
+}
+
+def process<A> wait(timeout Timeout: time-duration) -> result<A, process-error> {
+  perform local-zone.wait-timeout(self, Timeout to-milliseconds() as int);
+}
+
+def process<A> wait!() -> A {
+  self wait() unwrap();
+}
+
+def process<A> wait!(timeout Timeout: time-duration) -> A {
+  self wait(timeout: Timeout) unwrap();
+}
+
+def process<A> fate() -> future<A, process-error> {
+  let Deferred = #deferred defer();
+  current-zone spawn({
+    Deferred assimilate(#future-result from(self wait()));
+  });
+  Deferred future();
+}
+
+def process<future-result<A, E>> future-result() -> future<A, E> {
+  let Deferred = #deferred defer();
+  current-zone
+    spawn({
+      Deferred assimilate(self wait!());
+    })
+    fate()
+    on-error({ E in
+      Deferred resolve(#future-result error(E)); // TODO: this breaks the error type
+    });
+  Deferred future();
+}
+
+def process<A> kill() -> nothing {
+  perform local-zone.kill(self);
+}
+
+
+def current-process<A> yield() -> nothing {
+  perform local-zone.yield();
+}
+
+def current-process<A> sleep(Time: time-duration) -> process<A> {
+  perform local-zone.sleep(Time to-milliseconds() as int);
+} test {
+  let A = current-zone spawn({
+            current-process sleep(10 milliseconds());
+            1;
+          }, name: "A");
+  assert A wait!() ==> 1;
+}
+
+
+default handler single-thread-cooperative-processes() with {
+  on local-zone.spawn(Fn, Name) {
+    resume with foreign process.spawn(Fn, Name unwrap(default: nothing));
+  }
+
+  on local-zone.yield() {
+    resume with foreign process.yield();
+  }
+
+  on local-zone.wait(Process) {
+    resume with #result from(foreign process.wait(Process))
+                        map-error({X in new process-error..native-error(X) });
+  }
+
+  on local-zone.wait-timeout(Process, Timeout-ms) {
+    resume with #result from(foreign process.wait-timeout(Process, Timeout-ms))
+                        map-error({X in
+                          when {
+                            X.kind === "native" -> new process-error..native-error(X.value);
+                            X.kind === "timeout" -> new process-error..timeout(Process, Timeout-ms);
+                          }
+                        });
+  }
+
+  on local-zone.sleep(Time-ms) {
+    foreign process.sleep(Time-ms);
+    resume with nothing;
+  }
+
+  on local-zone.kill(Process) {
+    foreign process.kill(Process);
+    resume with nothing;
+  }
+}
+
+
+test "Spawning and waiting processes" {
+  let Cell = #cell of(1);
+  let A = current-zone spawn({ Cell set(2, if-contains: 3);
+                               Cell read();
+                             }, name: "test-process");
+  Cell <- 3; // always runs first
+  assert A wait() ==> #result ok(2);
+  assert Cell read() ==> 2;
+}
+
+test "Suspending and resuming processes" {
+  let Cell = #cell of(1);
+  let A = current-zone spawn({
+            current-process yield(); // to B
+            Cell set(4, if-contains: 2);
+            Cell read();
+          }, name: "A");
+  let B = current-zone spawn({
+            Cell set(2, if-contains: 1);
+            A wait!();
+          }, name: "B");
+  assert B wait!() ==> 4;
+}
+
+test "Testing the fate of living processes" {
+  let A = current-zone spawn({ 1 + 2 });
+  let B = A fate() map(_ + 1);
+  assert B wait-settled() ==> #future-result ok(4);
+
+  let C = current-zone spawn({ panic raise("no") });
+  assert C fate() wait-settled() is future-result..error;
+}
+
+test "Timings" {
+  let A = current-zone spawn({
+            current-process sleep(100 milliseconds());
+            2;
+          }, name: "A");
+  assert A wait(timeout: 10 milliseconds())
+    ==> #result error(new process-error..timeout(A, 10));
+
+  let B = current-zone spawn({
+            current-process sleep(10 milliseconds());
+            3;
+          }, name: "B");
+  assert B wait(timeout: 100 milliseconds()) ==> #result ok(3);
+}

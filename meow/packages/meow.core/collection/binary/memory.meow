@@ -1,0 +1,31 @@
+% meow/1
+
+implement shallow-copy for byte-array;
+pure def byte-array shallow-copy() -> byte-array {
+  primitive binary.copy(self);
+} test {
+  let A = <<1, 2, 3>>;
+  let B = new mutable-byte-array(A shallow-copy());
+  B put(at: 0, value: 0);
+  assert A ==> <<1, 2, 3>>;
+  assert B ==> new mutable-byte-array(<<0, 2, 3>>);
+}
+
+implement shallow-copy for mutable-byte-array;
+pure def mutable-byte-array shallow-copy() -> mutable-byte-array {
+  new mutable-byte-array(self.array shallow-copy());
+} test {
+  let A = new mutable-byte-array(<<1, 2, 3>>);
+  let B = A shallow-copy();
+  B put(at: 0, value: 0);
+  assert A ==> new mutable-byte-array(<<1, 2, 3>>);
+  assert B ==> new mutable-byte-array(<<0, 2, 3>>);
+}
+
+implement mutable<byte-array> for mutable-byte-array;
+pure def mutable-byte-array freeze() -> byte-array {
+  self.array;
+} test {
+  let A = new mutable-byte-array(<<1, 2, 3>>);
+  assert A freeze() ==> <<1, 2, 3>>;
+}

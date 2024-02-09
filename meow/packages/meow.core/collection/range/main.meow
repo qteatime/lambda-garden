@@ -1,0 +1,21 @@
+% meow/1
+
+trait range<A> {
+  def self lower-bound() -> A;
+  def self upper-bound() -> A;
+}
+
+trait contiguous-range<A> {
+  requires trait range<A> for self;
+
+  def self count() -> int;
+}
+
+trait step-range<A> {
+  requires trait range<A> for self;
+
+  def self step() -> int;
+  def self count() -> int;
+}
+
+import "int-range.meow";

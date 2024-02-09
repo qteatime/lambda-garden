@@ -1,0 +1,7 @@
+% meow/1
+
+implement shallow-copy for cell;
+def cell<A> shallow-copy() = #cell of(self read());
+
+implement shallow-copy for weak-ref;
+def weak-ref<A> shallow-copy() = self;

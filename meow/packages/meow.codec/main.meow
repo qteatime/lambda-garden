@@ -2,3 +2,4 @@
 
 import "./base64.meow";
 import "./hex.meow";
+import "./text.meow";

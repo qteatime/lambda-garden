@@ -1,0 +1,152 @@
+% meow/1
+
+import foreign "_native/text.js";
+
+@enum()
+union text-encoding {
+  utf-8;
+  utf-16be;
+  utf-16le;
+}
+
+struct text-decoder(
+  encoding: text-encoding,
+  ignore-bom: bool,
+);
+
+struct text-encoder(
+  encoding: text-encoding,
+);
+
+union text-decoding-error {
+  invalid-input(decoder: text-decoder, input: byte-array);
+}
+
+
+//#region Constructing a decoder -----------------------------------------------
+def #text-decoder of(Encoding: text-encoding, ignore-bom Ignore-bom: bool) {
+  new text-decoder(encoding: Encoding, ignore-bom: Ignore-bom);
+}
+
+def #text-decoder of(Encoding: text-encoding) =
+  self of(Encoding, ignore-bom: true);
+
+def #text-decoder utf-8() =
+  self of(text-encoding..utf-8);
+//#endregion
+
+//#region Constructing an encoder ----------------------------------------------
+def #text-encoder utf-8() =
+  new text-encoder(encoding: text-encoding..utf-8);
+//#endregion
+
+//#region Decoding bytes -------------------------------------------------------
+def text-decoder try-decode(Bytes: byte-array) -> result<text, text-decoding-error> {
+  #result from(foreign text.decode(self.encoding name(), self.ignore-bom, Bytes))
+    map-error({ _ in new text-decoding-error..invalid-input(self, Bytes)});
+} test {
+  assert #text-decoder utf-8() try-decode(<<72, 105, 33, 32, 240, 159, 152, 186>>)
+    ==> #result ok("Hi! 😺");
+  assert #text-decoder utf-8() try-decode(<<72, 105, 255>>)
+    ==> #result error(new text-decoding-error..invalid-input(
+      #text-decoder utf-8(),
+      <<72, 105, 255>>
+    ));
+}
+
+def text-decoder try-decode(Chunks: Iter) -> result<text, text-decoding-error>
+  where Iter has iterable<byte-array>
+{
+  let Decoder = foreign text.stream-decoder(self.encoding name(), self.ignore-bom, true);
+  let Result = Chunks iterator()
+                      fold(from: #result ok(#mutable-array empty()), with: { Chunk-result, Bytes in
+                        Chunk-result and-then({ Decoded-chunks in
+                          let Result = foreign text.decode-push(Decoder, Bytes);
+                          when {
+                            Result.ok -> #result ok(Decoded-chunks append(Result.value));
+                            otherwise -> #result error(
+                              new text-decoding-error..invalid-input(self, Bytes)
+                            );
+                          }
+                        })
+                      });
+  Result map({ Decoded-chunks in
+    Decoded-chunks append(foreign text.close-decoder(Decoder));
+    #text join(Decoded-chunks freeze());
+  });
+} test {
+  let Chunks = [<<72, 105, 33>>, <<32, 240, 159>>, <<152, 186>>];
+  assert #text-decoder utf-8() try-decode(Chunks iterator())
+    ==> #result ok("Hi! 😺");
+  
+  let Broken-chunks = [<<72, 105, 33>>, <<32, 255, 159>>, <<152, 186>>];
+  assert #text-decoder utf-8() try-decode(Broken-chunks iterator())
+    ==> #result error(new text-decoding-error..invalid-input(
+          #text-decoder utf-8(),
+          <<32, 255, 159>>
+        ));
+}
+
+def text-decoder best-effort-decode(Bytes: byte-array) -> text {
+  foreign text.decode-replace(self.encoding name(), self.ignore-bom, Bytes); 
+} test {
+  assert #text-decoder utf-8() best-effort-decode(<<72, 105, 33, 32, 240, 159, 152, 186>>)
+    ==> "Hi! 😺";
+  assert #text-decoder utf-8() best-effort-decode(<<72, 105, 255>>)
+    ==> "Hi�";
+}
+
+def text-decoder best-effort-decode(Chunks: Iter) -> text
+  where Iter has iterable<byte-array>
+{
+  let Decoder = foreign text.stream-decoder(self.encoding name(), self.ignore-bom, false);
+  let Decoded-chunks = 
+    Chunks fold(from: #mutable-array empty(), with: { Decoded-chunks, Bytes in
+      Decoded-chunks append((foreign text.decode-push(Decoder, Bytes)).value);
+    });
+  Decoded-chunks append(foreign text.close-decoder(Decoder));
+  #text join(Decoded-chunks freeze());
+} test {
+    let Chunks = [<<72, 105, 33>>, <<32, 240, 159>>, <<152, 186>>];
+  assert #text-decoder utf-8() best-effort-decode(Chunks iterator())
+    ==> "Hi! 😺";
+  
+  let Broken-chunks = [<<72, 105, 33>>, <<32, 255, 159>>, <<152, 186>>];
+  assert #text-decoder utf-8() best-effort-decode(Broken-chunks iterator())
+    ==> "Hi! ����";
+}
+//#endregion
+
+//#region Encoding text --------------------------------------------------------
+def text-encoder encode(Text: text) -> byte-array {
+  foreign text.encode-utf8(Text);
+} test {
+  assert #text-encoder utf-8() encode("Hi! 😺")
+    ==> <<72, 105, 33, 32, 240, 159, 152, 186>>;
+
+  assert #text-encoder utf-8() encode("Hi\uD800")
+    ==> <<72, 105, 239, 191, 189>>;
+}
+
+def text-encoder encode(Chunks: Text-iter) -> Byte-iter
+  where Text-iter has iterable<text>,
+        Byte-iter has iterator<text>
+{
+  // FIXME: this requires that no surrogates are split between chunks!
+  Chunks map(self encode(_));
+} test {
+  assert #text-encoder utf-8() encode(["Hi!", "😺"] iterator()) into(#array)
+    ==> [<<72, 105, 33>>, <<240, 159, 152, 186>>];
+
+  let Good-chunks = #text-encoder utf-8() encode(["Hi!", "😺"] iterator());
+  assert #text-decoder utf-8() best-effort-decode(Good-chunks)
+    ==> "Hi!😺";
+
+  assert #text-encoder utf-8() encode(["Hi!","\uD83d", "\uDE3A"] iterator()) into(#array)
+    ==> [<<72, 105, 33>>, <<239, 191, 189>>, <<239, 191, 189>>];
+
+  let Broken-chunks = #text-encoder utf-8() encode(["Hi!","\uD83d", "\uDE3A"] iterator());
+  assert #text-decoder utf-8() best-effort-decode(Broken-chunks)
+    ==> "Hi!��";
+}
+//#endregion

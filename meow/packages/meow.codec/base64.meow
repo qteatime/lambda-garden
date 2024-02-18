@@ -1,8 +1,8 @@
 % meow/1
 
+import foreign "_native/base64.js";
 struct base64(bytes: byte-array);
 
-import foreign "./native/base64.js";
 
 def #base64 from(Bytes: byte-array) -> base64 {
   new base64(Bytes);

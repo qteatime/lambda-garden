@@ -1,5 +1,7 @@
 % meow/1
 
+import foreign "_native/hex.js";
+
 struct hex(bytes: byte-array);
 
 def #hex from(Bytes: byte-array) -> hex {
